@@ -1,0 +1,1 @@
+self.config = {"CORE_API_URL":"https://api-staging-0.gotartifact.com"};
