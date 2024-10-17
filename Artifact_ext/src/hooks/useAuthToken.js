@@ -93,16 +93,16 @@ export function useAuthToken() {
     const fetchToken = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await new Promise((resolve) => {
-                chrome.runtime.sendMessage({ type: 'GET_TOKEN' }, resolve);
+            const result = await new Promise((resolve) => {
+                chrome.storage.sync.get(['token'], resolve);
             });
 
-            if (response.success) {
-                setToken(response.token);
+            if (result.token) {
+                setToken(result.token);
                 setError(null);
             } else {
                 setToken(null);
-                setError(response.error || 'Failed to retrieve token');
+                setError('No token found');
             }
         } catch (err) {
             setToken(null);
@@ -119,18 +119,12 @@ export function useAuthToken() {
     const saveToken = useCallback(async (newToken) => {
         setLoading(true);
         try {
-            const response = await new Promise((resolve) => {
-                chrome.runtime.sendMessage({ type: 'SAVE_TOKEN', token: newToken }, resolve);
+            await new Promise((resolve) => {
+                chrome.storage.sync.set({ token: newToken }, resolve);
             });
-
-            if (response.success) {
-                setToken(newToken);
-                setError(null);
-                return true;
-            } else {
-                setError(response.error || 'Failed to save token');
-                return false;
-            }
+            setToken(newToken);
+            setError(null);
+            return true;
         } catch (err) {
             setError(err.message);
             return false;

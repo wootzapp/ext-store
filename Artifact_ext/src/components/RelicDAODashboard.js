@@ -55,7 +55,7 @@ const InfoSheet = ({ onClose }) => {
     );
 }
 
-const SettingsSheet = ({ onClose }) => {
+const SettingsSheet = ({ onClose,onLogout }) => {
     const navigate = useNavigate();
     const handleProfileButton = async () => {
         console.log("Profile button pressed");
@@ -88,11 +88,24 @@ const SettingsSheet = ({ onClose }) => {
             >
                 Profile
             </button>
+            <button
+                className="w-full bg-[#272a2f] text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition duration-300 mt-2"
+                onClick={onLogout}
+                // onClick={()=>{
+                //     // onLogout();
+                //     localStorage.removeItem('authToken');
+                //     setTimeout(() => {
+                //         navigate('/relicdao', { replace: true });
+                //     }, 100);
+                // }}
+            >
+                Logout
+            </button>
         </div>
     );
 }
 
-const RelicDAODashboard = () => {
+const RelicDAODashboard = ({onLogout}) => {
     const navigate = useNavigate();
     const [isPressed, setIsPressed] = useState(false);
     const [isInfoSheetOpen, setInfoSheetOpen] = useState(false);
@@ -212,7 +225,7 @@ const RelicDAODashboard = () => {
                 <Sheet.Container>
                     <Sheet.Header />
                     <Sheet.Content>
-                        <SettingsSheet onClose={() => setSettingsSheetOpen(false)} />
+                        <SettingsSheet onClose={() => setSettingsSheetOpen(false)} onLogout={onLogout} />
                     </Sheet.Content>
                 </Sheet.Container>
                 <Sheet.Backdrop />

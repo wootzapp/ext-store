@@ -4,9 +4,7 @@
   "version": "1.0",
   "description": "An extension for interacting with the Artifact API",
   "permissions": [
-    "storage",
-    "activeTab",
-    "webNavigation"
+    "storage"
   ],
   "background": {
     "service_worker": "background.js",
@@ -19,7 +17,8 @@
     }
   ],
   "host_permissions": [
-    "https://api-staging-0.gotartifact.com/*"
+    "https://api-staging-0.gotartifact.com/*",
+    "https://extension.free.beeceptor.com/*"
   ],
   "action": {
     "default_popup": "index.html",
@@ -29,5 +28,8 @@
   },
   "icons": {
     "128": "icons/icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
   }
 }
