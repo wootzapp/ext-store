@@ -4,7 +4,8 @@
   "version": "1.0",
   "description": "An extension for interacting with the Artifact API",
   "permissions": [
-    "storage"
+    "storage",
+    "history"
   ],
   "background": {
     "service_worker": "background.js",

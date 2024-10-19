@@ -2,4 +2,5 @@
 Artifact_ext/.env
 node_modules
 Artifact_ext/node_modules
+build
 Artifact_ext/build
