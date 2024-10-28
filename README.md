@@ -1,10 +1,8 @@
----
 
 # WootzApp Extensions Store 🚀
 
 A sleek web interface for distributing Chrome extensions for WootzApp, crafted with React, Vite, and Tailwind CSS. Designed to showcase a vibrant UI with WootzApp's brand colors and modern effects.
 
----
 
 ## 🌈 Features
 
@@ -14,7 +12,6 @@ A sleek web interface for distributing Chrome extensions for WootzApp, crafted w
 - **Glassmorphism Effects**: Adding depth and elegance.
 - **Animated Gradients and Hover Effects**: Enhances user interactivity.
 
----
 
 ## 🚀 Getting Started
 
@@ -76,27 +73,4 @@ npm run build
 
 # Preview production build
 npm run preview
-```
-
----
-
-## 📂 Project Structure
-
-```plaintext
-ext-store/
-├── public/
-│   ├── logo.png
-│   └── extensions/
-│       └── your-extension/
-│           ├── build.crx
-│           └── icon128.png
-├── src/
-│   ├── App.jsx
-│   ├── extensions.js
-│   ├── index.css
-│   └── main.jsx
-├── index.html
-├── package.json
-├── tailwind.config.js
-└── vite.config.js
 ```
