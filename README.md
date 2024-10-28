@@ -1,10 +1,3 @@
-This README is clear, concise, and provides all essential steps in an organized manner. Here are a few suggestions to make it even more polished:
-
-1. Add the missing clone command under **Clone your forked repository**.
-2. Move the "Production Build" commands to a new section, making it clearer for users who only want to run the dev server.
-
-Here’s a slightly refined version:
-
 ---
 
 # WootzApp Extensions Store 🚀
