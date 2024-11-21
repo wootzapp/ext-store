@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Artifact Extension",
+  "version": "1.0",
+  "description": "An extension for interacting with the Artifact API",
+  "permissions": [
+    "storage",
+    "history"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["config.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "host_permissions": [
+    "https://api-staging-0.gotartifact.com/*",
+    "https://extension.free.beeceptor.com/*"
+  ],
+  "action": {
+    "default_popup": "index.html",
+    "default_icon": {
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "128": "icons/icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}
