@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "CLA Assistant"
-        if: (github.event.comment.body == 'recheck' || github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA') || github.event_name == 'pull_request_target'
+        if: (github.event.comment.body == 'recheck' || github.event.comment.body == 'I have read the CLA Document and I hereby accept and agree to be bound by its terms') || github.event_name == 'pull_request_target'
         # Beta Release
         uses: contributor-assistant/github-action@v2.2.0
         env:
@@ -23,7 +23,7 @@ jobs:
           # branch should not be protected
           branch: 'main'
           allowlist: user1,bot*
-          custom-pr-sign-comment: 'I have read the WootzApp CLA Document and I hereby sign the CLA'
+          custom-pr-sign-comment: 'I have read the WootzApp CLA Document and I hereby accept and agree to be bound by its terms'
           custom-notsigned-prcomment: 'Thank you for your submission, we really appreciate it. Before we can accept your contribution, we ask that you sign the [WootzApp Contributor License Agreement](https://github.com/wootzapp/.github/blob/main/CLA.md). You can sign the CLA by adding a new comment to this pull request and pasting exactly the following text.'
           remote-organization-name: wootzapp
           remote-repository-name: .github
