@@ -1,0 +1,60 @@
+.hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4rem 2rem;
+    background-color: #020B2C;
+    min-height: 80vh;
+    min-height: 50vh;
+  }
+  
+  .hero-content {
+    flex: 1;
+    color: white;
+  }
+  
+  h1 {
+    font-size: 5rem;
+    font-weight: bold;
+    line-height: 1.1;
+    margin-bottom: 2rem;
+  }
+  
+  .highlight {
+    color: #40E0FF;
+  }
+  
+  p {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    margin-bottom: 2rem;
+  }
+  
+  .play-button {
+    background-color: #40E0FF;
+    color: #020B2C;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 8px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+  
+  .play-button:hover {
+    transform: scale(1.05);
+  }
+  
+  .hero-image {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  @keyframes pulse {
+    0% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.05); opacity: 1; }
+    100% { transform: scale(1); opacity: 0.8; }
+  }

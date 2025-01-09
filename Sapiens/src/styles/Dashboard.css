@@ -1,0 +1,76 @@
+.dashboard {
+    background-color: #020B2C;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+  }
+  
+  .menu-button {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+  }
+  
+  header h1 {
+    color: white;
+    font-size: 24px;
+  }
+  
+  .connect-button {
+    background-color: transparent;
+    border: 2px solid #40E0FF;
+    color: #40E0FF;
+    padding: 10px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+  }
+  
+  .tasks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    padding: 20px;
+    margin-top: 40px;
+  }
+  
+  .task-card {
+    background-color: #051042;
+    border: 1px solid #40E0FF;
+    border-radius: 15px;
+    padding: 20px;
+    color: white;
+    text-align: center;
+    transition: transform 0.2s;
+  }
+  
+  .task-card.active {
+    background-color: #061554;
+  }
+  
+  .task-card:hover {
+    transform: scale(1.02);
+  }
+  
+  .task-icon {
+    font-size: 32px;
+    margin-bottom: 15px;
+  }
+  
+  .task-card h2 {
+    margin: 10px 0;
+    font-size: 18px;
+  }
+  
+  .task-reward {
+    color: #40E0FF;
+    font-size: 14px;
+    margin-top: 10px;
+  }
