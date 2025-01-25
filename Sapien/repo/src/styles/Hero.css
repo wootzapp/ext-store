@@ -1,0 +1,100 @@
+.hero {
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #505050c1;
+  color: #ffffff;
+  padding: 2rem;
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: url('../assets/icon.png') no-repeat center center;
+  background-size: cover;
+  opacity: 0.25;
+  z-index: -1;
+}
+
+.content {
+  text-align: center; /* Center the text horizontally */
+}
+
+.hero-text {
+  margin-bottom: 2rem;
+}
+
+h1 {
+  font-size: 5rem;
+  font-weight: bold;
+  line-height: 1.1;
+  margin-bottom: 2rem;
+}
+
+p {
+  font-size: 1.2rem;
+  line-height: 1.6;
+  margin-bottom: 2rem;
+}
+
+.cta-button {
+  background-color: #40E0FF;
+  color: #020B2C;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 8px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s, background-color 0.3s ease;
+}
+
+.cta-button:hover {
+  transform: scale(1.05);
+  background-color: #0095d6;
+}
+
+.gradient-text {
+  background: linear-gradient(45deg, #ff3e3e, #ff7e47);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.orange-button {
+  background: linear-gradient(45deg, #ff7033, #ffa041);
+  border: none;
+  color: white;
+  padding: 15px 30px;
+  border-radius: 8px;
+  font-weight: bold;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.orange-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(255, 112, 51, 0.4);
+}
+
+@media (max-width: 768px) {
+  .hero-text h1 {
+    font-size: 3rem;
+  }
+
+  .hero-text p {
+    font-size: 1rem;
+  }
+
+  .cta-button {
+    font-size: 1.25rem;
+    padding: 0.875rem 2.5rem;
+  }
+}

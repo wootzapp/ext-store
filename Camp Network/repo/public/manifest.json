@@ -1,0 +1,78 @@
+{
+  "manifest_version": 3,
+  "name": "Camp Network",
+  "version": "1.0",
+  "description": "Camp Network",
+  "action": {
+    "default_popup": "index.html",
+    "default_icon": {
+      "16": "icons/icon128.png",
+      "32": "icons/icon128.png",
+      "48": "icons/icon128.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon128.png",
+    "32": "icons/icon128.png",
+    "48": "icons/icon128.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "alarms",
+    "activeTab",
+    "storage",
+    "identity",
+    "scripting",
+    "tabs",
+    "cookies",
+    "windows",
+    "webRequest",
+    "webRequestBlocking",
+    "*://*.twitter.com/*",
+    "*://*.x.com/*",
+    "declarativeNetRequest",
+    "debugger",
+    "webNavigation"
+  ],
+  "host_permissions": [
+    "https://*.x.com/*",
+    "https://*.twitter.com/*",
+    "https://api.twitter.com/*",
+    "https://*.execute-api.us-east-2.amazonaws.com/*",
+    "http://localhost:4000/*",
+    "https://www.google.co.in/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src * 'self' https: http: <all_urls> https://*.twitter.com https://api.twitter.com https://*.execute-api.us-east-2.amazonaws.com http://localhost:4000; frame-src 'self' https://*.twitter.com https://api.twitter.com"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.twitter.com/*", "*://*.x.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "index.html",
+        "static/js/*",
+        "static/css/*",
+        "icons/*",
+        "interceptor.js",
+        "tweetinterceptor.js",
+        "likedtweetinterceptor.js"
+      ],
+      "matches": ["*://*.x.com/*"],
+      "use_dynamic_url": true
+    }
+  ],
+  "externally_connectable": {
+    "matches": ["<all_urls>"]
+  }
+}

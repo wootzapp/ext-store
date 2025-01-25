@@ -1,0 +1,25 @@
+{
+  "manifest_version": "v1.0",
+  "name": "Artifact",
+  "version": "1.0.0",
+  "description": "Earn rewards for browsing the web",
+  "author": {
+    "name": "Wootzapp",
+    "email": "sagar.jha@wootzapp.com"
+  },
+  "permissions": [
+    "alarms",
+    "activeTab",
+    "storage",
+    "identity",
+    "scripting",
+    "tabs",
+    "cookies",
+    "windows",
+    "webRequest",
+    "webRequestBlocking",
+    "declarativeNetRequest",
+    "debugger",
+    "webNavigation"
+  ]
+}
