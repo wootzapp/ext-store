@@ -1,0 +1,91 @@
+.instructions-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+    background-color: #0a0f2a;
+    color: white;
+    font-family: 'Arial', sans-serif;
+  }
+  
+  .instructions-card {
+    background: linear-gradient(to bottom, #0d1445, #0a0f2a);
+    border-radius: 15px;
+    padding: 30px;
+    max-width: 800px;
+    width: 100%;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.1);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    margin-bottom: 20px;
+  }
+  
+  .instructions-title {
+    text-align: center;
+    font-size: 2.5em;
+    margin-bottom: 30px;
+    color: white;
+    font-weight: normal;
+    letter-spacing: 2px;
+  }
+  
+  .instructions-text {
+    font-size: 1.1em;
+    line-height: 1.6;
+    margin-bottom: 30px;
+    color: #ffffff;
+  }
+  
+  .details-link {
+    text-align: center;
+    color: white;
+    cursor: pointer;
+    margin-bottom: 30px;
+    font-size: 1.1em;
+  }
+  
+  .external-link-icon {
+    margin-left: 5px;
+    font-size: 0.9em;
+  }
+  
+  .next-button {
+    background-color: #00a2ff;
+    color: white;
+    border: none;
+    padding: 12px 40px;
+    border-radius: 25px;
+    font-size: 1.1em;
+    cursor: pointer;
+    display: block;
+    margin: 0 auto;
+    transition: background-color 0.3s ease;
+  }
+  
+  .next-button:hover {
+    background-color: #0088d6;
+  }
+  
+  .expiration-text {
+    color: white;
+    font-size: 1.1em;
+    margin-top: 20px;
+    opacity: 0.8;
+  }
+  
+  /* Add glowing effect to the card border */
+  @keyframes glow {
+    0% {
+      box-shadow: 0 0 5px rgba(0, 255, 255, 0.1);
+    }
+    50% {
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+    }
+    100% {
+      box-shadow: 0 0 5px rgba(0, 255, 255, 0.1);
+    }
+  }
+  
+  .instructions-card {
+    animation: glow 3s infinite;
+  }

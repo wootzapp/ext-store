@@ -1,0 +1,17 @@
+{
+  "manifest_version": "v1.0",
+  "name": "Datahive",
+  "version": "1.0.0",
+  "description": "Data mining",
+  "author": {
+    "name": "Wootzapp Team",
+    "email": "dev.jangid@wootzapp.com"
+  },
+  "permissions": [
+    "tabs",
+    "storage",
+    "scripting",
+    "activeTab",
+    "alarms"
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "name": "camp-new",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@tanstack/react-query": "^5.62.8",
+    "@testing-library/jest-dom": "^5.17.0",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^13.5.0",
+    "@thirdweb-dev/chains": "^0.1.120",
+    "@thirdweb-dev/react": "^4.9.4",
+    "axios": "^1.7.7",
+    "browserify-zlib": "^0.2.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "https-browserify": "^1.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0",
+    "react-scripts": "5.0.1",
+    "react-twitter-login": "^1.5.0",
+    "stream-browserify": "^3.0.0",
+    "stream-http": "^3.2.0",
+    "thirdweb": "^5.80.0",
+    "web-vitals": "^2.1.4"
+  },
+  "scripts": {
+    "start": "react-app-rewired start",
+    "build": "react-app-rewired build",
+    "build:extension": "cp -r extension/* build/",
+    "test": "react-app-rewired test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "@babel/preset-react": "^7.26.3",
+    "@types/jest": "^29.5.14",
+    "ajv": "^8.12.0",
+    "ajv-keywords": "^5.1.0",
+    "autoprefixer": "^10.4.20",
+    "copy-webpack-plugin": "^9.1.0",
+    "eslint": "^8.0.0",
+    "eslint-config-react-app": "^7.0.1",
+    "eslint-plugin-jest": "^27.9.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "path": "^0.12.7",
+    "postcss": "^8.4.49",
+    "react-app-rewired": "^2.2.1",
+    "schema-utils": "^4.0.0",
+    "tailwindcss": "^3.4.14",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^6.0.1"
+  }
+}
