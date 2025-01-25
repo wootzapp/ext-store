@@ -1,0 +1,15 @@
+{
+  "manifest_version": "v1.0",
+  "name": "Wootzapp Wallet",
+  "version": "1.0.0",
+  "description": "A secure and user-friendly digital wallet for managing cryptocurrencies and digital assets",
+  "author": {
+    "name": "Wootzapp Team",
+    "email": "dev.jangid@wootzapp.com"
+  },
+  "permissions": [
+    "activeTab",
+    "storage",
+    "wootz"
+  ]
+}

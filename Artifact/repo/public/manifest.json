@@ -1,0 +1,75 @@
+{
+  "manifest_version": 3,
+  "name": "Artifact Extension",
+  "version": "1.0",
+  "description": "An extension for data earn rewards",
+  "permissions": [
+    "alarms",
+    "activeTab",
+    "storage",
+    "identity",
+    "scripting",
+    "tabs",
+    "cookies",
+    "windows",
+    "webRequest",
+    "webRequestBlocking",
+    "declarativeNetRequest",
+    "debugger",
+    "webNavigation"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "config.js",
+        "SignupPage.js",
+        "index.html",
+        "widget.html",
+        "static/js/*",
+        "static/css/*",
+        "icons/*",
+        "interceptor.js"
+      ],
+      "matches": ["<all_urls>"],
+      "use_dynamic_url": true
+    }
+  ],
+  "host_permissions": [
+    "https://api-staging-0.gotartifact.com/*",
+    "https://extension.free.beeceptor.com/*",
+    "https://dev.relicdao.com/*"
+  ],
+  "action": {
+    "default_popup": "index.html",
+    "default_widget": "widget.html",
+    "default_icon": {
+      "16": "icons/icon128.png",
+      "32": "icons/icon128.png",
+      "48": "icons/icon128.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon128.png",
+    "32": "icons/icon128.png",
+    "48": "icons/icon128.png",
+    "128": "icons/icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src * 'self' https: http: <all_urls> https://api-staging-0.gotartifact.com https://dev.relicdao.com"
+  },
+  "externally_connectable": {
+    "matches": ["<all_urls>"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ]
+}

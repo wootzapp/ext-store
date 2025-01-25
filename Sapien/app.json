@@ -1,0 +1,18 @@
+{
+    "manifest_version": "v1.0",
+    "name": "Sapien",
+    "version": "1.0.0",
+    "description": "Play games and earn rewards",
+    "author": {
+      "name": "Wootzapp Team",
+      "email": "sagar.jha@wootzapp.com"
+    },
+    "permissions": [
+      "activeTab",
+      "storage",
+      "cookies",
+      "webRequest",
+      "webRequestBlocking"
+    ]
+  }
+  

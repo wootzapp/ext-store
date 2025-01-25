@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@keyframes colorChange {
+    0% { background-color: #FF3B30; }
+    33% { background-color: #FF4F1A; }
+    66% { background-color: #FF6B00; }
+    100% { background-color: #FF3B30; }
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
