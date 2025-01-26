@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "Wootz Wallet",
+  "version": "1.0",
+  "description": "Wootzapp Wallet",
+  "author": {
+    "name": "Dev Jangid",
+    "email": "dev.jangid@wootzapp.com"
+  },
+  "action": {
+    "default_popup": "index.html",
+    "default_icon": {
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "activeTab",
+    "storage",
+    "wootz"
+  ],
+  "host_permissions": [
+    "https://*.solana.com/*",
+    "https://api.mainnet-beta.solana.com/*",
+    "https://api.devnet.solana.com/*",
+    "https://api.testnet.solana.com/*",
+    "https://rpc.ankr.com/*",
+    "https://api-sepolia.etherscan.io/*",
+    "https://*.rpc.extrnode.com/*",
+    "https://*.public-rpc.com/*",
+    "wss://*.solana.com/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.solana.com https://api.mainnet-beta.solana.com https://api.devnet.solana.com https://api.testnet.solana.com https://rpc.ankr.com/solana https://api-sepolia.etherscan.io wss://*.solana.com https://*.rpc.extrnode.com https://*.public-rpc.com;"
+  },
+  "background": {
+    "service_worker": "Background.js"
+  },
+  "web_accessible_resources": [{
+    "resources": ["index.html"],
+    "matches": ["<all_urls>"]
+  }]
+}

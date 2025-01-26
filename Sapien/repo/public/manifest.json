@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Sapiens",
+  "version": "1.0",
+  "description": "Sapiens",
+  "host_permissions": [
+    "https://*.privy.io/*",
+    "https://*.sapien.io/*",
+    "https://pulse.walletconnect.com/*",
+    "https://explorer-api.walletconnect.com/*",
+    "https://api2.amplitude.com/*"
+  ],
+  "permissions": [
+    "activeTab",
+    "storage",
+    "cookies",
+    "webRequest",
+    "webRequestBlocking"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: blob: filesystem: chrome-extension:; media-src 'self' blob: filesystem: chrome-extension:; connect-src *;"
+  },
+  "icons": {
+    "16": "icons/icon.png",
+    "32": "icons/icon.png",
+    "48": "icons/icon.png",
+    "128": "icons/icon.png"
+  },
+  "action": {
+    "default_popup": "index.html",
+    "default_icon": {
+      "16": "icons/icon.png",
+      "32": "icons/icon.png",
+      "48": "icons/icon.png",
+      "128": "icons/icon.png"
+    }
+  }
+}

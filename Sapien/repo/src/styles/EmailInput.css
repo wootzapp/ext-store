@@ -1,0 +1,52 @@
+.email-input-container {
+  text-align: center;
+}
+
+.email-input-container h5 {
+  margin-bottom: 20px;
+  font-size: 24px;
+  color: #ffffff;
+}
+
+.email-input-container form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.email-input-container input[type="email"] {
+  width: 80%;
+  padding: 15px;
+  margin-bottom: 20px;
+  border: 2px solid #ffa041; /* Orange border */
+  border-radius: 8px;
+  font-size: 18px;
+  background-color: #d3d3d3; /* Light grey background */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: border-color 0.3s ease;
+}
+
+.email-input-container input[type="email"]:focus {
+  border-color: #ff7033; /* Darker orange border on focus */
+  outline: none;
+}
+
+.email-input-container button {
+  background: linear-gradient(45deg, #ff7033, #ffa041); /* Shaded orange button */
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s ease;
+}
+
+.email-input-container button:hover {
+  background-color: #ff7033;
+}
+
+.email-input-container p {
+  color: red;
+  margin-top: 10px;
+}
