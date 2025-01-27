@@ -169,3 +169,19 @@ export async function getUserProfile() {
         throw error;
     }
 }
+
+
+chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+  if (message.type === 'LOG_URL') {
+    try {
+      await logUrl(message.url);
+      chrome.runtime.sendMessage({
+        type: 'URL_LOGGED',
+        url: message.url
+      });
+    } catch (error) {
+      console.error('Error logging URL:', error);
+    }
+  }
+  return true;
+}); 

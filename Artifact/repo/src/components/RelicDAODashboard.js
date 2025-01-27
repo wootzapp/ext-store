@@ -14,6 +14,11 @@ import { Sheet } from 'react-modal-sheet';
 import { ArrowLeftIcon } from '@heroicons/react/24/solid'; 
 import { loadWallet } from '../lib/api';
 import twitterBanner from '../images/rb_45418.png';
+import { createThirdwebClient } from 'thirdweb';
+import { ConnectButton, useConnect } from 'thirdweb/react';
+import { createWallet } from 'thirdweb/wallets';
+import { darkTheme } from 'thirdweb/react';
+
 const InfoSheet = ({ onClose }) => {
     return (
         <div className="bg-black text-white p-3 rounded-t-2xl max-w-md mx-auto h-[90vh] overflow-y-auto">
@@ -63,14 +68,44 @@ const InfoSheet = ({ onClose }) => {
 };
 
 
-const SettingsSheet = ({ onClose,onLogout }) => {
+const SettingsSheet = ({ onClose, onLogout }) => {
     const navigate = useNavigate();
     const handleProfileButton = async () => {
         console.log("Profile button pressed");
-        const token = localStorage.getItem('authToken');
-        // const data = await loadWallet(token);
-        // console.log(data);
         navigate('/relicdao/dashboard/profile');
+    };
+    const handleLogoutClick = async () => {
+        try {
+            // First notify background script about logout
+            await chrome.storage.local.set({ 
+                isLoggedIn: false,
+                authToken: null 
+            });
+            
+            // Check active tab
+            const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            const isNewTabPage = activeTab?.url === 'chrome-native://newtab/';
+            
+            if (isNewTabPage) {
+                // Close current new tab and open a fresh one
+                await chrome.tabs.remove(activeTab.id);
+                await chrome.tabs.create({ url: 'chrome-native://newtab/', active: true });
+            }
+            
+            // Then proceed with normal logout
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('twitterConnected');
+            
+            // Call the provided onLogout handler
+            onLogout();
+            
+            // Navigate away
+            setTimeout(() => {
+                navigate('/relicdao', { replace: true });
+            }, 100);
+        } catch (error) {
+            console.error('Error during logout:', error);
+        }
     };
     return (
         <div className="bg-black text-white p-6 rounded-t-2xl max-w-md mx-auto">
@@ -98,14 +133,7 @@ const SettingsSheet = ({ onClose,onLogout }) => {
             </button>
             <button
                 className="w-full bg-[#272a2f] text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition duration-300 mt-2"
-                onClick={onLogout}
-                // onClick={()=>{
-                //     // onLogout();
-                //     localStorage.removeItem('authToken');
-                //     setTimeout(() => {
-                //         navigate('/relicdao', { replace: true });
-                //     }, 100);
-                // }}
+                onClick={handleLogoutClick}
             >
                 Logout
             </button>
@@ -125,6 +153,9 @@ const RelicDAODashboard = ({onLogout}) => {
     const [referralCode, setReferralCode] = useState(null);
     const [isDataStakingOn, setIsDataStakingOn] = useState(false);
     const [isTwitterConnected, setIsTwitterConnected] = useState(false);
+
+    const connect = useConnect();
+    const client = createThirdwebClient({ clientId: "12332434234" });
 
     useEffect(() => {
         const apiUrl = process.env.REACT_APP_CORE_API_URL;
@@ -321,15 +352,53 @@ const RelicDAODashboard = ({onLogout}) => {
             <div className="bg-black text-white min-h-screen p-4">
                 <header className="flex items-center mb-6 justify-between py-4">
                     <div className="flex items-center">
-                        <button className="text-2xl mr-4" onClick={handleBackButton}>
-                            <IoArrowBack />
-                        </button>
                         <img src={relicDAOLogo} alt="RelicDAO Logo" className="w-8 h-8" />
                         <span className="ml-2 text-xl font-bold">RelicDAO</span>
                     </div>
                     <IoSettingsOutline className='text-2xl' onClick={handleSettingsButton} />
                 </header>
                 <div className="bg-black text-white flex flex-col items-center justify-around">
+                    <div className="flex justify-center mb-6">
+                        <ConnectButton
+                            client={client}
+                            wallets={[
+                                createWallet("io.metamask"),
+                                createWallet("com.coinbase.wallet"),
+                                createWallet("me.rainbow"),
+                            ]}
+                            theme={darkTheme({
+                                colors: {
+                                    accentButtonBg: "hsl(265, 89%, 66%)",
+                                    accentButtonText: "white",
+                                    accentButtonHoverBg: "hsl(265, 89%, 72%)",
+                                    modalBg: "hsl(0, 0%, 0%)",
+                                    primaryButtonBg: "hsl(265, 89%, 66%)",
+                                    primaryButtonText: "white",
+                                    primaryButtonHoverBg: "hsl(265, 89%, 72%)",
+                                    secondaryButtonBg: "hsl(233, 12%, 15%)",
+                                    secondaryButtonText: "hsl(240, 6%, 94%)",
+                                    secondaryButtonHoverBg: "hsl(228, 12%, 17%)",
+                                    separatorLine: "hsl(0, 0%, 15%)",
+                                    tooltipBg: "hsl(0, 0%, 10%)",
+                                    tooltipText: "white",
+                                    modalText: "white",
+                                    modalTextSecondary: "hsl(0, 0%, 60%)",
+                                    closeButtonBg: "hsl(0, 0%, 15%)",
+                                    closeButtonIcon: "white",
+                                    connectedDot: "hsl(265, 89%, 66%)",
+                                    walletSelectorButtonHoverBg: "hsl(0, 0%, 15%)",
+                                },
+                            })}
+                            connectButton={{ 
+                                label: "Connect Wallet",
+                                className: "bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-300"
+                            }}
+                            connectModal={{ 
+                                size: "wide",
+                                className: "bg-black"
+                            }}
+                        />
+                    </div>
                     <div className="bg-[#101727] rounded-lg p-2 mb-8 flex items-center justify-between w-full">
                         <div className="flex items-center space-x-3">
                             <img src={isDataStakingOn ? dataStakingOn : dataStakingOff} alt="Data Icon" className="w-[60px] h-[60px] mr-2" />

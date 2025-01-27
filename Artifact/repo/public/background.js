@@ -124,6 +124,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // Store the timeout ID
     chrome.storage.local.set({ backgroundScrapeTimeoutId: timeoutId });
+  } else if (message.type === 'URL_LOG_SUCCESS') {
+    console.log('✅ URL successfully logged:', message.url);
+  } else if (message.type === 'URL_LOG_ERROR') {
+    console.error('❌ Error logging URL:', message.error);
   }
   return true;
 });
@@ -353,3 +357,225 @@ async function handleBackgroundTweetScraping(username) {
     chrome.storage.local.set({ isBackgroundTweetScrapingEnabled: false });
   }
 }
+
+// Create a queue to store URLs that need to be logged
+let urlQueue = [];
+
+// Update handleUrlLogging to use the queue
+async function handleUrlLogging(url) {
+  if (!url) return;
+
+  // Add URL to queue with timestamp
+  urlQueue.push({
+    url: url,
+    timestamp: new Date().toISOString()
+  });
+
+  // Store the updated queue in chrome.storage
+  chrome.storage.local.set({ pendingUrls: urlQueue }, () => {
+    console.log('📝 URL added to queue:', url);
+  });
+
+  // Try to process queue if we have auth token
+  processUrlQueue();
+}
+
+// Update processUrlQueue function to be more verbose for debugging
+async function processUrlQueue() {
+  try {
+    // Get auth token and login status
+    const result = await chrome.storage.local.get(['authToken', 'isLoggedIn']);
+    const { authToken, isLoggedIn } = result;
+
+    console.log('🔍 Processing queue with:', {
+      hasAuthToken: !!authToken,
+      isLoggedIn,
+      queueLength: urlQueue.length
+    });
+
+    if (!authToken || !isLoggedIn) {
+      console.log('⚠️ Cannot process queue:', {
+        reason: !authToken ? 'No auth token' : 'User not logged in'
+      });
+      return;
+    }
+
+    console.log('🔄 Processing URL queue:', urlQueue.length, 'items');
+
+    // Process each URL in the queue
+    for (let i = urlQueue.length - 1; i >= 0; i--) {
+      const { url } = urlQueue[i];
+      
+      try {
+        console.log(`📤 Attempting to log URL (${i + 1}/${urlQueue.length}):`, url);
+        
+        const response = await fetch(
+          'https://api-staging-0.gotartifact.com/v2/logs/url',
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${authToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ encrypted_url: url }),
+          }
+        );
+
+        if (response.ok) {
+          // Remove successfully processed URL from queue
+          urlQueue.splice(i, 1);
+          console.log('✅ Successfully logged URL:', url);
+        } else {
+          console.error('❌ Failed to log URL:', url, await response.text());
+        }
+      } catch (error) {
+        console.error('❌ Error processing URL:', url, error);
+      }
+    }
+
+    // Update stored queue
+    await chrome.storage.local.set({ pendingUrls: urlQueue });
+    console.log('💾 Updated stored queue, remaining items:', urlQueue.length);
+
+  } catch (error) {
+    console.error('❌ Error processing URL queue:', error);
+  }
+}
+
+// Update the storage change listener to be more precise
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (namespace === 'local') {
+    console.log('🔄 Storage changes detected:', changes);
+    
+    const authTokenChanged = changes.authToken?.newValue;
+    const loginStatusChanged = changes.isLoggedIn?.newValue;
+
+    if (authTokenChanged !== undefined || loginStatusChanged !== undefined) {
+      console.log('👤 Auth state changed:', {
+        hasAuthToken: !!authTokenChanged,
+        isLoggedIn: loginStatusChanged
+      });
+
+      // Process queue if both conditions are met
+      if (authTokenChanged && loginStatusChanged) {
+        console.log('🔑 Auth conditions met, processing queue');
+        processUrlQueue();
+      } else {
+        console.log('⏳ Waiting for both auth token and login status');
+      }
+    }
+  }
+});
+
+// Load saved queue on startup
+chrome.storage.local.get(['pendingUrls'], (result) => {
+  if (result.pendingUrls) {
+    urlQueue = result.pendingUrls;
+    console.log('📋 Loaded pending URLs:', urlQueue.length);
+    processUrlQueue();
+  }
+});
+
+// Store the current tab count
+let previousTabCount = 0;
+
+// Add a flag to track if initial URLs have been queued
+let initialUrlsQueued = false;
+
+// Update monitorTabs function
+async function monitorTabs() {
+  try {
+    const tabs = await chrome.tabs.query({});
+    const currentTabCount = tabs.length;
+
+    // Get auth status
+    const { authToken } = await chrome.storage.local.get(['authToken']);
+
+    // Handle initial URL queueing when extension first loads
+    if (!initialUrlsQueued) {
+      console.log('📋 Queueing initial URLs from all tabs');
+      tabs.forEach(tab => {
+        if (tab.url && !tab.url.startsWith('chrome-native://newtab') && 
+            !urlQueue.some(item => item.url === tab.url)) {
+          handleUrlLogging(tab.url);
+        }
+      });
+      initialUrlsQueued = true;
+      previousTabCount = currentTabCount;
+      return;
+    }
+
+    // Log tab count changes
+    if (currentTabCount !== previousTabCount) {
+      console.log(`📊 Tab count increased: ${previousTabCount} -> ${currentTabCount}`);
+    }
+
+    // If authenticated, only monitor new tabs
+    if (authToken && currentTabCount > previousTabCount) {
+      console.log('🔑 Authenticated: Only checking new tabs');
+      // Only get the most recently created tab
+      const newTabs = tabs.slice(previousTabCount);
+      newTabs.forEach(tab => {
+        if (tab.url && !tab.url.startsWith('chrome-native://newtab') && 
+            !urlQueue.some(item => item.url === tab.url)) {
+          console.log('🆕 New authenticated tab URL:', tab.url);
+          handleUrlLogging(tab.url);
+        }
+      });
+    }
+    // If not authenticated, queue all URLs for later processing
+    else if (!authToken && currentTabCount > previousTabCount) {
+      console.log('🔒 Not authenticated: Queueing all URLs');
+      tabs.forEach(tab => {
+        if (tab.url && !tab.url.startsWith('chrome-native://newtab') && 
+            !urlQueue.some(item => item.url === tab.url)) {
+          handleUrlLogging(tab.url);
+        }
+      });
+    }
+
+    previousTabCount = currentTabCount;
+  } catch (error) {
+    console.error('❌ Error monitoring tabs:', error);
+  }
+}
+
+// Initialize previousTabCount when extension starts
+chrome.tabs.query({}, (tabs) => {
+  previousTabCount = tabs.length;
+  console.log(`📊 Initial tab count: ${previousTabCount}`);
+});
+
+// Update the initialization listener
+chrome.runtime.onInstalled.addListener(() => {
+  console.log('🎉 URL Logger installed');
+  initialUrlsQueued = false; // Reset the flag
+  monitorTabs(); // Queue all initial URLs
+});
+
+// Store the current active tab URL
+let currentActiveTabUrl = null;
+
+// Function to check active tab URL
+async function checkActiveTabUrl() {
+  try {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (activeTab?.url && activeTab.url !== currentActiveTabUrl) {
+      // URL has changed
+      console.log('📍 URL changed:', activeTab.url);
+      currentActiveTabUrl = activeTab.url;
+      handleUrlLogging(activeTab.url);
+    }
+  } catch (error) {
+    console.error('❌ Error checking active tab URL:', error);
+  }
+}
+
+// Set up interval to check URL changes (every 1 second)
+setInterval(checkActiveTabUrl, 1000);
+
+// Also check when tabs are switched
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  console.log('🔄 Tab activated:', activeInfo.tabId);
+  checkActiveTabUrl();
+});

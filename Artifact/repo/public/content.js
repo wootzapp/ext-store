@@ -1,3 +1,5 @@
+import { logUrl } from '../lib/api';
+
 console.log('🚀 Content script loaded on:', window.location.href);
 
 let isScrapingEnabled = false;
@@ -18,9 +20,12 @@ let twitterTabId = null;
 // Add a flag to track if background scraping is being stopped
 let isStoppingBackgroundScrape = false;
 
+
+
 // Add new function to check Twitter auth status
 async function checkTwitterAuth() {
   console.log('🔍 Checking Twitter auth status...');
+
   
   try {
     // First check if we're on Twitter

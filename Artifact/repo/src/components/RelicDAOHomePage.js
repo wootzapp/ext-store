@@ -5,7 +5,10 @@ import { IoArrowBack } from "react-icons/io5";
 import { IoSettingsOutline } from "react-icons/io5";
 import { useNavigate } from 'react-router-dom';
 import { useAuthToken } from '../hooks/useAuthToken';
-
+import { createThirdwebClient } from 'thirdweb';
+import { ConnectButton, useConnect } from 'thirdweb/react';
+import { createWallet } from 'thirdweb/wallets';
+import { darkTheme } from 'thirdweb/react';
 
 const RelicDAOHomePage = () => {
     const navigate = useNavigate();
@@ -14,25 +17,16 @@ const RelicDAOHomePage = () => {
     const handleSignUp = () => {
         const signupUrl = "https://dev.relicdao.com";
         window.location.href = signupUrl;
-        console.log("trying to connect");
     };
 
     const handleLogin = () => {
         navigate('/login');
     };
 
-    const handleBackButton = () => {
-        console.log("Back button pressed");
-        navigate(-1);
-    };
-
     return (
         <div className="bg-black text-white min-h-screen p-6">
             <header className="flex items-center mb-6 justify-between">
                 <div className="flex items-center">
-                    <button className="text-2xl mr-4" onClick={handleBackButton}>
-                        <IoArrowBack/>
-                    </button>
                     <img src={relicDAOLogo} alt="RelicDAO Logo" className="w-8 h-8" />
                     <span className="ml-2 text-xl font-bold">RelicDAO</span>
                 </div>
