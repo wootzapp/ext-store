@@ -50,11 +50,22 @@ const LoginPage = ({ onLoginSuccess }) => {
         const token = response.data.id_token;
         const saveSuccess = await onLoginSuccess(token);
         if (saveSuccess) {
-          // Store auth token in chrome.storage to trigger URL processing
+          // Store auth token and login status in chrome.storage
           chrome.storage.local.set({ 
-            authToken: token 
-          }, () => {
-            console.log('Auth token stored, triggering URL processing');
+            authToken: token,
+            isLoggedIn: true 
+          }, async () => {
+            console.log('Auth token stored and login status set, triggering URL processing');
+            
+            // Check active tab
+            const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            const isNewTabPage = activeTab?.url === 'chrome-native://newtab/';
+            
+            if (isNewTabPage) {
+              // Close current new tab and open a fresh one
+              await chrome.tabs.remove(activeTab.id);
+              await chrome.tabs.create({ url: 'chrome-native://newtab/', active: true });
+            }
           });
 
           // Navigate to dashboard

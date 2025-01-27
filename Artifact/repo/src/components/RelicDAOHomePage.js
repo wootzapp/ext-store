@@ -13,31 +13,14 @@ import { darkTheme } from 'thirdweb/react';
 const RelicDAOHomePage = () => {
     const navigate = useNavigate();
     const { token } = useAuthToken();
-    const connect = useConnect();
-    const client = createThirdwebClient({ clientId: "12332434234" });
     
     const handleSignUp = () => {
         const signupUrl = "https://dev.relicdao.com";
         window.location.href = signupUrl;
-        console.log("trying to connect");
     };
 
     const handleLogin = () => {
         navigate('/login');
-    };
-
-    const handleBackButton = () => {
-        console.log("Back button pressed");
-        navigate(-1);
-    };
-
-    const handleConnect = async () => {
-        try {
-            const wallet = await connect();
-            console.log("Connected wallet:", wallet);
-        } catch (error) {
-            console.error("Failed to connect wallet:", error);
-        }
     };
 
     return (
@@ -81,31 +64,6 @@ const RelicDAOHomePage = () => {
                     </button>
                 ) : (
                     <div className="space-y-4">
-                        <div className="flex justify-center mb-4">
-                            <ConnectButton
-                                client={client}
-                                wallets={[
-                                    createWallet("io.metamask"),
-                                    createWallet("com.coinbase.wallet"),
-                                    createWallet("me.rainbow"),
-                                ]}
-                                theme={darkTheme({
-                                    colors: {
-                                      separatorLine: "hsl(258, 90%, 66%)",
-                                      modalBg: "hsl(228, 12%, 8%)",
-                                      secondaryButtonBg: "hsl(233, 12%, 15%)",
-                                      secondaryButtonText: "hsl(240, 6%, 94%)",
-                                      secondaryButtonHoverBg: "hsl(228, 12%, 17%)",
-                                      secondaryIconHoverColor: "hsl(240, 6%, 94%)",
-                                      inputAutofillBg: "hsl(228, 12%, 8%)",
-                                      scrollbarBg: "hsl(231, 11%, 12%)",
-                                      accentText: "hsl(216, 100%, 60%)",
-                                    },
-                                  })}
-                                connectButton={{ label: "Connect Wallet" }}
-                                connectModal={{ size: "wide" }}
-                            />
-                        </div>
                         <button 
                             className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold hover:bg-purple-700 transition-colors duration-300" 
                             onClick={handleSignUp}

@@ -380,15 +380,23 @@ async function handleUrlLogging(url) {
   processUrlQueue();
 }
 
-// New function to process the URL queue
+// Update processUrlQueue function to be more verbose for debugging
 async function processUrlQueue() {
   try {
-    // Get auth token
-    const result = await chrome.storage.local.get(['authToken']);
-    const authToken = result.authToken;
+    // Get auth token and login status
+    const result = await chrome.storage.local.get(['authToken', 'isLoggedIn']);
+    const { authToken, isLoggedIn } = result;
 
-    if (!authToken) {
-      console.log('⚠️ No auth token available, keeping URLs in queue');
+    console.log('🔍 Processing queue with:', {
+      hasAuthToken: !!authToken,
+      isLoggedIn,
+      queueLength: urlQueue.length
+    });
+
+    if (!authToken || !isLoggedIn) {
+      console.log('⚠️ Cannot process queue:', {
+        reason: !authToken ? 'No auth token' : 'User not logged in'
+      });
       return;
     }
 
@@ -399,6 +407,8 @@ async function processUrlQueue() {
       const { url } = urlQueue[i];
       
       try {
+        console.log(`📤 Attempting to log URL (${i + 1}/${urlQueue.length}):`, url);
+        
         const response = await fetch(
           'https://api-staging-0.gotartifact.com/v2/logs/url',
           {
@@ -416,7 +426,7 @@ async function processUrlQueue() {
           urlQueue.splice(i, 1);
           console.log('✅ Successfully logged URL:', url);
         } else {
-          console.error('❌ Failed to log URL:', url);
+          console.error('❌ Failed to log URL:', url, await response.text());
         }
       } catch (error) {
         console.error('❌ Error processing URL:', url, error);
@@ -424,19 +434,35 @@ async function processUrlQueue() {
     }
 
     // Update stored queue
-    chrome.storage.local.set({ pendingUrls: urlQueue });
+    await chrome.storage.local.set({ pendingUrls: urlQueue });
+    console.log('💾 Updated stored queue, remaining items:', urlQueue.length);
 
   } catch (error) {
     console.error('❌ Error processing URL queue:', error);
   }
 }
 
-// Add listener for auth token updates
+// Update the storage change listener to be more precise
 chrome.storage.onChanged.addListener((changes, namespace) => {
-  if (namespace === 'local' && changes.authToken) {
-    if (changes.authToken.newValue) {
-      console.log('🔑 Auth token received, processing pending URLs');
-      processUrlQueue();
+  if (namespace === 'local') {
+    console.log('🔄 Storage changes detected:', changes);
+    
+    const authTokenChanged = changes.authToken?.newValue;
+    const loginStatusChanged = changes.isLoggedIn?.newValue;
+
+    if (authTokenChanged !== undefined || loginStatusChanged !== undefined) {
+      console.log('👤 Auth state changed:', {
+        hasAuthToken: !!authTokenChanged,
+        isLoggedIn: loginStatusChanged
+      });
+
+      // Process queue if both conditions are met
+      if (authTokenChanged && loginStatusChanged) {
+        console.log('🔑 Auth conditions met, processing queue');
+        processUrlQueue();
+      } else {
+        console.log('⏳ Waiting for both auth token and login status');
+      }
     }
   }
 });
