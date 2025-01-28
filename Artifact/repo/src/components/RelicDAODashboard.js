@@ -120,13 +120,6 @@ const SettingsSheet = ({ onClose, onLogout }) => {
             </p>
             <button
                 className="w-full bg-[#272a2f] text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition duration-300"
-                onClick={() => navigate('/relicdao')}
-            >
-                Go to RelicDAO
-            </button>
-            <button
-                className="w-full bg-[#272a2f] text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition duration-300 mt-2"
-                // onClick={() => navigate('/relicdao/dashboard/profile')}
                 onClick={handleProfileButton}
             >
                 Profile
@@ -358,47 +351,7 @@ const RelicDAODashboard = ({onLogout}) => {
                     <IoSettingsOutline className='text-2xl' onClick={handleSettingsButton} />
                 </header>
                 <div className="bg-black text-white flex flex-col items-center justify-around">
-                    <div className="flex justify-center mb-6">
-                        <ConnectButton
-                            client={client}
-                            wallets={[
-                                createWallet("io.metamask"),
-                                createWallet("com.coinbase.wallet"),
-                                createWallet("me.rainbow"),
-                            ]}
-                            theme={darkTheme({
-                                colors: {
-                                    accentButtonBg: "hsl(265, 89%, 66%)",
-                                    accentButtonText: "white",
-                                    accentButtonHoverBg: "hsl(265, 89%, 72%)",
-                                    modalBg: "hsl(0, 0%, 0%)",
-                                    primaryButtonBg: "hsl(265, 89%, 66%)",
-                                    primaryButtonText: "white",
-                                    primaryButtonHoverBg: "hsl(265, 89%, 72%)",
-                                    secondaryButtonBg: "hsl(233, 12%, 15%)",
-                                    secondaryButtonText: "hsl(240, 6%, 94%)",
-                                    secondaryButtonHoverBg: "hsl(228, 12%, 17%)",
-                                    separatorLine: "hsl(0, 0%, 15%)",
-                                    tooltipBg: "hsl(0, 0%, 10%)",
-                                    tooltipText: "white",
-                                    modalText: "white",
-                                    modalTextSecondary: "hsl(0, 0%, 60%)",
-                                    closeButtonBg: "hsl(0, 0%, 15%)",
-                                    closeButtonIcon: "white",
-                                    connectedDot: "hsl(265, 89%, 66%)",
-                                    walletSelectorButtonHoverBg: "hsl(0, 0%, 15%)",
-                                },
-                            })}
-                            connectButton={{ 
-                                label: "Connect Wallet",
-                                className: "bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-300"
-                            }}
-                            connectModal={{ 
-                                size: "wide",
-                                className: "bg-black"
-                            }}
-                        />
-                    </div>
+                   
                     <div className="bg-[#101727] rounded-lg p-2 mb-8 flex items-center justify-between w-full">
                         <div className="flex items-center space-x-3">
                             <img src={isDataStakingOn ? dataStakingOn : dataStakingOff} alt="Data Icon" className="w-[60px] h-[60px] mr-2" />
@@ -468,6 +421,47 @@ const RelicDAODashboard = ({onLogout}) => {
                         </div>
                     </div>
                 </div>
+                <div className="flex justify-center mb-6">
+                        <ConnectButton
+                            client={client}
+                            wallets={[
+                                createWallet("io.metamask"),
+                                createWallet("com.coinbase.wallet"),
+                                createWallet("me.rainbow"),
+                            ]}
+                            theme={darkTheme({
+                                colors: {
+                                    accentButtonBg: "hsl(265, 89%, 66%)",
+                                    accentButtonText: "white",
+                                    accentButtonHoverBg: "hsl(265, 89%, 72%)",
+                                    modalBg: "hsl(0, 0%, 0%)",
+                                    primaryButtonBg: "hsl(265, 89%, 66%)",
+                                    primaryButtonText: "white",
+                                    primaryButtonHoverBg: "hsl(265, 89%, 72%)",
+                                    secondaryButtonBg: "hsl(233, 12%, 15%)",
+                                    secondaryButtonText: "hsl(240, 6%, 94%)",
+                                    secondaryButtonHoverBg: "hsl(228, 12%, 17%)",
+                                    separatorLine: "hsl(0, 0%, 15%)",
+                                    tooltipBg: "hsl(0, 0%, 10%)",
+                                    tooltipText: "white",
+                                    modalText: "white",
+                                    modalTextSecondary: "hsl(0, 0%, 60%)",
+                                    closeButtonBg: "hsl(0, 0%, 15%)",
+                                    closeButtonIcon: "white",
+                                    connectedDot: "hsl(265, 89%, 66%)",
+                                    walletSelectorButtonHoverBg: "hsl(0, 0%, 15%)",
+                                },
+                            })}
+                            connectButton={{ 
+                                label: "Connect Wallet",
+                                className: "bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-300"
+                            }}
+                            connectModal={{ 
+                                size: "wide",
+                                className: "bg-black"
+                            }}
+                        />
+                    </div>
 
                 <div className="bg-[#191d21] rounded-lg p-4 mb-6">
                     <div className="flex items-center mb-2">
