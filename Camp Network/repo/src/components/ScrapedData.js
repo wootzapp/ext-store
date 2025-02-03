@@ -11,13 +11,17 @@ const ScrapedData = () => {
   const [loading, setLoading] = useState(true);
   const [isFollowingListOpen, setIsFollowingListOpen] = useState(false);
   const [isTweetsListOpen, setIsTweetsListOpen] = useState(false);
+  const [isLikedTweetsListOpen, setIsLikedTweetsListOpen] = useState(false);
   const [expandedTweet, setExpandedTweet] = useState(null);
   const [expandedLikedTweet, setExpandedLikedTweet] = useState(null);
   const [likedTweets, setLikedTweets] = useState([]);
+  const [userReplies, setUserReplies] = useState([]);
+  const [isRepliedTweetsListOpen, setIsRepliedTweetsListOpen] = useState(false);
+  const [expandedReply, setExpandedReply] = useState(null);
 
   useEffect(() => {
     // Load initial data
-    chrome.storage.local.get(['profileData', 'tweets', 'followingUsers'], (result) => {
+    chrome.storage.local.get(['profileData', 'tweets', 'followingUsers', 'userReplies'], (result) => {
       console.log('📊 Loading initial data:', result);
 
       if (result.profileData) {
@@ -31,6 +35,13 @@ const ScrapedData = () => {
         const sortedTweets = (Array.isArray(result.tweets) ? result.tweets : [])
           .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
         setTweets(sortedTweets);
+      }
+
+      if (result.userReplies) {
+        console.log('💬 Setting replied tweets:', result.userReplies.length);
+        const sortedReplies = (Array.isArray(result.userReplies) ? result.userReplies : [])
+          .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+        setUserReplies(sortedReplies);
       }
 
       if (result.followingUsers) {
@@ -106,6 +117,9 @@ const ScrapedData = () => {
       } else if (message.type === 'LIKED_TWEETS_UPDATED') {
         console.log('❤️ Updating liked tweets:', message.data.length);
         setLikedTweets(message.data);
+      } else if (message.type === 'REPLIES_UPDATED') {
+        console.log('💬 Updating replied tweets:', message.data.length);
+        setUserReplies(message.data);
       }
     };
 
@@ -354,9 +368,155 @@ const ScrapedData = () => {
           )}
         </div>
 
+        {/* Posted Tweets Section */}
+        <div className="bg-white rounded-2xl shadow-lg p-5 mb-4 border border-red-50">
+            <div 
+                className="flex items-center justify-between cursor-pointer"
+                onClick={() => setIsRepliedTweetsListOpen(!isRepliedTweetsListOpen)}
+            >
+                <div className="flex flex-col">
+                    <h2 className="text-2xl font-bold">Posted Tweets</h2>
+                    {userReplies.length > 0 && (
+                        <p className="text-sm text-gray-600 mt-1">
+                            Showing <span className="font-semibold text-blue-600">{userReplies.length}</span> posted tweets
+                        </p>
+                    )}
+                </div>
+                <svg
+                    className={`w-6 h-6 transform transition-transform ${isRepliedTweetsListOpen ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+            </div>
+
+            {isRepliedTweetsListOpen && (
+                <div className="mt-4">
+                    {userReplies.length > 0 ? (
+                        <div className="space-y-4 mt-4">
+                            {userReplies.slice(0, 100).map(reply => (
+                                <div 
+                                    key={reply.id} 
+                                    className="border rounded-lg bg-white shadow-md hover:shadow-lg transition-shadow"
+                                >
+                                    {/* Tweet Header - Always visible */}
+                                    <div 
+                                        className="p-4 cursor-pointer"
+                                        onClick={() => setExpandedReply(expandedReply === reply.id ? null : reply.id)}
+                                    >
+                                        <div className="flex items-center mb-3">
+                                            {reply.user?.avatar && (
+                                                <img
+                                                    src={reply.user.avatar}
+                                                    alt="Profile"
+                                                    className="w-10 h-10 rounded-full mr-3"
+                                                    onError={(e) => {
+                                                        e.target.onerror = null;
+                                                        e.target.src = '/default-avatar.png';
+                                                    }}
+                                                />
+                                            )}
+                                            <div className="flex-grow">
+                                                <p className="font-bold">{reply.user?.name || 'Unknown'}</p>
+                                                <p className="text-gray-500 text-sm">@{reply.user?.handle || 'unknown'}</p>
+                                            </div>
+                                            <div className="flex items-center space-x-3">
+                                                <span className="text-sm text-gray-500">
+                                                    {(() => {
+                                                        if (!reply.timestamp) return 'Unknown time';
+                                                        
+                                                        const tweetDate = new Date(reply.timestamp);
+                                                        const now = new Date();
+                                                        const minutesDiff = (now - tweetDate) / (1000 * 60);
+                                                        
+                                                        if (minutesDiff < 60) {
+                                                            const minutes = Math.floor(minutesDiff);
+                                                            return `${minutes}m`;
+                                                        } else if (minutesDiff < 24 * 60) {
+                                                            const hours = Math.floor(minutesDiff / 60);
+                                                            return `${hours}h`;
+                                                        }
+                                                        
+                                                        return tweetDate.toLocaleDateString();
+                                                    })()}
+                                                </span>
+                                                <svg
+                                                    className={`w-5 h-5 transform transition-transform ${expandedReply === reply.id ? 'rotate-180' : ''}`}
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    viewBox="0 0 24 24"
+                                                >
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                </svg>
+                                            </div>
+                                        </div>
+
+                                        {/* Reply Info */}
+                                        {reply.in_reply_to_screen_name && (
+                                            <div className="text-sm text-gray-500 mb-2">
+                                                Replying to @{reply.in_reply_to_screen_name}
+                                            </div>
+                                        )}
+
+                                        {/* Tweet Text */}
+                                        <div className="text-gray-800 whitespace-pre-wrap">
+                                            {expandedReply === reply.id 
+                                                ? reply.text 
+                                                : reply.text?.length > 150 
+                                                    ? `${reply.text.substring(0, 150)}...` 
+                                                    : reply.text}
+                                        </div>
+                                    </div>
+
+                                    {/* Expanded Content */}
+                                    {expandedReply === reply.id && (
+                                        <div className="px-4 pb-4 border-t border-gray-100 mt-2 pt-4">
+                                            <div className="flex items-center justify-around text-sm text-gray-500">
+                                                <span className="flex items-center space-x-2">
+                                                    <span className="p-2 rounded-full hover:bg-gray-100">
+                                                        <span className="mr-1">💬</span>
+                                                        {reply.metrics?.replies || 0}
+                                                    </span>
+                                                </span>
+                                                <span className="flex items-center space-x-2">
+                                                    <span className="p-2 rounded-full hover:bg-gray-100">
+                                                        <span className="mr-1">🔄</span>
+                                                        {reply.metrics?.retweets || 0}
+                                                    </span>
+                                                </span>
+                                                <span className="flex items-center space-x-2">
+                                                    <span className="p-2 rounded-full hover:bg-gray-100">
+                                                        <span className="mr-1">❤️</span>
+                                                        {reply.metrics?.likes || 0}
+                                                    </span>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                            {userReplies.length > 100 && (
+                                <div className="text-center py-4 text-gray-600">
+                                    Showing first 100 posted tweets of {userReplies.length} total posts
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="text-center py-8 bg-white rounded-lg shadow mt-4">
+                            <p className="text-gray-500">
+                                {loading ? 'Loading posted tweets...' : 'No posted tweets collected yet'}
+                            </p>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+
         {/* Liked Tweets Section */}
         <div className="bg-white rounded-2xl shadow-lg p-5 mb-4 border border-red-50">
-          <div className="flex items-center justify-between cursor-pointer" onClick={() => setIsTweetsListOpen(!isTweetsListOpen)}>
+          <div className="flex items-center justify-between cursor-pointer" onClick={() => setIsLikedTweetsListOpen(!isLikedTweetsListOpen)}>
             <div className="flex flex-col">
               <h2 className="text-2xl font-bold">Liked Tweets</h2>
               {likedTweets.length > 0 && (
@@ -365,12 +525,12 @@ const ScrapedData = () => {
                 </p>
               )}
             </div>
-            <svg className={`w-6 h-6 transform transition-transform ${isTweetsListOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-6 h-6 transform transition-transform ${isLikedTweetsListOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </div>
 
-          {isTweetsListOpen && (
+          {isLikedTweetsListOpen && (
             <div className="mt-4">
               {likedTweets.length > 0 ? (
                 <div className="space-y-4 mt-4">

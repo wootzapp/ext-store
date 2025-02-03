@@ -1,26 +1,37 @@
 console.log('🚀 Content script loaded on:', window.location.href);
+/*global chrome*/
 
+// Control flags
 let isScrapingEnabled = false;
-let lastScrapedTweetId = null;
 const scrapedTweetIds = new Set();
 let capturedRequestData = null;
 let isScrapingStarted = false;
+
+// URL identifiers
 const TWEET_SCRAPE_IDENTIFIER = '?q=wootzapp-tweets';
 const FOLLOWING_SCRAPE_IDENTIFIER = '?q=wootzapp-following';
 const LIKED_TWEETS_SCRAPE_IDENTIFIER = '?q=wootzapp-liked-tweets';
-// Add these at the top of the file
+const POSTS_SCRAPE_IDENTIFIER = '?q=wootzapp-replies';
+
+// Request limits
+const MAX_REPLIES_REQUESTS_PER_TAB = 15;
+const MAX_LIKED_TWEETS_REQUESTS_PER_TAB = 15;
+
+// Interceptor states
 let likedTweetsInterceptorInjected = false;
+let repliesInterceptorInjected = false;
+let repliesRequestCount = 0;
+let likedTweetsRequestCount = 0;
+
+// Observers and listeners
+let tweetObserver = null;
+let scrollListener = null;
+
+// Add these at the top of the file
+let lastScrapedTweetId = null;
 let isLikedTweetScrapingEnabled = false;
 let isLikedTweetsProcessing = false;
 let likedTweetsFound = 0;
-
-// Add these variables at the top
-let likedTweetsRequestCount = 0;
-const MAX_LIKED_TWEETS_REQUESTS_PER_TAB = 15;
-
-// Add these variables at the top level
-let tweetObserver = null;
-let scrollListener = null;
 
 // Add at the top of content.js
 let twitterTabId = null;
@@ -333,6 +344,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Otherwise, let the current batch of requests complete
   }
 
+  if (message.type === 'EXECUTE_REPLIES_SCRAPING') {
+    console.log('📣 Received execute replies scraping message:', message);
+    handleRepliesScraping(message.username);
+  }
+
+  if (message.type === 'EXECUTE_PROFILE_VISIT_SCRAPING') {
+    handleProfileVisitScraping();
+  }
+
+  if (message.type === 'STOP_PROFILE_VISIT_SCRAPING') {
+    console.log('🛑 Stopping profile visit scraping');
+    // Disconnect the URL observer
+    if (urlObserver) {
+      urlObserver.disconnect();
+    }
+    // Reset the last processed URL
+    lastProcessedUrl = '';
+    // Clean up any other profile visit related state
+    chrome.storage.local.set({ 
+      isProfileVisitScrapingEnabled: false 
+    });
+  }
 
   return true;
 });
@@ -493,29 +526,40 @@ function getCurrentProfileData() {
 }
 
 // Function to wait for element
-function waitForElement(selector, timeout = 10000) {
-  return new Promise((resolve) => {
-      if (document.querySelector(selector)) {
-          return resolve(document.querySelector(selector));
-      }
+function waitForElement(selectors, timeout = 10000) {
+    return new Promise((resolve) => {
+        // If selectors is a string, convert to array
+        const selectorArray = Array.isArray(selectors) ? selectors : [selectors];
+        
+        // Check if element already exists
+        for (const selector of selectorArray) {
+            const element = document.querySelector(selector);
+            if (element) {
+                return resolve(element);
+            }
+        }
 
-      const observer = new MutationObserver(() => {
-          if (document.querySelector(selector)) {
-              observer.disconnect();
-              resolve(document.querySelector(selector));
-          }
-      });
+        const observer = new MutationObserver(() => {
+            for (const selector of selectorArray) {
+                const element = document.querySelector(selector);
+                if (element) {
+                    observer.disconnect();
+                    resolve(element);
+                    return;
+                }
+            }
+        });
 
-      observer.observe(document.body, {
-          childList: true,
-          subtree: true
-      });
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
 
-      setTimeout(() => {
-          observer.disconnect();
-          resolve(null);
-      }, timeout);
-  });
+        setTimeout(() => {
+            observer.disconnect();
+            resolve(null);
+        }, timeout);
+    });
 }
 
 async function clickFollowingButton() {
@@ -608,10 +652,9 @@ async function waitForRequestData(maxAttempts = 20) {
       console.log(`Attempt ${i + 1}/${maxAttempts}`);
       
       // Trigger scroll to generate requests
-      // window.scrollTo(0, document.body.scrollHeight);
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      if (requestData.url && requestData.headers) {
+      if (capturedRequestData?.url && capturedRequestData?.headers) {
           console.log('Request data captured successfully!');
           return true;
       }
@@ -928,12 +971,14 @@ function observeNewTweets() {
   });
 }
 
+// Update the initial setup timeout to handle replies scraping
 setTimeout(() => {
   chrome.storage.local.get([
     'hasScrapedProfile', 
     'hasScrapedLikes', 
     'hasScrapedFollowing',
-    'isBackgroundTweetScrapingEnabled'
+    'isBackgroundTweetScrapingEnabled',
+    'isRepliesScrapingEnabled'
   ], (result) => {
     const currentUrl = window.location.href;
     console.log('Current state:', result, 'URL:', currentUrl);
@@ -957,11 +1002,19 @@ setTimeout(() => {
       console.log('❤️ Starting liked tweets scraping...');
       clickLikesButton();
     }
+    // Handle replies scraping
+    else if (currentUrl.includes(POSTS_SCRAPE_IDENTIFIER)) {
+      console.log('💬 Starting replies scraping...');
+      // Get username from URL
+      const username = currentUrl.split('x.com/')[1]?.split('?')[0];
+      if (username) {
+        handleRepliesScraping(username);
+      }
+    }
     // Handle normal scraping flow
     else {
       if (!result.hasScrapedProfile) {
         console.log('🔍 Starting profile scraping...');
-        console.log('✅ AADITESH WAS HERE');
         getCommunitiesInfo();
       } 
       else if (result.hasScrapedProfile && !result.hasScrapedLikes) {
@@ -1337,43 +1390,6 @@ async function clickLikesButton() {
   }
 }
 
-// Update waitForElement to handle multiple selectors
-function waitForElement(selectors, timeout = 10000) {
-  return new Promise((resolve) => {
-    // If selectors is a string, convert to array
-    const selectorArray = Array.isArray(selectors) ? selectors : [selectors];
-    
-    // Check if element already exists
-    for (const selector of selectorArray) {
-      const element = document.querySelector(selector);
-      if (element) {
-        return resolve(element);
-      }
-    }
-
-    const observer = new MutationObserver(() => {
-      for (const selector of selectorArray) {
-        const element = document.querySelector(selector);
-        if (element) {
-          observer.disconnect();
-          resolve(element);
-          return;
-        }
-      }
-    });
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-
-    setTimeout(() => {
-      observer.disconnect();
-      resolve(null);
-    }, timeout);
-  });
-}
-
 // Simplify setupLikedTweetsRequestCapture to match setupTweetRequestCapture
 function setupLikedTweetsRequestCapture() {
   return new Promise((resolve) => {
@@ -1525,3 +1541,331 @@ function findNextCursor(data) {
 }
 
 
+// Add new function to handle replies scraping
+async function handleRepliesScraping(username) {
+  console.log('🔄 Starting replies scraping for:', username);
+
+  try {
+    // Check if this is a replies scraping tab
+    if (!window.location.href.includes(POSTS_SCRAPE_IDENTIFIER)) {
+      console.log('🚫 Not a replies scraping URL, aborting');
+      return;
+    }
+
+    console.log('🔍 Setting up replies scraping on designated URL');
+
+    // Setup request capture first
+    await setupRepliesRequestCapture();
+    console.log('✅ Replies request capture setup complete');
+
+    // Wait for setup to complete
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Find and click the replies tab
+    const repliesTabSelectors = [
+      '[data-testid="ScrollSnap-List"] a[href*="/with_replies"]',
+      'a[href*="/with_replies"][role="tab"]',
+      '[data-testid="primaryColumn"] a[href*="/with_replies"]'
+    ];
+    
+    const repliesTab = await waitForElement(repliesTabSelectors);
+    
+    if (!repliesTab) {
+      console.error('❌ Could not find replies tab');
+      throw new Error('Replies tab not found');
+    }
+
+    console.log('🎯 Found replies tab, clicking...');
+    repliesTab.click();
+
+  } catch (error) {
+    console.error('Error in replies scraping:', error);
+    chrome.runtime.sendMessage({ 
+      type: 'SCRAPING_ERROR',
+      error: error.message
+    });
+  }
+}
+
+// Setup replies request capture to match liked tweets
+function setupRepliesRequestCapture() {
+  return new Promise((resolve) => {
+    console.log('🚀 Starting replies request capture setup...');
+
+    // Listen for captured request data
+    window.addEventListener('repliesRequestDataCaptured', async function(event) {
+      const { type, data } = event.detail;
+      console.log(`📡 Received ${type}:`, data);
+
+      if (type === 'REPLIES_XHR_COMPLETE' && data.url && data.headers) {
+        console.log('✅ Processing replies XHR data:', data);
+        await makeRepliesRequest(data.url, data.headers);
+      }
+    });
+
+    // Inject the interceptor script
+    if (!repliesInterceptorInjected) {
+      const script = document.createElement('script');
+      script.src = chrome.runtime.getURL('repliesinterceptor.js');
+      script.onload = () => {
+        console.log('✅ Replies interceptor script loaded');
+        repliesInterceptorInjected = true;
+        script.remove();
+        resolve();
+      };
+      (document.head || document.documentElement).appendChild(script);
+    } else {
+      resolve();
+    }
+  });
+}
+
+// Make replies request to match liked tweets request
+async function makeRepliesRequest(originalUrl, headers, currentVariables = null) {
+  repliesRequestCount++;
+  console.log(`📊 Making replies request ${repliesRequestCount}/${MAX_REPLIES_REQUESTS_PER_TAB}`);
+
+  if (repliesRequestCount > MAX_REPLIES_REQUESTS_PER_TAB) {
+    console.log('🛑 Reached maximum requests per tab');
+    window.dispatchEvent(new CustomEvent('repliesComplete'));
+    return;
+  }
+
+  try {
+    const urlObj = new URL(originalUrl);
+    const params = new URLSearchParams(urlObj.search);
+    
+    let variables = currentVariables || JSON.parse(params.get('variables'));
+    const features = JSON.parse(params.get('features'));
+
+    const requestUrl = `${urlObj.origin}${urlObj.pathname}?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${encodeURIComponent(JSON.stringify(features))}`;
+    
+    const response = await fetch(requestUrl, {
+      method: 'GET',
+      headers: headers,
+      credentials: 'include'
+    });
+
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+    const data = await response.json();
+    const replies = processRepliesData(data);
+    
+    // Send replies to background
+    if (replies.length > 0) {
+      chrome.runtime.sendMessage({
+        type: 'SCRAPED_DATA',
+        data: {
+          type: 'REPLIES',
+          content: replies
+        }
+      });
+    }
+
+    // Check for next cursor and continue if needed
+    const cursor = findNextCursor(data);
+    if (cursor && repliesRequestCount < MAX_REPLIES_REQUESTS_PER_TAB) {
+      const nextVariables = { ...variables, cursor };
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      await makeRepliesRequest(originalUrl, headers, nextVariables);
+    } else {
+      console.log('🏁 Finished processing replies');
+      window.dispatchEvent(new CustomEvent('repliesComplete'));
+    }
+
+  } catch (error) {
+    console.error('❌ Error in makeRepliesRequest:', error);
+    window.dispatchEvent(new CustomEvent('repliesComplete'));
+  }
+}
+
+// Process replies data
+function processRepliesData(data) {
+  const replies = [];
+  const instructions = data.data?.user?.result?.timeline_v2?.timeline?.instructions || [];
+  
+  instructions.forEach((instruction, idx) => {
+    if (instruction.type === "TimelineAddEntries") {
+      const entries = instruction.entries || [];
+      console.log(`📑 Processing instruction ${idx + 1}/${instructions.length}:`, {
+        type: instruction.type,
+        entries: entries.length
+      });
+
+      entries.forEach((entry, entryIdx) => {
+        if (entry.content?.itemContent?.tweet_results?.result) {
+          const tweet = entry.content.itemContent.tweet_results.result;
+          const processedReply = {
+            id: tweet.rest_id,
+            text: tweet.legacy?.full_text || tweet.legacy?.text,
+            user: {
+              handle: tweet.core?.user_results?.result?.legacy?.screen_name,
+              name: tweet.core?.user_results?.result?.legacy?.name,
+              avatar: tweet.core?.user_results?.result?.legacy?.profile_image_url_https
+            },
+            metrics: {
+              replies: tweet.legacy?.reply_count,
+              retweets: tweet.legacy?.retweet_count,
+              likes: tweet.legacy?.favorite_count
+            },
+            timestamp: tweet.legacy?.created_at,
+            in_reply_to_status_id: tweet.legacy?.in_reply_to_status_id_str,
+            in_reply_to_screen_name: tweet.legacy?.in_reply_to_screen_name
+          };
+          replies.push(processedReply);
+          
+          // Log individual reply processing
+          console.log(`Reply ${entryIdx + 1}:`, {
+            id: processedReply.id,
+            author: `@${processedReply.user.handle}`,
+            time: new Date(processedReply.timestamp).toLocaleString()
+          });
+        }
+      });
+    }
+  });
+
+  console.log('✅ Batch processing complete:', {
+    repliesProcessed: replies.length,
+    timestamp: new Date().toISOString()
+  });
+
+  return replies;
+}
+
+// Wait for replies data to be captured
+function waitForRepliesData() {
+  return new Promise((resolve) => {
+    const checkData = () => {
+      if (window.requestData) {
+        resolve(window.requestData);
+      } else {
+        setTimeout(checkData, 100);
+      }
+    };
+    checkData();
+  });
+}
+
+// Should add to content.js
+window.addEventListener('repliesComplete', () => {
+    console.log('✅ Replies scraping complete');
+    chrome.runtime.sendMessage({ type: 'CLOSE_TAB' });
+});
+
+// Profile Visit Interceptor Setup
+function setupProfileVisitRequestCapture() {
+    console.log('🔄 Setting up profile visit request capture');
+    
+    // Check if interceptor script is already injected
+    if (!window.profileVisitRequestData) {
+        console.log('📥 Injecting profile visit interceptor script');
+        const script = document.createElement('script');
+        script.src = chrome.runtime.getURL('profilevisitinterceptor.js');
+        script.onload = () => {
+            console.log('✅ Profile visit interceptor script loaded');
+            script.remove();
+        };
+        (document.head || document.documentElement).appendChild(script);
+    }
+
+    // Listen for profile visit data from interceptor
+    window.addEventListener('profileVisitDataCaptured', function(event) {
+        console.log('📊 Profile visit data captured:', event.detail);
+        
+        // Send data to background script
+        chrome.runtime.sendMessage({
+            type: 'SCRAPED_DATA',
+            data: {
+                type: 'PROFILE_VISIT',
+                content: event.detail.data
+            }
+        });
+    });
+}
+
+// Function to handle profile visit scraping
+async function handleProfileVisitScraping() {
+    console.log('🔄 Starting profile visit scraping');
+    
+    // Check if profile visit scraping is enabled
+    const storage = await new Promise(resolve => {
+        chrome.storage.local.get(['isProfileVisitScrapingEnabled', 'initialUsername'], resolve);
+    });
+
+    if (!storage.isProfileVisitScrapingEnabled) {
+        console.log('🚫 Profile visit scraping is disabled');
+        return;
+    }
+    
+    // Setup request capture
+    setupProfileVisitRequestCapture();
+    
+    // Get current URL and extract handle
+    const currentUrl = window.location.href;
+    const match = currentUrl.match(/twitter\.com\/([^/]+)$/);
+    
+    if (match) {
+        const visitedHandle = match[1];
+        
+        // Skip if visiting own profile
+        if (visitedHandle === storage.initialUsername) {
+            console.log('👤 Skipping own profile visit:', visitedHandle);
+            return;
+        }
+        
+        console.log('👤 Detected profile visit:', visitedHandle);
+        
+        // Send profile visit data to background script
+        chrome.runtime.sendMessage({
+            type: 'SCRAPED_DATA',
+            data: {
+                type: 'PROFILE_VISIT',
+                content: {
+                    visitedHandle,
+                    timestamp: new Date().toISOString(),
+                    url: currentUrl,
+                    userHandle: storage.initialUsername // Add user's handle for double-checking
+                }
+            }
+        });
+    }
+}
+
+// Add URL change monitoring for profile visits
+let lastProcessedUrl = '';
+
+// Function to check URL changes
+function checkUrlChange() {
+    const currentUrl = window.location.href;
+    if (currentUrl !== lastProcessedUrl) {
+        lastProcessedUrl = currentUrl;
+        handleProfileVisitScraping();
+    }
+}
+
+// Set up URL change monitoring
+const urlObserver = new MutationObserver(() => {
+    checkUrlChange();
+});
+
+// Start observing URL changes when profile visit scraping is enabled
+chrome.storage.local.get(['isProfileVisitScrapingEnabled'], (result) => {
+    if (result.isProfileVisitScrapingEnabled) {
+        urlObserver.observe(document, { subtree: true, childList: true });
+        // Check initial URL
+        checkUrlChange();
+    }
+});
+
+// Update observer when scraping state changes
+chrome.storage.onChanged.addListener((changes) => {
+    if (changes.isProfileVisitScrapingEnabled) {
+        if (changes.isProfileVisitScrapingEnabled.newValue) {
+            urlObserver.observe(document, { subtree: true, childList: true });
+            checkUrlChange();
+        } else {
+            urlObserver.disconnect();
+        }
+    }
+});

@@ -24,12 +24,14 @@
    const [scrapingStatus, setScrapingStatus] = useState({
      hasScrapedProfile: false,
      hasScrapedLikes: false,
-     hasScrapedFollowing: false
+     hasScrapedFollowing: false,
+     hasScrapedReplies: false
    });
    const [profileData, setProfileData] = useState(null);
    const [isMainScrapingEnabled, setIsMainScrapingEnabled] = useState(false);
    const [showPermissionDialog, setShowPermissionDialog] = useState(false);
    const [isBackgroundTweetScrapingEnabled, setIsBackgroundTweetScrapingEnabled] = useState(false);
+   const [isRepliesScraping, setIsRepliesScraping] = useState(false);
  
    useEffect(() => {
      // Get initial states
@@ -40,19 +42,23 @@
        'hasScrapedProfile', 
        'hasScrapedLikes', 
        'hasScrapedFollowing',
+       'hasScrapedReplies',
        'profileData',
-       'isFollowingEnabled'
+       'isFollowingEnabled',
+       'isRepliesScrapingEnabled'
      ], (result) => {
        console.log('📊 Loading initial states:', result);
        setIsMainScrapingEnabled(result.isMainScrapingEnabled ?? false);
        setIsScrapingEnabled(result.isScrapingEnabled ?? false);
        setIsBackgroundTweetScrapingEnabled(result.isBackgroundTweetScrapingEnabled ?? false);
        setIsFollowingEnabled(result.isFollowingEnabled ?? false);
+       setIsRepliesScraping(result.isRepliesScrapingEnabled || false);
        
        setScrapingStatus({
          hasScrapedProfile: result.hasScrapedProfile || false,
          hasScrapedLikes: result.hasScrapedLikes || false,
-         hasScrapedFollowing: result.hasScrapedFollowing || false
+         hasScrapedFollowing: result.hasScrapedFollowing || false,
+         hasScrapedReplies: result.hasScrapedReplies || false
        });
        setProfileData(result.profileData || null);
      });
@@ -73,11 +79,12 @@
        if (changes.isFollowingEnabled) {
          setIsFollowingEnabled(changes.isFollowingEnabled.newValue);
        }
-       if (changes.hasScrapedProfile || changes.hasScrapedLikes || changes.hasScrapedFollowing) {
+       if (changes.hasScrapedProfile || changes.hasScrapedLikes || changes.hasScrapedFollowing || changes.hasScrapedReplies) {
          setScrapingStatus(prev => ({
            hasScrapedProfile: changes.hasScrapedProfile?.newValue ?? prev.hasScrapedProfile,
            hasScrapedLikes: changes.hasScrapedLikes?.newValue ?? prev.hasScrapedLikes,
-           hasScrapedFollowing: changes.hasScrapedFollowing?.newValue ?? prev.hasScrapedFollowing
+           hasScrapedFollowing: changes.hasScrapedFollowing?.newValue ?? prev.hasScrapedFollowing,
+           hasScrapedReplies: changes.hasScrapedReplies?.newValue ?? prev.hasScrapedReplies
          }));
        }
        if (changes.profileData) {
@@ -103,6 +110,7 @@
      
      chrome.storage.local.set({ 
        isScrapingEnabled: newState,
+       isProfileVisitScrapingEnabled: newState,  // Toggle profile visit scraping
        ...(newState ? {
          hasScrapedProfile: false,
          hasScrapedLikes: false
@@ -112,6 +120,19 @@
          type: 'TOGGLE_SCRAPING',
          enabled: newState
        });
+
+       // If turning off, stop all profile visit scraping
+       if (!newState) {
+         chrome.tabs.query({ url: "*://*.x.com/*" }, (tabs) => {
+           tabs.forEach(tab => {
+             chrome.tabs.sendMessage(tab.id, {
+               type: 'STOP_PROFILE_VISIT_SCRAPING'
+             }).catch(error => {
+               console.log('Tab might not be ready:', error);
+             });
+           });
+         });
+       }
      });
    };
  
@@ -201,7 +222,8 @@
              isMainScrapingEnabled: false,
              isScrapingEnabled: false,
              isBackgroundTweetScrapingEnabled: false,
-             isFollowingEnabled: false
+             isFollowingEnabled: false,
+             isRepliesScrapingEnabled: false
          }, () => {
              // Stop all active scraping processes
              chrome.runtime.sendMessage({
@@ -213,8 +235,24 @@
              setIsScrapingEnabled(false);
              setIsBackgroundTweetScrapingEnabled(false);
              setIsFollowingEnabled(false);
+             setIsRepliesScraping(false);
          });
      }
+   };
+ 
+   const handleRepliesScraping = () => {
+     const newState = !isRepliesScraping;
+     // Check if we have the username before proceeding
+     if (newState && !profileData?.username) {
+       console.error('No username available for replies scraping');
+       return;
+     }
+     setIsRepliesScraping(newState);
+     chrome.runtime.sendMessage({
+       type: 'TOGGLE_REPLIES_SCRAPING',
+       enabled: newState,
+       username: profileData?.username || ''  // Ensure username is always defined
+     });
    };
  
    return (
@@ -250,13 +288,18 @@
                              <span>Likes Data:</span>
                              <span>{scrapingStatus.hasScrapedLikes ? '✅' : <LoadingSpinner />}</span>
                          </p>
-                         <p className="flex justify-between items-center">
+                         <p className="flex justify-between items-center mb-1">
                              <span>Following Data:</span>
                              <span>{scrapingStatus.hasScrapedFollowing ? '✅' : <LoadingSpinner />}</span>
+                         </p>
+                         <p className="flex justify-between items-center">
+                             <span>Posts Data:</span>
+                             <span>{scrapingStatus.hasScrapedReplies ? '✅' : <LoadingSpinner />}</span>
                          </p>
                      </div>
                  </div>
  
+
                  {/* Toggles Section */}
                  <div className="flex flex-col items-center space-y-2 mb-4 w-full">
                      {/* Main Scraping Toggle */}
@@ -326,6 +369,24 @@
                          >
                              <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 ease-in-out ${
                                  isFollowingEnabled ? 'translate-x-8' : 'translate-x-1'
+                             }`} />
+                         </button>
+                     </div>
+ 
+                     {/* Posts Toggle */}
+                     <div className="flex items-center justify-between w-full px-2">
+                         <span className="text-sm font-medium text-gray-700">
+                             Posts Scraping
+                         </span>
+                         <button
+                             onClick={handleRepliesScraping}
+                             disabled={!isMainScrapingEnabled}
+                             className={`relative inline-flex h-7 w-14 items-center rounded-full transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#008AD4FF] focus:ring-offset-2 ${
+                                 isRepliesScraping ? 'bg-[#008AD4FF]' : 'bg-gray-200'
+                             } ${!isMainScrapingEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                         >
+                             <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 ease-in-out ${
+                                 isRepliesScraping ? 'translate-x-8' : 'translate-x-1'
                              }`} />
                          </button>
                      </div>

@@ -46,6 +46,22 @@ const Dashboard = () => {
                     const accounts = await window.ethereum.request({ method: 'eth_accounts' });
                     if (accounts.length > 0) {
                         setWalletAddress(accounts[0]);
+                        // Store in both localStorage and chrome.storage.local
+                        localStorage.setItem('walletConnected', 'true');
+                        localStorage.setItem('walletAddress', accounts[0]);
+                        chrome.storage.local.set({ 
+                            walletAddress: accounts[0],
+                            walletConnected: true
+                        }, () => {
+                            console.log('✅ Wallet address stored in chrome.storage:', accounts[0]);
+                        });
+                        // Notify background script
+                        chrome.runtime.sendMessage({
+                            type: 'WALLET_CONNECTED',
+                            data: {
+                                address: accounts[0]
+                            }
+                        });
                     } else {
                         navigate('/');
                     }
@@ -59,8 +75,22 @@ const Dashboard = () => {
         const handleAccountsChanged = (accounts) => {
             if (accounts.length > 0) {
                 setWalletAddress(accounts[0]);
+                // Store in both localStorage and chrome.storage.local
                 localStorage.setItem('walletConnected', 'true');
                 localStorage.setItem('walletAddress', accounts[0]);
+                chrome.storage.local.set({ 
+                    walletAddress: accounts[0],
+                    walletConnected: true
+                }, () => {
+                    console.log('✅ Wallet address updated in chrome.storage:', accounts[0]);
+                });
+                // Notify background script
+                chrome.runtime.sendMessage({
+                    type: 'WALLET_CONNECTED',
+                    data: {
+                        address: accounts[0]
+                    }
+                });
             } else {
                 handleDisconnect();
             }
@@ -76,9 +106,20 @@ const Dashboard = () => {
         const handleDisconnect = async () => {
             console.log('🔄 Starting wallet disconnect and Twitter shutdown process...');
             
-            // Clear local storage for wallet
+            // Clear wallet data from both storages
             localStorage.removeItem('walletConnected');
             localStorage.removeItem('walletAddress');
+            chrome.storage.local.set({ 
+                walletAddress: null,
+                walletConnected: false
+            }, () => {
+                console.log('✅ Wallet data cleared from chrome.storage');
+            });
+            
+            // Notify background script
+            chrome.runtime.sendMessage({
+                type: 'WALLET_DISCONNECTED'
+            });
             
             // Clear wallet state
             setWalletAddress('');
@@ -118,7 +159,6 @@ const Dashboard = () => {
             navigate('/', { replace: true });
             console.log('✅ Navigation to home complete');
         };
-
         
         checkWalletConnection();
 
