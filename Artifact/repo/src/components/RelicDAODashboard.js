@@ -72,7 +72,7 @@ const InfoSheet = ({ onClose }) => {
 };
 
 
-const SettingsSheet = ({ onClose,onLogout }) => {
+const SettingsSheet = ({ onClose, onLogout }) => {
     const navigate = useNavigate();
     const handleProfileButton = async () => {
         console.log("Profile button pressed");
@@ -80,13 +80,24 @@ const SettingsSheet = ({ onClose,onLogout }) => {
         navigate('/relicdao/dashboard/profile');
     };
     
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        // Check if current tab is chrome new tab
+        const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        const isNewTab = activeTab?.url === 'chrome-native://newtab/';
+
         // Set isLoggedIn to false in chrome storage
         chrome.storage.local.set({
             isLoggedIn: false,
             authToken: null
-        }, () => {
+        }, async () => {
             console.log('Logged out, storage updated');
+            
+            // If we're on a new tab page, close it and open a new one
+            if (isNewTab) {
+                await chrome.tabs.remove(activeTab.id);
+                await chrome.tabs.create({ url: 'chrome-native://newtab/' });
+            }
+            
             onLogout();
         });
     };
@@ -102,12 +113,6 @@ const SettingsSheet = ({ onClose,onLogout }) => {
             <p className="text-gray-400 mb-6">
                 To manage your account settings, please visit app.relicdao.com
             </p>
-            <button
-                className="w-full bg-[#272a2f] text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition duration-300"
-                onClick={() => navigate('/relicdao')}
-            >
-                Go to RelicDAO
-            </button>
             <button
                 className="w-full bg-[#272a2f] text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition duration-300 mt-2"
                 onClick={handleProfileButton}
@@ -208,21 +213,21 @@ const RelicDAODashboard = ({onLogout}) => {
                         setReferralCode(userResponse.data.profile.referral_code);
                     } 
 
-                    // const stakingResponse = await axios.post(`${apiUrl}/v2/externals/data-staking/verify`,
-                    //     {
-                    //       reward: "TELEGRAM_FEATURED_AD_REWARD",
-                    //     },
-                    //     {
-                    //       headers: {
-                    //         Authorization: `Bearer ${token}`,
-                    //       },
-                    //     }
-                    // );
+                    const stakingResponse = await axios.post(`${apiUrl}/v2/externals/data-staking/verify`,
+                        {
+                          reward: "TELEGRAM_FEATURED_AD_REWARD",
+                        },
+                        {
+                          headers: {
+                            Authorization: `Bearer ${token}`,
+                          },
+                        }
+                    );
               
-                    // if (stakingResponse.data.success) {
-                    //     console.log(stakingResponse.data);
-                    //     setIsDataStakingOn(stakingResponse.data.success); 
-                    // }
+                    if (stakingResponse.data.success) {
+                        console.log(stakingResponse.data);
+                        setIsDataStakingOn(stakingResponse.data.success); 
+                    }
                 } catch (error) {
                     console.error('Error fetching data:', error);
                     // If there's an auth error, clear the storage
@@ -466,9 +471,6 @@ const RelicDAODashboard = ({onLogout}) => {
             <div className="bg-black text-white min-h-screen p-4">
                 <header className="flex items-center mb-6 justify-between py-4">
                     <div className="flex items-center">
-                        <button className="text-2xl mr-4" onClick={handleBackButton}>
-                            <IoArrowBack />
-                        </button>
                         <img src={relicDAOLogo} alt="RelicDAO Logo" className="w-8 h-8" />
                         <span className="ml-2 text-xl font-bold">RelicDAO</span>
                     </div>
