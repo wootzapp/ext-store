@@ -1753,17 +1753,102 @@ window.addEventListener('repliesComplete', () => {
     chrome.runtime.sendMessage({ type: 'CLOSE_TAB' });
 });
 
-// Profile Visit Interceptor Setup
-function setupProfileVisitRequestCapture() {
-    console.log('🔄 Setting up profile visit request capture');
+// Function to handle profile visit scraping
+async function handleProfileVisitScraping() {
+    console.log('🔄 Starting profile visit scraping');
     
-    // Check if interceptor script is already injected
+    // Check if profile visit scraping is enabled and get user info
+    const storage = await new Promise(resolve => {
+        chrome.storage.local.get([
+            'isProfileVisitScrapingEnabled', 
+            'initialUsername',
+            'userHandle',
+            'visitedProfiles',
+            'lastVisitedProfile',
+            'lastVisitTime'
+        ], resolve);
+    });
+
+    if (!storage.isProfileVisitScrapingEnabled) {
+        console.log('🚫 Profile visit scraping is disabled');
+        return;
+    }
+
+    // Get current URL and extract handle
+    const currentUrl = window.location.href;
+    const match = currentUrl.match(/x\.com\/([^/?#]+)$/);
+    
+    if (!match) {
+        console.log('🚫 Not a valid x.com profile URL');
+        return;
+    }
+
+    const visitedHandle = match[1];
+    const userHandle = storage.initialUsername || storage.userHandle;
+
+    // Skip special paths and own profile
+    if (!visitedHandle || 
+        visitedHandle === userHandle || 
+        visitedHandle === storage.initialUsername || 
+        visitedHandle === storage.userHandle ||
+        ['home', 'explore', 'notifications', 'messages', 'i', 'settings', 
+         'search', 'lists', 'communities'].includes(visitedHandle)) {
+        console.log('👤 Skipping special path or own profile:', visitedHandle);
+        return;
+    }
+
+    // Check for duplicate visit within debounce period (5 seconds)
+    const now = Date.now();
+    if (visitedHandle === storage.lastVisitedProfile && 
+        now - (storage.lastVisitTime || 0) < 5000) {
+        console.log('🔄 Skipping duplicate visit within debounce period:', visitedHandle);
+        return;
+    }
+
+    // Update last visit data
+    chrome.storage.local.set({
+        lastVisitedProfile: visitedHandle,
+        lastVisitTime: now
+    });
+
+    // Initialize visited profiles if not exists
+    const visitedProfiles = storage.visitedProfiles || [];
+
+    console.log('👤 Processing profile visit:', {
+        visitor: userHandle,
+        visited: visitedHandle
+    });
+
+    // Update visited profiles list if not already included
+    if (!visitedProfiles.includes(visitedHandle)) {
+        visitedProfiles.push(visitedHandle);
+        chrome.storage.local.set({ visitedProfiles });
+        // Notify UI about the update
+        chrome.runtime.sendMessage({
+            type: 'VISITED_PROFILES_UPDATED',
+            data: visitedProfiles
+        });
+    }
+
+    // Send profile visit data to background script
+    chrome.runtime.sendMessage({
+        type: 'SEND_PROFILE_VISIT',
+        data: {
+            visitedHandle,
+            userHandle: userHandle,
+            timestamp: new Date().toISOString()
+        }
+    });
+}
+
+// Function to setup profile visit request capture
+function setupProfileVisitRequestCapture() {
     if (!window.profileVisitRequestData) {
         console.log('📥 Injecting profile visit interceptor script');
         const script = document.createElement('script');
         script.src = chrome.runtime.getURL('profilevisitinterceptor.js');
         script.onload = () => {
-            console.log('✅ Profile visit interceptor script loaded');
+            console.log('✅ Profile visit interceptor loaded');
             script.remove();
         };
         (document.head || document.documentElement).appendChild(script);
@@ -1771,65 +1856,44 @@ function setupProfileVisitRequestCapture() {
 
     // Listen for profile visit data from interceptor
     window.addEventListener('profileVisitDataCaptured', function(event) {
-        console.log('📊 Profile visit data captured:', event.detail);
+        if (!event.detail || !event.detail.data) return;
         
-        // Send data to background script
-        chrome.runtime.sendMessage({
-            type: 'SCRAPED_DATA',
-            data: {
-                type: 'PROFILE_VISIT',
-                content: event.detail.data
+        const visitData = event.detail.data;
+        console.log('📊 Profile visit data captured:', visitData);
+        
+        // Double check it's not our own profile
+        chrome.storage.local.get(['initialUsername', 'userHandle', 'lastVisitTime', 'lastVisitedProfile'], (storage) => {
+            if (visitData.handle === storage.initialUsername || 
+                visitData.handle === storage.userHandle) {
+                console.log('🚫 Skipping own profile visit');
+                return;
             }
-        });
-    });
-}
 
-// Function to handle profile visit scraping
-async function handleProfileVisitScraping() {
-    console.log('🔄 Starting profile visit scraping');
-    
-    // Check if profile visit scraping is enabled
-    const storage = await new Promise(resolve => {
-        chrome.storage.local.get(['isProfileVisitScrapingEnabled', 'initialUsername'], resolve);
-    });
+            // Check for duplicate visit within debounce period
+            const now = Date.now();
+            if (visitData.handle === storage.lastVisitedProfile && 
+                now - (storage.lastVisitTime || 0) < 5000) {
+                console.log('🔄 Skipping duplicate visit within debounce period:', visitData.handle);
+                return;
+            }
 
-    if (!storage.isProfileVisitScrapingEnabled) {
-        console.log('🚫 Profile visit scraping is disabled');
-        return;
-    }
-    
-    // Setup request capture
-    setupProfileVisitRequestCapture();
-    
-    // Get current URL and extract handle
-    const currentUrl = window.location.href;
-    const match = currentUrl.match(/twitter\.com\/([^/]+)$/);
-    
-    if (match) {
-        const visitedHandle = match[1];
-        
-        // Skip if visiting own profile
-        if (visitedHandle === storage.initialUsername) {
-            console.log('👤 Skipping own profile visit:', visitedHandle);
-            return;
-        }
-        
-        console.log('👤 Detected profile visit:', visitedHandle);
-        
-        // Send profile visit data to background script
-        chrome.runtime.sendMessage({
-            type: 'SCRAPED_DATA',
-            data: {
-                type: 'PROFILE_VISIT',
-                content: {
-                    visitedHandle,
-                    timestamp: new Date().toISOString(),
-                    url: currentUrl,
-                    userHandle: storage.initialUsername // Add user's handle for double-checking
+            // Update last visit data
+            chrome.storage.local.set({
+                lastVisitedProfile: visitData.handle,
+                lastVisitTime: now
+            });
+            
+            // Send data to background script
+            chrome.runtime.sendMessage({
+                type: 'SEND_PROFILE_VISIT',
+                data: {
+                    visitedHandle: visitData.handle,
+                    userHandle: storage.initialUsername || storage.userHandle,
+                    timestamp: visitData.timestamp
                 }
-            }
+            });
         });
-    }
+    });
 }
 
 // Add URL change monitoring for profile visits

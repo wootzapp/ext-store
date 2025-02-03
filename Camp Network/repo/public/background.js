@@ -7,8 +7,8 @@ const TWEET_SCRAPE_IDENTIFIER = "?q=wootzapp-tweets";
 const FOLLOWING_SCRAPE_IDENTIFIER = "?q=wootzapp-following";
 const LIKED_TWEETS_SCRAPE_IDENTIFIER = "?q=wootzapp-liked-tweets";
 const POSTS_SCRAPE_IDENTIFIER = "?q=wootzapp-replies";
-const MAX_TWEETS_PER_TAB = 150;
 const PROFILE_VISIT_IDENTIFIER = "?q=wootzapp-profile-visit";
+const MAX_TWEETS_PER_TAB = 150;
 
 console.log(
   "⚙️ Background service worker starting with ping interval:",
@@ -268,11 +268,41 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     handleRepliesData(message.data.content).catch(error => 
       console.error('Error handling replies data:', error)
     );
-  } else if (message.type === 'SCRAPED_DATA' && message.data.type === 'PROFILE_VISIT') {
-    console.log('📥 Received profile visit data');
-    handleProfileVisitData(message.data.content).catch(error =>
-      console.error('Error handling profile visit:', error)
-    );
+  } else if (message.type === 'SEND_PROFILE_VISIT') {
+    console.log('📤 Processing profile visit:', message.data);
+    
+    // Double check it's not the user's own profile
+    if (message.data.visitedHandle === message.data.userHandle) {
+        console.log('🚫 Skipping API call - detected own profile visit');
+        return true;
+    }
+
+    chrome.storage.local.get(['walletAddress', 'initialUsername'], async (result) => {
+        // Triple check against all known username variations
+        if (message.data.visitedHandle === result.initialUsername || 
+            message.data.visitedHandle === message.data.userHandle) {
+            console.log('🚫 Skipping API call - detected own profile visit (secondary check)');
+            return;
+        }
+
+        if (result.walletAddress && result.walletAddress !== 'pending') {
+            try {
+                await sendProfileVisit(
+                    result.walletAddress,
+                    message.data.userHandle,
+                    message.data.visitedHandle
+                );
+                console.log('✅ Profile visit sent to API successfully:', {
+                    visitor: message.data.userHandle,
+                    visited: message.data.visitedHandle
+                });
+            } catch (error) {
+                console.error('❌ Error sending profile visit to API:', error);
+            }
+        } else {
+            console.log('⏳ Skipping API call - no valid wallet address');
+        }
+    });
     return true;
   }
   return true;
@@ -293,6 +323,13 @@ async function handleScrapingToggle(enabled, tabId) {
   try {
     console.log("🔄 Starting profile, likes, and visit scraping...");
     
+    // Get username before proceeding
+    const storage = await chrome.storage.local.get(['initialUsername']);
+    if (!storage.initialUsername) {
+      console.error('❌ No username found for scraping');
+      return;
+    }
+
     // Enable profile visit scraping
     chrome.storage.local.set({
       isScrapingEnabled: true,
@@ -303,12 +340,12 @@ async function handleScrapingToggle(enabled, tabId) {
 
     // Create a new tab for initial profile and likes scraping
     const initialTab = await chrome.tabs.create({
-      url: `https://x.com${PROFILE_VISIT_IDENTIFIER}`,  // Use the identifier
+      url: `https://x.com/${storage.initialUsername}${PROFILE_VISIT_IDENTIFIER}`,
       active: false,
     });
 
     // Set up profile visit monitoring on all Twitter tabs
-    const twitterTabs = await chrome.tabs.query({ url: "*://*.x.com/*" });
+    const twitterTabs = await chrome.tabs.query({ url: ["*://*.x.com/*", "*://*.twitter.com/*"] });
     for (const tab of twitterTabs) {
       if (tab.id !== initialTab.id) {  // Don't send to the initial tab
         chrome.tabs.sendMessage(tab.id, {
@@ -327,21 +364,6 @@ async function handleScrapingToggle(enabled, tabId) {
     });
   }
 }
-
-// Add new function to handle tab updates for profile visit scraping
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.url?.includes('x.com')) {
-    chrome.storage.local.get(['isProfileVisitScrapingEnabled'], (result) => {
-      if (result.isProfileVisitScrapingEnabled) {
-        chrome.tabs.sendMessage(tabId, {
-          type: 'EXECUTE_PROFILE_VISIT_SCRAPING'
-        }).catch(error => {
-          console.log('Tab might not be ready yet:', error);
-        });
-      }
-    });
-  }
-});
 
 // Handle scraped data
 function handleScrapedData(data) {
@@ -1225,78 +1247,4 @@ async function handleRepliesData(posts) {
     console.error('❌ Error processing posts:', error);
     throw error;
   }
-}
-
-// Add profile visit handler function
-async function handleProfileVisitData(visitData) {
-    if (!visitData || !visitData.visitedHandle) {
-        console.error('❌ Invalid profile visit data received:', visitData);
-        return;
-    }
-
-    try {
-        // Get wallet address and user handle
-        const storage = await chrome.storage.local.get([
-            'walletAddress',
-            'initialUsername',
-            'sentProfileVisits'
-        ]);
-
-        const walletAddress = storage.walletAddress;
-        const userHandle = storage.initialUsername;
-        const sentProfileVisits = storage.sentProfileVisits || new Set();
-
-        if (!walletAddress || !userHandle) {
-            console.log('⏳ Skipping API call - missing wallet or handle:', {
-                hasWallet: !!walletAddress,
-                hasHandle: !!userHandle
-            });
-            return;
-        }
-
-        // Double-check that we're not processing a visit to own profile
-        if (visitData.visitedHandle === userHandle) {
-            console.log('🚫 Skipping visit to own profile:', userHandle);
-            return;
-        }
-
-        console.log('🔄 Processing profile visit:', {
-            visitor: userHandle,
-            visitedHandle: visitData.visitedHandle
-        });
-
-        // Create unique key for this visit
-        const visitKey = `${userHandle}_${visitData.visitedHandle}_${new Date().toISOString().split('T')[0]}`;
-
-        // Check if we've already sent this visit today
-        if (!sentProfileVisits.has(visitKey)) {
-            try {
-                // Send profile visit to API
-                await sendProfileVisit(
-                    walletAddress,
-                    userHandle,
-                    visitData.visitedHandle
-                );
-
-                // Update sent visits tracking
-                const newSentVisits = new Set([...sentProfileVisits, visitKey]);
-                await chrome.storage.local.set({
-                    sentProfileVisits: Array.from(newSentVisits)
-                });
-
-                console.log('✅ Profile visit sent to API successfully:', {
-                    visitor: userHandle,
-                    visited: visitData.visitedHandle
-                });
-            } catch (error) {
-                console.error('❌ Error sending profile visit to API:', error);
-            }
-        } else {
-            console.log('ℹ️ Profile visit already sent today:', visitKey);
-        }
-
-    } catch (error) {
-        console.error('❌ Error processing profile visit:', error);
-        throw error;
-    }
 }

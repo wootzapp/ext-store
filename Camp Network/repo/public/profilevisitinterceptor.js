@@ -3,150 +3,120 @@
     
     // Initialize data in window scope
     window.profileVisitData = {
-        currentProfileHandle: null,
         lastVisitedProfile: null,
         lastVisitTime: null
     };
 
-    // Function to send data to content script
-    function sendToContentScript(data, type = 'PROFILE_VISIT') {
-        try {
-            console.log(`📤 Sending profile visit data to content script:`, data);
-            window.dispatchEvent(new CustomEvent('profileVisitCaptured', {
-                detail: {
-                    type: type,
-                    data: data
-                }
-            }));
-        } catch (error) {
-            console.error('Error sending data to content script:', error);
-        }
+    // Special paths to ignore
+    const IGNORED_PATHS = [
+        'home', 'explore', 'notifications', 'messages', 'i', 'settings',
+        'jobs', 'search', 'lists', 'communities'
+    ];
+
+    // Profile sections to ignore (when appended to username)
+    const IGNORED_SECTIONS = [
+        'with_replies', 'media', 'likes', 'highlights',
+        'articles', 'communities', 'lists', 'followers',
+        'following', 'topics'
+    ];
+
+    // Function to check if a path should be ignored
+    function isIgnoredPath(path) {
+        return IGNORED_PATHS.includes(path) || 
+               IGNORED_SECTIONS.some(section => path.endsWith('/' + section));
     }
 
-    // Helper function to extract profile handle from URL
+    // Function to extract clean profile handle
     function extractProfileHandle(url) {
         try {
             const urlObj = new URL(url);
+            // Only match x.com domain
+            if (!urlObj.hostname.endsWith('x.com')) {
+                return null;
+            }
+            
             const pathParts = urlObj.pathname.split('/').filter(Boolean);
             
-            // Ignore non-profile paths and subpages
-            const ignorePaths = ['home', 'explore', 'notifications', 'messages', 'i', 'settings', 
-                               'following', 'followers', 'likes', 'media', 'search', 'lists'];
-            
-            // Check if it's a valid profile path
-            if (pathParts.length > 0 && 
-                !ignorePaths.includes(pathParts[0]) && 
-                !pathParts[0].startsWith('?') && 
-                !pathParts[0].startsWith('#')) {
-                return pathParts[0];
+            // If no path parts or first part is an ignored path, return null
+            if (!pathParts.length || isIgnoredPath(pathParts[0])) {
+                return null;
             }
-            return null;
+
+            // Get the base handle (first path segment)
+            const handle = pathParts[0];
+
+            // If it's a profile section (like /username/with_replies), ignore it
+            if (pathParts.length > 1 && IGNORED_SECTIONS.includes(pathParts[1])) {
+                return null;
+            }
+
+            return handle;
         } catch (error) {
             console.error('Error extracting profile handle:', error);
             return null;
         }
     }
 
-    // Function to check if URL is a profile page
-    function isProfilePage(url) {
-        try {
-            const urlObj = new URL(url);
-            const pathParts = urlObj.pathname.split('/').filter(Boolean);
-            
-            // Ignore specific Twitter routes and empty paths
-            const ignorePaths = ['home', 'explore', 'notifications', 'messages', 'i', 'settings',
-                               'following', 'followers', 'likes', 'media', 'search', 'lists'];
-            
-            // Additional checks for valid profile URL
-            return pathParts.length > 0 && 
-                   !ignorePaths.includes(pathParts[0]) &&
-                   !pathParts[0].startsWith('?') &&
-                   !pathParts[0].startsWith('#');
-        } catch {
-            return false;
-        }
+    // Function to send data to content script
+    function sendToContentScript(data) {
+        console.log('📤 Sending profile visit data to content script:', data);
+        window.dispatchEvent(new CustomEvent('profileVisitDataCaptured', {
+            detail: {
+                type: 'PROFILE_VISIT',
+                data: data
+            }
+        }));
     }
 
-    // Function to handle profile visits with debouncing
-    let visitTimeout = null;
+    // Function to handle profile visits
     function handleProfileVisit(url) {
-        try {
-            if (!isProfilePage(url)) return;
-
-            const profileHandle = extractProfileHandle(url);
-            if (!profileHandle) return;
-
-            // Avoid duplicate events for the same profile within 2 seconds
-            const now = Date.now();
-            if (profileHandle === window.profileVisitData.lastVisitedProfile &&
-                now - (window.profileVisitData.lastVisitTime || 0) < 2000) {
-                return;
-            }
-
-            // Clear any pending timeout
-            if (visitTimeout) {
-                clearTimeout(visitTimeout);
-            }
-
-            // Set a timeout to ensure the page has loaded
-            visitTimeout = setTimeout(() => {
-                console.log(`🔍 Detected visit to profile: @${profileHandle}`);
-                window.profileVisitData.lastVisitedProfile = profileHandle;
-                window.profileVisitData.currentProfileHandle = profileHandle;
-                window.profileVisitData.lastVisitTime = now;
-
-                sendToContentScript({
-                    handle: profileHandle,
-                    timestamp: new Date().toISOString(),
-                    url: url
-                }, 'PROFILE_VISIT');
-            }, 500);
-
-        } catch (error) {
-            console.error('Error handling profile visit:', error);
+        const handle = extractProfileHandle(url);
+        
+        // Skip if no valid handle or same profile within debounce period
+        if (!handle) {
+            return;
         }
+
+        const now = Date.now();
+        // Debounce period of 5 seconds for the same profile
+        if (handle === window.profileVisitData.lastVisitedProfile &&
+            now - (window.profileVisitData.lastVisitTime || 0) < 5000) {
+            return;
+        }
+
+        // Update last visit data
+        window.profileVisitData.lastVisitedProfile = handle;
+        window.profileVisitData.lastVisitTime = now;
+
+        // Send visit data
+        sendToContentScript({
+            handle: handle,
+            timestamp: new Date().toISOString(),
+            url: url
+        });
     }
 
-    try {
-        // Set up URL change monitoring using History API
-        const originalPushState = window.history.pushState;
-        const originalReplaceState = window.history.replaceState;
+    // Monitor URL changes using History API
+    const originalPushState = window.history.pushState;
+    const originalReplaceState = window.history.replaceState;
 
-        // Monitor pushState
-        window.history.pushState = function() {
-            try {
-                originalPushState.apply(this, arguments);
-            } catch (error) {
-                console.error('Error in pushState:', error);
-            }
-            handleProfileVisit(window.location.href);
-        };
-
-        // Monitor replaceState
-        window.history.replaceState = function() {
-            try {
-                originalReplaceState.apply(this, arguments);
-            } catch (error) {
-                console.error('Error in replaceState:', error);
-            }
-            handleProfileVisit(window.location.href);
-        };
-
-        // Monitor URL changes through popstate event
-        window.addEventListener('popstate', function() {
-            handleProfileVisit(window.location.href);
-        });
-
-        // Monitor URL changes through navigation events
-        window.addEventListener('navigationend', function() {
-            handleProfileVisit(window.location.href);
-        });
-
-        // Check initial page load
+    window.history.pushState = function() {
+        originalPushState.apply(this, arguments);
         handleProfileVisit(window.location.href);
+    };
 
-        console.log('✅ Profile visit interceptor ready - monitoring profile visits');
-    } catch (error) {
-        console.error('Error setting up profile visit interceptor:', error);
-    }
+    window.history.replaceState = function() {
+        originalReplaceState.apply(this, arguments);
+        handleProfileVisit(window.location.href);
+    };
+
+    // Listen for popstate events (back/forward navigation)
+    window.addEventListener('popstate', () => {
+        handleProfileVisit(window.location.href);
+    });
+
+    // Check initial URL
+    handleProfileVisit(window.location.href);
+
+    console.log('✅ Profile visit interceptor ready');
 })(); 
