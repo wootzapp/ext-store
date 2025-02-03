@@ -19,7 +19,6 @@
     "webNavigation"
   ],
   "background": {
-    "service_worker": "background.js",
     "type": "module"
   },
   "web_accessible_resources": [
@@ -31,15 +30,13 @@
         "widget.html",
         "static/js/*",
         "static/css/*",
-        "icons/*",
-        "interceptor.js"
+        "icons/*"
       ],
       "matches": ["<all_urls>"],
       "use_dynamic_url": true
     }
   ],
   "host_permissions": [
-    "<all_urls>",
     "https://api-staging-0.gotartifact.com/*",
     "https://extension.free.beeceptor.com/*",
     "https://dev.relicdao.com/*"
@@ -65,12 +62,5 @@
   },
   "externally_connectable": {
     "matches": ["<all_urls>"]
-  },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_end"
-    }
-  ]
+  }
 }

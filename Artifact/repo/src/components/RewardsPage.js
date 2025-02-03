@@ -16,15 +16,6 @@ const RewardsPage = ({ onLogout }) => {
 
   const handleGetProfile = () => navigate('/profile');
 
-  const handleConnect = async () => {
-    try {
-      const wallet = await connect();
-      console.log("Connected wallet:", wallet);
-    } catch (error) {
-      console.error("Failed to connect wallet:", error);
-    }
-  };
-
   const ToggleButton = ({ isEnabled, setIsEnabled, label }) => (
     <div className="flex justify-between items-center">
       <span>{label}: 0</span>
@@ -38,12 +29,12 @@ const RewardsPage = ({ onLogout }) => {
   );
 
   return (
-    <div className="flex flex-col h-screen bg-white text-black">
-      <header className="p-4 border-b flex justify-center">
+    <div className="flex flex-col min-h-screen bg-white text-black">
+      <header className="sticky top-0 bg-white z-10 p-4 border-b flex justify-center">
         <img src={wootzLogo} alt="WootzApp" className="w-20 h-12" />
       </header>
 
-      <main className="flex-grow overflow-y-auto pb-20">
+      <main className="flex-grow overflow-y-auto">
         <div className="max-w-2xl mx-auto p-4">
           <h1 className="text-2xl font-bold mb-2 text-center">Manage WootzApp Rewards</h1>
           <p className="mb-4 text-center">
@@ -93,9 +84,9 @@ const RewardsPage = ({ onLogout }) => {
             </div>
           </section>
         </div>
-      </main>
+        </main>
 
-      <footer className="fixed bottom-0 left-0 right-0 bg-white">
+        <footer className="bg-white mt-auto">
         <div className="grid grid-cols-2">
           <button
             className="bg-black text-white py-4 text-center hover:bg-gray-800 transition-colors duration-200"

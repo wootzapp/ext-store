@@ -61,7 +61,7 @@ function App() {
   // }
 
   return (
-    <ThirdwebProvider activeChain="ethereum">
+    <ThirdwebProvider>
       <Router>
         <div className="min-h-screen min-w-screen relative">
           <Routes>
