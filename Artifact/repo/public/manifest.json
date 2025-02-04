@@ -31,8 +31,7 @@
         "widget.html",
         "static/js/*",
         "static/css/*",
-        "icons/*",
-        "interceptor.js"
+        "icons/*"
       ],
       "matches": ["<all_urls>"],
       "use_dynamic_url": true
@@ -64,12 +63,5 @@
   },
   "externally_connectable": {
     "matches": ["<all_urls>"]
-  },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_end"
-    }
-  ]
+  }
 }

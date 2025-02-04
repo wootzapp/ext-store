@@ -1,5 +1,5 @@
 /* global chrome */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { IoArrowBack, IoSettingsOutline, IoCloseOutline, IoInformationCircleOutline } from "react-icons/io5";
 import dataStakingOn from '../images/dataStakingOn.png';
 import dataStakingOff from '../images/dataStakingOff.png';
@@ -12,8 +12,17 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Sheet } from 'react-modal-sheet';
 import { ArrowLeftIcon } from '@heroicons/react/24/solid'; 
-import { loadWallet } from '../lib/api';
+import { getUserProfile, loadWallet } from '../lib/api';
 import twitterBanner from '../images/rb_45418.png';
+import { createThirdwebClient } from 'thirdweb';
+// import { useActiveAccount } from 'thirdweb/react';
+// import { createWallet } from 'thirdweb/wallets';
+// import { darkTheme } from 'thirdweb/react';
+// import { SecretKeyGenerator } from '../lib/secret_key';
+import { loadWallets } from '../lib/thirdweb_controller';
+import { useSecretKey } from '../lib/useSecretKey';
+import { omniAbi } from '../lib/omni';
+
 const InfoSheet = ({ onClose }) => {
     return (
         <div className="bg-black text-white p-3 rounded-t-2xl max-w-md mx-auto h-[90vh] overflow-y-auto">
@@ -63,15 +72,36 @@ const InfoSheet = ({ onClose }) => {
 };
 
 
-const SettingsSheet = ({ onClose,onLogout }) => {
+const SettingsSheet = ({ onClose, onLogout }) => {
     const navigate = useNavigate();
     const handleProfileButton = async () => {
         console.log("Profile button pressed");
         const token = localStorage.getItem('authToken');
-        // const data = await loadWallet(token);
-        // console.log(data);
         navigate('/relicdao/dashboard/profile');
     };
+    
+    const handleLogout = async () => {
+        // Check if current tab is chrome new tab
+        const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        const isNewTab = activeTab?.url === 'chrome-native://newtab/';
+
+        // Set isLoggedIn to false in chrome storage
+        chrome.storage.local.set({
+            isLoggedIn: false,
+            authToken: null
+        }, async () => {
+            console.log('Logged out, storage updated');
+            
+            // If we're on a new tab page, close it and open a new one
+            if (isNewTab) {
+                await chrome.tabs.remove(activeTab.id);
+                await chrome.tabs.create({ url: 'chrome-native://newtab/' });
+            }
+            
+            onLogout();
+        });
+    };
+
     return (
         <div className="bg-black text-white p-6 rounded-t-2xl max-w-md mx-auto">
             <div className='flex justify-between items-center mb-6'>
@@ -84,28 +114,14 @@ const SettingsSheet = ({ onClose,onLogout }) => {
                 To manage your account settings, please visit app.relicdao.com
             </p>
             <button
-                className="w-full bg-[#272a2f] text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition duration-300"
-                onClick={() => navigate('/relicdao')}
-            >
-                Go to RelicDAO
-            </button>
-            <button
                 className="w-full bg-[#272a2f] text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition duration-300 mt-2"
-                // onClick={() => navigate('/relicdao/dashboard/profile')}
                 onClick={handleProfileButton}
             >
                 Profile
             </button>
             <button
                 className="w-full bg-[#272a2f] text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition duration-300 mt-2"
-                onClick={onLogout}
-                // onClick={()=>{
-                //     // onLogout();
-                //     localStorage.removeItem('authToken');
-                //     setTimeout(() => {
-                //         navigate('/relicdao', { replace: true });
-                //     }, 100);
-                // }}
+                onClick={handleLogout}
             >
                 Logout
             </button>
@@ -126,11 +142,55 @@ const RelicDAODashboard = ({onLogout}) => {
     const [isDataStakingOn, setIsDataStakingOn] = useState(false);
     const [isTwitterConnected, setIsTwitterConnected] = useState(false);
 
+    const [walletAddress, setWalletAddress] = useState(null);
+    const [account, setAccount] = useState(null);
+    const [profileData, setProfileData] = useState(null);
+    const [hasInitiatedKeyGeneration, setHasInitiatedKeyGeneration] = useState(false);
+
+    // Initialize the useSecretKey hook
+    const { handleGetKey, secretKey, isLoading } = useSecretKey({
+        userIdentity: profileData?.omnikey_id,
+        account: account,
+        userAddress: walletAddress,
+        omniKeyStore: process.env.REACT_APP_ENVIRONMENT === "production"
+            ? "0x23B71aA8ac3325070611099667B04556958e09Cb"
+            : "0x2a935BE53f0b7Ce44E1CDaE81f200582eBd2f8a8",
+        omniAbi,
+        authUser: { uid: profileData?.user_uid },
+        onSuccess: useCallback((secretKey, uid) => {
+            console.log('🔐 Secret key generated:', {
+                success: !!secretKey,
+                secretKey: secretKey,
+                keyLength: secretKey ? secretKey.length : 0
+            });
+            // Store in chrome storage if needed
+            const token = localStorage.getItem('authToken');
+            chrome.storage.local.set({ 
+                authToken: token,
+                isLoggedIn: true,
+                secretKey: secretKey
+            }, () => {
+                console.log('💾 Secret key stored in chrome storage');
+            });
+        }, [])
+    });
+
     useEffect(() => {
+        const token = localStorage.getItem('authToken');
+        
+        // Set auth token and login status in chrome storage
+        // if (token) {
+        //     chrome.storage.local.set({
+        //         authToken: token,
+        //         isLoggedIn: true
+        //     }, () => {
+        //         console.log('🔑 Auth token and login status set in chrome storage');
+        //     });
+        // }
+
         const apiUrl = process.env.REACT_APP_CORE_API_URL;
         // Fetch points and level data when the component mounts
         const fetchUserData = async () => {
-            const token = localStorage.getItem('authToken');
             if (token) {
                 try {
                     const response = await axios.get(`${apiUrl}/v2/xp/me`, {
@@ -170,6 +230,13 @@ const RelicDAODashboard = ({onLogout}) => {
                     }
                 } catch (error) {
                     console.error('Error fetching data:', error);
+                    // If there's an auth error, clear the storage
+                    if (error.response?.status === 401) {
+                        chrome.storage.local.set({
+                            authToken: null,
+                            isLoggedIn: false
+                        });
+                    }
                 }
             }
         };
@@ -177,8 +244,91 @@ const RelicDAODashboard = ({onLogout}) => {
 
         // TODO: Can use websocket instead of calling the api on an interval.
         const intervalId = setInterval(fetchUserData, 30000);
-        return () => clearInterval(intervalId);
+        return () => {
+            clearInterval(intervalId);
+            // Don't clear storage on unmount as user might still be logged in
+        };
     }, []);
+
+    const client = createThirdwebClient({
+        clientId: process.env.REACT_APP_THIRDWEB_CLIENT_ID
+      });
+
+    // const account = useActiveAccount();
+
+    // const { thirdwebAuth } = useThirdwebController();
+
+    useEffect(() => {
+        let isSubscribed = true;
+
+        const initializeWallet = async () => {
+            if (!isSubscribed) return;
+            
+            console.log('🔄 Starting wallet initialization...');
+            try {
+                const token = localStorage.getItem('authToken');
+                const profile = await getUserProfile();
+                
+                if (!isSubscribed) return;
+
+                if (!token || !profile) {
+                    console.warn('⚠️ Missing required data:', {
+                        hasToken: !!token,
+                        hasProfile: !!profile
+                    });
+                    return;
+                }
+
+                setProfileData(profile);
+
+                console.log('🔑 Initializing ThirdWeb with:', {
+                    hasUid: !!profile.uid,
+                    hasToken: !!token
+                });
+
+                const wallet = await loadWallets(token, profile.user_uid);
+                if (!isSubscribed) return;
+
+                const address = wallet.address;
+                console.log('✅ Wallet initialized:', { address });
+                setWalletAddress(address);
+                setAccount(wallet);
+            } catch (error) {
+                if (!isSubscribed) return;
+                console.error('❌ Wallet initialization failed:', {
+                    errorType: error.name,
+                    errorMessage: error.message,
+                    stack: error.stack
+                });
+            }
+        };
+
+        initializeWallet();
+
+        return () => {
+            isSubscribed = false;
+        };
+    }, []);
+
+    // Secret key generation effect
+    useEffect(() => {
+        const generateSecretKey = async () => {
+            if (!walletAddress || !profileData?.omnikey_id || hasInitiatedKeyGeneration || isLoading) {
+                return;
+            }
+
+            console.log('🏗️ Triggering secret key generation...', {
+                hasWallet: !!walletAddress,
+                hasOmniKeyId: !!profileData?.omnikey_id,
+                hasInitiated: hasInitiatedKeyGeneration
+            });
+
+            setHasInitiatedKeyGeneration(true);
+            await handleGetKey();
+        };
+
+        generateSecretKey();
+    }, [walletAddress, profileData, handleGetKey, hasInitiatedKeyGeneration, isLoading]);
 
     useEffect(() => {
         // Check both localStorage and chrome storage for Twitter status
@@ -321,9 +471,6 @@ const RelicDAODashboard = ({onLogout}) => {
             <div className="bg-black text-white min-h-screen p-4">
                 <header className="flex items-center mb-6 justify-between py-4">
                     <div className="flex items-center">
-                        <button className="text-2xl mr-4" onClick={handleBackButton}>
-                            <IoArrowBack />
-                        </button>
                         <img src={relicDAOLogo} alt="RelicDAO Logo" className="w-8 h-8" />
                         <span className="ml-2 text-xl font-bold">RelicDAO</span>
                     </div>
@@ -430,33 +577,6 @@ const RelicDAODashboard = ({onLogout}) => {
                     </div>
                 </div>
 
-                <div className="bg-[#101727] rounded-lg p-4 mt-4 mb-6">
-                    <h3 className="font-bold mb-2">Twitter Integration</h3>
-                    <p className="text-sm mb-4">
-                        {isTwitterConnected 
-                            ? 'Manage your Twitter data scraping settings and view collected data.'
-                            : 'Connect your Twitter account to earn additional RelicPoints! We\'ll analyze your Twitter activity to provide personalized rewards and insights.'}
-                    </p>
-                    <div className="flex flex-col">
-                        <div className="text-sm text-gray-400 mb-3">
-                            {isTwitterConnected 
-                                ? 'Twitter account connected successfully!'
-                                : 'Start earning points from Twitter'}
-                        </div>
-
-                        <img src={twitterBanner} alt="Twitter Integration" className="w-full h-36 object-cover rounded-lg mb-4" />
-                        <button
-                            onClick={isTwitterConnected ? handleTwitterControls : handleTwitterAuth}
-                            className={`py-2 px-4 rounded-lg hover:bg-opacity-90 transition duration-300 font-semibold w-full ${
-                                isTwitterConnected 
-                                    ? 'bg-green-600 text-white hover:bg-green-700' 
-                                    : 'bg-purple-600 text-white hover:bg-purple-700'
-                            }`}
-                        >
-                            {isTwitterConnected ? 'Twitter Scraping Controls' : 'Connect Twitter'}
-                        </button>
-                    </div>
-                </div>
 
                 <div className="bg-[#101727] rounded-lg p-4">
                     <h3 className="font-bold mb-2">Refer and earn</h3>
