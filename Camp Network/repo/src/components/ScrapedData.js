@@ -12,16 +12,29 @@ const ScrapedData = () => {
   const [isFollowingListOpen, setIsFollowingListOpen] = useState(false);
   const [isTweetsListOpen, setIsTweetsListOpen] = useState(false);
   const [isLikedTweetsListOpen, setIsLikedTweetsListOpen] = useState(false);
+  const [isRepliedTweetsListOpen, setIsRepliedTweetsListOpen] = useState(false);
   const [expandedTweet, setExpandedTweet] = useState(null);
   const [expandedLikedTweet, setExpandedLikedTweet] = useState(null);
+  const [expandedRepliedTweet, setExpandedRepliedTweet] = useState(null);
   const [likedTweets, setLikedTweets] = useState([]);
+  const [repliedTweets, setRepliedTweets] = useState([]);
   const [userReplies, setUserReplies] = useState([]);
-  const [isRepliedTweetsListOpen, setIsRepliedTweetsListOpen] = useState(false);
-  const [expandedReply, setExpandedReply] = useState(null);
+  const [visitedProfiles, setVisitedProfiles] = useState([]);
+  const [isVisitedProfilesOpen, setIsVisitedProfilesOpen] = useState(false);
+  const [isPostedTweetsListOpen, setIsPostedTweetsListOpen] = useState(false);
+  const [expandedPostedTweet, setExpandedPostedTweet] = useState(null);
+  const [postedTweets, setPostedTweets] = useState([]);
 
   useEffect(() => {
     // Load initial data
-    chrome.storage.local.get(['profileData', 'tweets', 'followingUsers', 'userReplies'], (result) => {
+    chrome.storage.local.get([
+      'profileData', 
+      'tweets', 
+      'followingUsers', 
+      'postedTweets',
+      'visitedProfiles',
+      'replies'
+    ], (result) => {
       console.log('📊 Loading initial data:', result);
 
       if (result.profileData) {
@@ -31,17 +44,21 @@ const ScrapedData = () => {
 
       if (result.tweets) {
         console.log('🐦 Setting tweets:', result.tweets.length);
-        // Sort tweets by timestamp before setting
         const sortedTweets = (Array.isArray(result.tweets) ? result.tweets : [])
           .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
         setTweets(sortedTweets);
       }
 
-      if (result.userReplies) {
-        console.log('💬 Setting replied tweets:', result.userReplies.length);
-        const sortedReplies = (Array.isArray(result.userReplies) ? result.userReplies : [])
+      if (result.postedTweets) {
+        console.log('📝 Setting posted tweets:', result.postedTweets.length);
+        setPostedTweets(result.postedTweets);
+      }
+
+      if (result.replies) {
+        console.log('💬 Setting replied tweets:', result.replies.length);
+        const sortedReplies = (Array.isArray(result.replies) ? result.replies : [])
           .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
-        setUserReplies(sortedReplies);
+        setRepliedTweets(sortedReplies);
       }
 
       if (result.followingUsers) {
@@ -60,6 +77,12 @@ const ScrapedData = () => {
         }));
         setFollowingUsers(users);
       }
+
+      if (result.visitedProfiles) {
+        console.log('👥 Setting visited profiles:', result.visitedProfiles.length);
+        setVisitedProfiles(result.visitedProfiles || []);
+      }
+
       setLoading(false);
     });
 
@@ -80,23 +103,35 @@ const ScrapedData = () => {
           console.log('🐦 Adding tweets:', message.data.content.length);
           setTweets(prevTweets => {
             const newTweets = message.data.content;
-            // Use Map for better performance with large datasets
             const existingTweetsMap = new Map(prevTweets.map(t => [t.id, t]));
-            
-            // Add new tweets that don't exist
             newTweets.forEach(tweet => {
               if (!existingTweetsMap.has(tweet.id)) {
                 existingTweetsMap.set(tweet.id, tweet);
               }
             });
-            
-            // Convert back to array and sort by timestamp if available
             const combinedTweets = Array.from(existingTweetsMap.values());
             return combinedTweets.sort((a, b) => {
               const dateA = new Date(a.timestamp || 0);
               const dateB = new Date(b.timestamp || 0);
               return dateB - dateA;
-            }).slice(0, 15000); // Limit to 15000 most recent tweets
+            }).slice(0, 15000);
+          });
+        } else if (message.data.type === 'REPLIES') {
+          console.log('💬 Updating replied tweets:', message.data.content.length);
+          setRepliedTweets(prevReplies => {
+            const newReplies = message.data.content;
+            const existingRepliesMap = new Map(prevReplies.map(r => [r.id, r]));
+            newReplies.forEach(reply => {
+              if (!existingRepliesMap.has(reply.id)) {
+                existingRepliesMap.set(reply.id, reply);
+              }
+            });
+            const combinedReplies = Array.from(existingRepliesMap.values());
+            return combinedReplies.sort((a, b) => {
+              const dateA = new Date(a.timestamp || 0);
+              const dateB = new Date(b.timestamp || 0);
+              return dateB - dateA;
+            });
           });
         }
       } else if (message.type === 'FOLLOWING_USERS_UPDATED') {
@@ -117,9 +152,12 @@ const ScrapedData = () => {
       } else if (message.type === 'LIKED_TWEETS_UPDATED') {
         console.log('❤️ Updating liked tweets:', message.data.length);
         setLikedTweets(message.data);
-      } else if (message.type === 'REPLIES_UPDATED') {
-        console.log('💬 Updating replied tweets:', message.data.length);
-        setUserReplies(message.data);
+      } else if (message.type === 'POSTED_TWEETS_UPDATED') {
+        console.log('📝 Updating posted tweets:', message.data.length);
+        setPostedTweets(message.data);
+      } else if (message.type === 'VISITED_PROFILES_UPDATED') {
+        console.log('👥 Updating visited profiles:', message.data.length);
+        setVisitedProfiles(message.data);
       }
     };
 
@@ -372,18 +410,18 @@ const ScrapedData = () => {
         <div className="bg-white rounded-2xl shadow-lg p-5 mb-4 border border-red-50">
             <div 
                 className="flex items-center justify-between cursor-pointer"
-                onClick={() => setIsRepliedTweetsListOpen(!isRepliedTweetsListOpen)}
+                onClick={() => setIsPostedTweetsListOpen(!isPostedTweetsListOpen)}
             >
                 <div className="flex flex-col">
                     <h2 className="text-2xl font-bold">Posted Tweets</h2>
-                    {userReplies.length > 0 && (
+                    {postedTweets.length > 0 && (
                         <p className="text-sm text-gray-600 mt-1">
-                            Showing <span className="font-semibold text-blue-600">{userReplies.length}</span> posted tweets
+                            Showing <span className="font-semibold text-blue-600">{postedTweets.length}</span> posted tweets
                         </p>
                     )}
                 </div>
                 <svg
-                    className={`w-6 h-6 transform transition-transform ${isRepliedTweetsListOpen ? 'rotate-180' : ''}`}
+                    className={`w-6 h-6 transform transition-transform ${isPostedTweetsListOpen ? 'rotate-180' : ''}`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -392,24 +430,24 @@ const ScrapedData = () => {
                 </svg>
             </div>
 
-            {isRepliedTweetsListOpen && (
+            {isPostedTweetsListOpen && (
                 <div className="mt-4">
-                    {userReplies.length > 0 ? (
+                    {postedTweets.length > 0 ? (
                         <div className="space-y-4 mt-4">
-                            {userReplies.slice(0, 100).map(reply => (
+                            {postedTweets.slice(0, 100).map(tweet => (
                                 <div 
-                                    key={reply.id} 
+                                    key={tweet.id} 
                                     className="border rounded-lg bg-white shadow-md hover:shadow-lg transition-shadow"
                                 >
                                     {/* Tweet Header - Always visible */}
                                     <div 
                                         className="p-4 cursor-pointer"
-                                        onClick={() => setExpandedReply(expandedReply === reply.id ? null : reply.id)}
+                                        onClick={() => setExpandedPostedTweet(expandedPostedTweet === tweet.id ? null : tweet.id)}
                                     >
                                         <div className="flex items-center mb-3">
-                                            {reply.user?.avatar && (
+                                            {tweet.user?.avatar && (
                                                 <img
-                                                    src={reply.user.avatar}
+                                                    src={tweet.user.avatar}
                                                     alt="Profile"
                                                     className="w-10 h-10 rounded-full mr-3"
                                                     onError={(e) => {
@@ -419,15 +457,15 @@ const ScrapedData = () => {
                                                 />
                                             )}
                                             <div className="flex-grow">
-                                                <p className="font-bold">{reply.user?.name || 'Unknown'}</p>
-                                                <p className="text-gray-500 text-sm">@{reply.user?.handle || 'unknown'}</p>
+                                                <p className="font-bold">{tweet.user?.name || 'Unknown'}</p>
+                                                <p className="text-gray-500 text-sm">@{tweet.user?.handle || 'unknown'}</p>
                                             </div>
                                             <div className="flex items-center space-x-3">
                                                 <span className="text-sm text-gray-500">
                                                     {(() => {
-                                                        if (!reply.timestamp) return 'Unknown time';
+                                                        if (!tweet.timestamp) return 'Unknown time';
                                                         
-                                                        const tweetDate = new Date(reply.timestamp);
+                                                        const tweetDate = new Date(tweet.timestamp);
                                                         const now = new Date();
                                                         const minutesDiff = (now - tweetDate) / (1000 * 60);
                                                         
@@ -443,7 +481,7 @@ const ScrapedData = () => {
                                                     })()}
                                                 </span>
                                                 <svg
-                                                    className={`w-5 h-5 transform transition-transform ${expandedReply === reply.id ? 'rotate-180' : ''}`}
+                                                    className={`w-5 h-5 transform transition-transform ${expandedPostedTweet === tweet.id ? 'rotate-180' : ''}`}
                                                     fill="none"
                                                     stroke="currentColor"
                                                     viewBox="0 0 24 24"
@@ -454,42 +492,42 @@ const ScrapedData = () => {
                                         </div>
 
                                         {/* Reply Info */}
-                                        {reply.in_reply_to_screen_name && (
+                                        {tweet.in_reply_to_screen_name && (
                                             <div className="text-sm text-gray-500 mb-2">
-                                                Replying to @{reply.in_reply_to_screen_name}
+                                                Replying to @{tweet.in_reply_to_screen_name}
                                             </div>
                                         )}
 
                                         {/* Tweet Text */}
                                         <div className="text-gray-800 whitespace-pre-wrap">
-                                            {expandedReply === reply.id 
-                                                ? reply.text 
-                                                : reply.text?.length > 150 
-                                                    ? `${reply.text.substring(0, 150)}...` 
-                                                    : reply.text}
+                                            {expandedPostedTweet === tweet.id 
+                                                ? tweet.text 
+                                                : tweet.text?.length > 150 
+                                                    ? `${tweet.text.substring(0, 150)}...` 
+                                                    : tweet.text}
                                         </div>
                                     </div>
 
                                     {/* Expanded Content */}
-                                    {expandedReply === reply.id && (
+                                    {expandedPostedTweet === tweet.id && (
                                         <div className="px-4 pb-4 border-t border-gray-100 mt-2 pt-4">
                                             <div className="flex items-center justify-around text-sm text-gray-500">
                                                 <span className="flex items-center space-x-2">
                                                     <span className="p-2 rounded-full hover:bg-gray-100">
                                                         <span className="mr-1">💬</span>
-                                                        {reply.metrics?.replies || 0}
+                                                        {tweet.metrics?.replies || 0}
                                                     </span>
                                                 </span>
                                                 <span className="flex items-center space-x-2">
                                                     <span className="p-2 rounded-full hover:bg-gray-100">
                                                         <span className="mr-1">🔄</span>
-                                                        {reply.metrics?.retweets || 0}
+                                                        {tweet.metrics?.retweets || 0}
                                                     </span>
                                                 </span>
                                                 <span className="flex items-center space-x-2">
                                                     <span className="p-2 rounded-full hover:bg-gray-100">
                                                         <span className="mr-1">❤️</span>
-                                                        {reply.metrics?.likes || 0}
+                                                        {tweet.metrics?.likes || 0}
                                                     </span>
                                                 </span>
                                             </div>
@@ -497,9 +535,9 @@ const ScrapedData = () => {
                                     )}
                                 </div>
                             ))}
-                            {userReplies.length > 100 && (
+                            {postedTweets.length > 100 && (
                                 <div className="text-center py-4 text-gray-600">
-                                    Showing first 100 posted tweets of {userReplies.length} total posts
+                                    Showing first 100 posted tweets of {postedTweets.length} total posts
                                 </div>
                             )}
                         </div>
@@ -512,6 +550,94 @@ const ScrapedData = () => {
                     )}
                 </div>
             )}
+        </div>
+        
+        {/* Replied Tweets Section */}
+        <div className="bg-white rounded-2xl shadow-lg p-5 mb-4 border border-red-50">
+          <div className="flex items-center justify-between cursor-pointer" onClick={() => setIsRepliedTweetsListOpen(!isRepliedTweetsListOpen)}>
+            <div className="flex flex-col">
+              <h2 className="text-2xl font-bold">Replied Tweets</h2>
+              {repliedTweets.length > 0 && (
+                <p className="text-sm text-gray-600 mt-1">
+                  Showing <span className="font-semibold text-blue-600">{repliedTweets.length}</span> replied tweets
+                </p>
+              )}
+            </div>
+            <svg className={`w-6 h-6 transform transition-transform ${isRepliedTweetsListOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+
+          {isRepliedTweetsListOpen && (
+            <div className="mt-4">
+              {repliedTweets.length > 0 ? (
+                <div className="space-y-4 mt-4">
+                  {repliedTweets.slice(0, 100).map(tweet => (
+                    <div key={tweet.id} className="border rounded-lg bg-white shadow-md hover:shadow-lg transition-shadow">
+                      <div className="p-4 cursor-pointer" onClick={() => setExpandedRepliedTweet(expandedRepliedTweet === tweet.id ? null : tweet.id)}>
+                        <div className="flex items-center mb-3">
+                          {tweet.user?.avatar && (
+                            <img src={tweet.user.avatar} alt="Profile" className="w-10 h-10 rounded-full mr-3" onError={(e) => { e.target.onerror = null; e.target.src = '/default-avatar.png'; }} />
+                          )}
+                          <div className="flex-grow">
+                            <p className="font-bold">{tweet.user?.name || 'Unknown'}</p>
+                            <p className="text-gray-500 text-sm">@{tweet.user?.handle || tweet.user?.username || 'unknown'}</p>
+                          </div>
+                        </div>
+
+                        {/* Reply Info */}
+                        {tweet.in_reply_to_screen_name && (
+                          <div className="text-sm text-gray-500 mb-2">
+                            Replying to @{tweet.in_reply_to_screen_name}
+                          </div>
+                        )}
+
+                        <div className="text-gray-800 whitespace-pre-wrap">
+                          {expandedRepliedTweet === tweet.id ? tweet.text : tweet.text?.length > 150 ? `${tweet.text.substring(0, 150)}...` : tweet.text}
+                        </div>
+                      </div>
+
+                      {expandedRepliedTweet === tweet.id && (
+                        <div className="px-4 pb-4 border-t border-gray-100 mt-2 pt-4">
+                          <div className="flex items-center justify-around text-sm text-gray-500">
+                            <span className="flex items-center space-x-2">
+                              <span className="p-2 rounded-full hover:bg-gray-100">
+                                <span className="mr-1">💬</span>
+                                {tweet.metrics?.replies || 0}
+                              </span>
+                            </span>
+                            <span className="flex items-center space-x-2">
+                              <span className="p-2 rounded-full hover:bg-gray-100">
+                                <span className="mr-1">🔄</span>
+                                {tweet.metrics?.retweets || 0}
+                              </span>
+                            </span>
+                            <span className="flex items-center space-x-2">
+                              <span className="p-2 rounded-full hover:bg-gray-100">
+                                <span className="mr-1">❤️</span>
+                                {tweet.metrics?.likes || 0}
+                              </span>
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {repliedTweets.length > 100 && (
+                    <div className="text-center py-4 text-gray-600">
+                      Showing first 100 replied tweets of {repliedTweets.length} total replies
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 bg-white rounded-lg shadow mt-4">
+                  <p className="text-gray-500">
+                    {loading ? 'Loading replied tweets...' : 'No replied tweets collected yet'}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Liked Tweets Section */}
@@ -705,6 +831,73 @@ const ScrapedData = () => {
               </p>
             </div>
           ) : null}
+        </div>
+
+        {/* Visited Profiles Section */}
+        <div className="bg-white rounded-2xl shadow-lg p-5 mb-4 border border-red-50">
+          <div 
+            className="flex items-center justify-between cursor-pointer"
+            onClick={() => setIsVisitedProfilesOpen(!isVisitedProfilesOpen)}
+          >
+            <div className="flex flex-col">
+              <h2 className="text-2xl font-bold">Visited Profiles</h2>
+              {visitedProfiles.length > 0 && (
+                <p className="text-sm text-gray-600 mt-1">
+                  Showing <span className="font-semibold text-blue-600">{visitedProfiles.length}</span> visited profiles
+                </p>
+              )}
+            </div>
+            <svg
+              className={`w-6 h-6 transform transition-transform ${isVisitedProfilesOpen ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+
+          {isVisitedProfilesOpen && (
+            <div className="mt-4">
+              {visitedProfiles.length > 0 ? (
+                <div className="space-y-4">
+                  {visitedProfiles.map((handle, index) => (
+                    <div 
+                      key={index}
+                      className="p-4 border rounded-lg bg-white shadow-md hover:shadow-lg transition-shadow"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="flex-shrink-0">
+                            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                              <span className="text-gray-500 text-lg">@</span>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">@{handle}</p>
+                          </div>
+                        </div>
+                        <a
+                          href={`https://x.com/${handle}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-4 py-2 text-sm bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors duration-200"
+                        >
+                          View Profile
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 bg-white rounded-lg shadow mt-4">
+                  <p className="text-gray-500">
+                    {loading ? 'Loading visited profiles...' : 'No profiles visited yet'}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

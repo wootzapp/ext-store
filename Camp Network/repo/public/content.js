@@ -11,7 +11,7 @@ let isScrapingStarted = false;
 const TWEET_SCRAPE_IDENTIFIER = '?q=wootzapp-tweets';
 const FOLLOWING_SCRAPE_IDENTIFIER = '?q=wootzapp-following';
 const LIKED_TWEETS_SCRAPE_IDENTIFIER = '?q=wootzapp-liked-tweets';
-const POSTS_SCRAPE_IDENTIFIER = '?q=wootzapp-replies';
+const REPLIES_SCRAPE_IDENTIFIER = '?q=wootzapp-replies';
 
 // Request limits
 const MAX_REPLIES_REQUESTS_PER_TAB = 15;
@@ -337,15 +337,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'STOP_BACKGROUND_SCRAPING') {
     console.log('🛑 Received stop background scraping signal');
     isStoppingBackgroundScrape = true;
-    // // If we're in the 30-second wait period, close the tab immediately
-    // if (requestCount >= MAX_REQUESTS_PER_TAB) {
-    //   chrome.runtime.sendMessage({ type: 'CLOSE_TAB' });
-    // }
-    // Otherwise, let the current batch of requests complete
   }
 
   if (message.type === 'EXECUTE_REPLIES_SCRAPING') {
-    console.log('📣 Received execute replies scraping message:', message);
+    console.log('📣 Received execute Posts and Replies scraping message:', message);
     handleRepliesScraping(message.username);
   }
 
@@ -1003,7 +998,7 @@ setTimeout(() => {
       clickLikesButton();
     }
     // Handle replies scraping
-    else if (currentUrl.includes(POSTS_SCRAPE_IDENTIFIER)) {
+    else if (currentUrl.includes(REPLIES_SCRAPE_IDENTIFIER)) {
       console.log('💬 Starting replies scraping...');
       // Get username from URL
       const username = currentUrl.split('x.com/')[1]?.split('?')[0];
@@ -1541,42 +1536,113 @@ function findNextCursor(data) {
 }
 
 
-// Add new function to handle replies scraping
+// Update handleRepliesScraping function to match liked tweets flow
 async function handleRepliesScraping(username) {
   console.log('🔄 Starting replies scraping for:', username);
 
   try {
     // Check if this is a replies scraping tab
-    if (!window.location.href.includes(POSTS_SCRAPE_IDENTIFIER)) {
+    if (!window.location.href.includes(REPLIES_SCRAPE_IDENTIFIER)) {
       console.log('🚫 Not a replies scraping URL, aborting');
       return;
     }
 
-    console.log('🔍 Setting up replies scraping on designated URL');
+    // Send immediate response to background script
+    chrome.runtime.sendMessage({ type: 'REPLIES_SCRAPING_STARTED' });
 
-    // Setup request capture first
-    await setupRepliesRequestCapture();
-    console.log('✅ Replies request capture setup complete');
+    // First inject the interceptor
+    if (!repliesInterceptorInjected) {
+      console.log('💉 Injecting posts and replies interceptor...');
+      await setupRepliesRequestCapture();
+      repliesInterceptorInjected = true;
+      console.log('✅ Posts and replies interceptor setup complete');
+    }
 
     // Wait for setup to complete
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Find and click the replies tab
+    // Find and click the replies tab with retry logic
+    const maxAttempts = 3;
+    let attempt = 0;
+    let repliesTab = null;
     const repliesTabSelectors = [
       '[data-testid="ScrollSnap-List"] a[href*="/with_replies"]',
       'a[href*="/with_replies"][role="tab"]',
-      '[data-testid="primaryColumn"] a[href*="/with_replies"]'
+      '[data-testid="primaryColumn"] a[href*="/with_replies"]',
+      'a[href$="/with_replies"]'
     ];
     
-    const repliesTab = await waitForElement(repliesTabSelectors);
-    
+    while (!repliesTab && attempt < maxAttempts) {
+      attempt++;
+      console.log(`🔍 Attempting to find replies tab (Attempt ${attempt}/${maxAttempts})`);
+      
+      for (const selector of repliesTabSelectors) {
+        repliesTab = document.querySelector(selector);
+        if (repliesTab) {
+          console.log('✅ Found replies tab with selector:', selector);
+          break;
+        }
+      }
+
+      if (!repliesTab) {
+        console.log('⏳ Waiting before next attempt...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+
     if (!repliesTab) {
-      console.error('❌ Could not find replies tab');
-      throw new Error('Replies tab not found');
+      throw new Error('Replies tab not found after all attempts');
     }
 
     console.log('🎯 Found replies tab, clicking...');
     repliesTab.click();
+
+    // Wait for navigation to complete after clicking replies tab
+    let navigationComplete = false;
+    const navigationTimeout = 10000; // 10 seconds
+    const startTime = Date.now();
+
+    while (!navigationComplete && Date.now() - startTime < navigationTimeout) {
+      if (window.location.href.includes('/with_replies')) {
+        navigationComplete = true;
+        console.log('✅ Navigation to replies tab complete');
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    if (!navigationComplete) {
+      throw new Error('Navigation to replies tab timed out');
+    }
+
+    // Wait for content to load
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Scroll to trigger data loading with progressive intervals
+    const scrollAttempts = 5;
+    for (let i = 0; i < scrollAttempts; i++) {
+      console.log(`📜 Scroll attempt ${i + 1}/${scrollAttempts}`);
+      window.scrollBy(0, 800);
+      await new Promise(resolve => setTimeout(resolve, 1500 + i * 500));
+    }
+
+    console.log('✅ Initial replies scraping setup complete');
+
+    // Set up scroll listener for continuous loading
+    const scrollListener = debounce(() => {
+      if ((window.innerHeight + window.scrollY) >= document.documentElement.scrollHeight - 1000) {
+        console.log('📜 Near bottom, scrolling more...');
+        window.scrollBy(0, 500);
+      }
+    }, 500);
+
+    window.addEventListener('scroll', scrollListener);
+
+    // Clean up scroll listener after some time
+    setTimeout(() => {
+      window.removeEventListener('scroll', scrollListener);
+      console.log('🧹 Removed scroll listener');
+    }, 30000); // 30 seconds
 
   } catch (error) {
     console.error('Error in replies scraping:', error);
@@ -1587,171 +1653,65 @@ async function handleRepliesScraping(username) {
   }
 }
 
-// Setup replies request capture to match liked tweets
+// Update setupRepliesRequestCapture function to match liked tweets flow
 function setupRepliesRequestCapture() {
   return new Promise((resolve) => {
     console.log('🚀 Starting replies request capture setup...');
 
     // Listen for captured request data
-    window.addEventListener('repliesRequestDataCaptured', async function(event) {
-      const { type, data } = event.detail;
-      console.log(`📡 Received ${type}:`, data);
+    window.addEventListener('postsAndRepliesDataCaptured', async function(event) {
+      const { tweets, requestUrl, requestHeaders } = event.detail;
+      
+      if (!tweets || !Array.isArray(tweets)) {
+        console.error('❌ Invalid tweets data received');
+        return;
+      }
 
-      if (type === 'REPLIES_XHR_COMPLETE' && data.url && data.headers) {
-        console.log('✅ Processing replies XHR data:', data);
-        await makeRepliesRequest(data.url, data.headers);
+      console.log(`📡 Received posts and replies data:`, {
+        tweetsCount: tweets.length
+      });
+
+      try {
+        // Get wallet and user info
+        const storage = await new Promise(resolve => {
+          chrome.storage.local.get(['walletAddress', 'initialUsername'], resolve);
+        });
+
+        // Send data to background script
+        chrome.runtime.sendMessage({
+          type: 'SCRAPED_DATA',
+          data: {
+            type: 'REPLIES',
+            content: tweets,
+            metadata: {
+              requestUrl,
+              requestHeaders
+            },
+            walletAddress: storage.walletAddress,
+            userHandle: storage.initialUsername
+          }
+        });
+
+      } catch (error) {
+        console.error('❌ Error processing posts and replies:', error);
+        chrome.runtime.sendMessage({ 
+          type: 'SCRAPING_ERROR',
+          error: error.message
+        });
       }
     });
 
     // Inject the interceptor script
-    if (!repliesInterceptorInjected) {
-      const script = document.createElement('script');
-      script.src = chrome.runtime.getURL('repliesinterceptor.js');
-      script.onload = () => {
-        console.log('✅ Replies interceptor script loaded');
-        repliesInterceptorInjected = true;
-        script.remove();
-        resolve();
-      };
-      (document.head || document.documentElement).appendChild(script);
-    } else {
+    const script = document.createElement('script');
+    script.src = chrome.runtime.getURL('postsandrepliesinterceptor.js');
+    script.onload = () => {
+      console.log('✅ Posts and Replies Interceptor script loaded');
+      script.remove();
       resolve();
-    }
-  });
-}
-
-// Make replies request to match liked tweets request
-async function makeRepliesRequest(originalUrl, headers, currentVariables = null) {
-  repliesRequestCount++;
-  console.log(`📊 Making replies request ${repliesRequestCount}/${MAX_REPLIES_REQUESTS_PER_TAB}`);
-
-  if (repliesRequestCount > MAX_REPLIES_REQUESTS_PER_TAB) {
-    console.log('🛑 Reached maximum requests per tab');
-    window.dispatchEvent(new CustomEvent('repliesComplete'));
-    return;
-  }
-
-  try {
-    const urlObj = new URL(originalUrl);
-    const params = new URLSearchParams(urlObj.search);
-    
-    let variables = currentVariables || JSON.parse(params.get('variables'));
-    const features = JSON.parse(params.get('features'));
-
-    const requestUrl = `${urlObj.origin}${urlObj.pathname}?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${encodeURIComponent(JSON.stringify(features))}`;
-    
-    const response = await fetch(requestUrl, {
-      method: 'GET',
-      headers: headers,
-      credentials: 'include'
-    });
-
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-    const data = await response.json();
-    const replies = processRepliesData(data);
-    
-    // Send replies to background
-    if (replies.length > 0) {
-      chrome.runtime.sendMessage({
-        type: 'SCRAPED_DATA',
-        data: {
-          type: 'REPLIES',
-          content: replies
-        }
-      });
-    }
-
-    // Check for next cursor and continue if needed
-    const cursor = findNextCursor(data);
-    if (cursor && repliesRequestCount < MAX_REPLIES_REQUESTS_PER_TAB) {
-      const nextVariables = { ...variables, cursor };
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      await makeRepliesRequest(originalUrl, headers, nextVariables);
-    } else {
-      console.log('🏁 Finished processing replies');
-      window.dispatchEvent(new CustomEvent('repliesComplete'));
-    }
-
-  } catch (error) {
-    console.error('❌ Error in makeRepliesRequest:', error);
-    window.dispatchEvent(new CustomEvent('repliesComplete'));
-  }
-}
-
-// Process replies data
-function processRepliesData(data) {
-  const replies = [];
-  const instructions = data.data?.user?.result?.timeline_v2?.timeline?.instructions || [];
-  
-  instructions.forEach((instruction, idx) => {
-    if (instruction.type === "TimelineAddEntries") {
-      const entries = instruction.entries || [];
-      console.log(`📑 Processing instruction ${idx + 1}/${instructions.length}:`, {
-        type: instruction.type,
-        entries: entries.length
-      });
-
-      entries.forEach((entry, entryIdx) => {
-        if (entry.content?.itemContent?.tweet_results?.result) {
-          const tweet = entry.content.itemContent.tweet_results.result;
-          const processedReply = {
-            id: tweet.rest_id,
-            text: tweet.legacy?.full_text || tweet.legacy?.text,
-            user: {
-              handle: tweet.core?.user_results?.result?.legacy?.screen_name,
-              name: tweet.core?.user_results?.result?.legacy?.name,
-              avatar: tweet.core?.user_results?.result?.legacy?.profile_image_url_https
-            },
-            metrics: {
-              replies: tweet.legacy?.reply_count,
-              retweets: tweet.legacy?.retweet_count,
-              likes: tweet.legacy?.favorite_count
-            },
-            timestamp: tweet.legacy?.created_at,
-            in_reply_to_status_id: tweet.legacy?.in_reply_to_status_id_str,
-            in_reply_to_screen_name: tweet.legacy?.in_reply_to_screen_name
-          };
-          replies.push(processedReply);
-          
-          // Log individual reply processing
-          console.log(`Reply ${entryIdx + 1}:`, {
-            id: processedReply.id,
-            author: `@${processedReply.user.handle}`,
-            time: new Date(processedReply.timestamp).toLocaleString()
-          });
-        }
-      });
-    }
-  });
-
-  console.log('✅ Batch processing complete:', {
-    repliesProcessed: replies.length,
-    timestamp: new Date().toISOString()
-  });
-
-  return replies;
-}
-
-// Wait for replies data to be captured
-function waitForRepliesData() {
-  return new Promise((resolve) => {
-    const checkData = () => {
-      if (window.requestData) {
-        resolve(window.requestData);
-      } else {
-        setTimeout(checkData, 100);
-      }
     };
-    checkData();
+    (document.head || document.documentElement).appendChild(script);
   });
 }
-
-// Should add to content.js
-window.addEventListener('repliesComplete', () => {
-    console.log('✅ Replies scraping complete');
-    chrome.runtime.sendMessage({ type: 'CLOSE_TAB' });
-});
 
 // Function to handle profile visit scraping
 async function handleProfileVisitScraping() {

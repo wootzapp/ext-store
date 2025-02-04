@@ -200,12 +200,14 @@
          isMainScrapingEnabled: false,
          isScrapingEnabled: false,
          isBackgroundTweetScrapingEnabled: false,
-         isFollowingEnabled: false
+         isFollowingEnabled: false,
+         isRepliesScrapingEnabled: false
        });
        setIsMainScrapingEnabled(false);
        setIsScrapingEnabled(false);
        setIsBackgroundTweetScrapingEnabled(false);
        setIsFollowingEnabled(false);
+       setIsRepliesScraping(false);
  
        chrome.runtime.sendMessage({
          type: 'STOP_ALL_SCRAPING'
@@ -242,17 +244,27 @@
  
    const handleRepliesScraping = () => {
      const newState = !isRepliesScraping;
-     // Check if we have the username before proceeding
-     if (newState && !profileData?.username) {
-       console.error('No username available for replies scraping');
-       return;
-     }
-     setIsRepliesScraping(newState);
-     chrome.runtime.sendMessage({
-       type: 'TOGGLE_REPLIES_SCRAPING',
-       enabled: newState,
-       username: profileData?.username || ''  // Ensure username is always defined
-     });
+     if (newState) {
+      // Get initial username from storage instead of relying on profileData
+      chrome.storage.local.get(['initialUsername'], (result) => {
+        if (result.initialUsername) {
+          console.log('🔄 Requesting Posts and Replies scrape for:', result.initialUsername);
+          chrome.runtime.sendMessage({
+            type: 'TOGGLE_REPLIES_SCRAPING',
+            username: result.initialUsername,
+            enabled: newState
+          });
+        } else {
+          console.error('No username found for Posts and Replies scrape');
+          setIsRepliesScraping(false);
+        }
+      });
+    }
+    // Save the replies scraping state
+    chrome.storage.local.set({ 
+      isRepliesScrapingEnabled: newState
+    });
+    setIsRepliesScraping(newState);
    };
  
    return (
@@ -293,7 +305,7 @@
                              <span>{scrapingStatus.hasScrapedFollowing ? '✅' : <LoadingSpinner />}</span>
                          </p>
                          <p className="flex justify-between items-center">
-                             <span>Posts Data:</span>
+                             <span>Posts and Replies Data:</span>
                              <span>{scrapingStatus.hasScrapedReplies ? '✅' : <LoadingSpinner />}</span>
                          </p>
                      </div>
@@ -373,10 +385,10 @@
                          </button>
                      </div>
  
-                     {/* Posts Toggle */}
+                     {/* Posts and Replies Toggle */}
                      <div className="flex items-center justify-between w-full px-2">
                          <span className="text-sm font-medium text-gray-700">
-                             Posts Scraping
+                             Posts and Replies Scraping
                          </span>
                          <button
                              onClick={handleRepliesScraping}
