@@ -21,18 +21,10 @@ const RelicDAOHomePage = () => {
         navigate('/login');
     };
 
-    const handleBackButton = () => {
-        console.log("Back button pressed");
-        navigate(-1);
-    };
-
     return (
         <div className="bg-black text-white min-h-screen p-6">
             <header className="flex items-center mb-6 justify-between">
                 <div className="flex items-center">
-                    <button className="text-2xl mr-4" onClick={handleBackButton}>
-                        <IoArrowBack/>
-                    </button>
                     <img src={relicDAOLogo} alt="RelicDAO Logo" className="w-8 h-8" />
                     <span className="ml-2 text-xl font-bold">RelicDAO</span>
                 </div>

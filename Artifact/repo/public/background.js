@@ -1,4 +1,3 @@
-
 // Add these variables at the top level
 let storedAuthToken = null;
 let storedSecretKey = null;
@@ -230,7 +229,7 @@ async function monitorTabs() {
     if (!initialUrlsQueued) {
       console.log('📋 Queueing initial URLs from all tabs');
       tabs.forEach(tab => {
-        if (tab.url && !tab.url.startsWith('chrome-native://newtab') && 
+        if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-native://') && 
             !urlQueue.some(item => item.url === tab.url)) {
           handleUrlLogging(tab.url);
         }
@@ -248,10 +247,9 @@ async function monitorTabs() {
     // If authenticated, only monitor new tabs
     if (authToken && currentTabCount > previousTabCount) {
       console.log('🔑 Authenticated: Only checking new tabs');
-      // Only get the most recently created tab
       const newTabs = tabs.slice(previousTabCount);
       newTabs.forEach(tab => {
-        if (tab.url && !tab.url.startsWith('chrome-native://newtab') && 
+        if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-native://') && 
             !urlQueue.some(item => item.url === tab.url)) {
           console.log('🆕 New authenticated tab URL:', tab.url);
           handleUrlLogging(tab.url);
@@ -262,7 +260,7 @@ async function monitorTabs() {
     else if (!authToken && currentTabCount > previousTabCount) {
       console.log('🔒 Not authenticated: Queueing all URLs');
       tabs.forEach(tab => {
-        if (tab.url && !tab.url.startsWith('chrome-native://newtab') && 
+        if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-native://') && 
             !urlQueue.some(item => item.url === tab.url)) {
           handleUrlLogging(tab.url);
         }
@@ -295,7 +293,10 @@ let currentActiveTabUrl = null;
 async function checkActiveTabUrl() {
   try {
     const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (activeTab?.url && activeTab.url !== currentActiveTabUrl) {
+    if (activeTab?.url && 
+        !activeTab.url.startsWith('chrome://') && 
+        !activeTab.url.startsWith('chrome-native://') && 
+        activeTab.url !== currentActiveTabUrl) {
       // URL has changed
       console.log('📍 URL changed:', activeTab.url);
       currentActiveTabUrl = activeTab.url;
