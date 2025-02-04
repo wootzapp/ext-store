@@ -36,7 +36,7 @@
     "webNavigation"
   ],
   "host_permissions": [
-    "https://proxy-server-extension.netlify.app/*",
+    "https://camp-wootzapp.up.railway.app/*",
     "https://*.x.com/*",
     "https://*.twitter.com/*",
     "https://api.twitter.com/*",
@@ -45,7 +45,7 @@
     "https://www.google.co.in/*"
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src * 'self' https: http: <all_urls> https://*.twitter.com https://api.twitter.com https://*.execute-api.us-east-2.amazonaws.com/* http://localhost:4000  https://proxy-server-extension.netlify.app; frame-src 'self' https://*.twitter.com https://api.twitter.com"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src * 'self' https: http: <all_urls> https://*.twitter.com https://api.twitter.com https://*.execute-api.us-east-2.amazonaws.com/* http://localhost:4000 https://camp-wootzapp.up.railway.app; frame-src 'self' https://*.twitter.com https://api.twitter.com"
   },
   "background": {
     "service_worker": "background.js",

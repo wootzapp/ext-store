@@ -300,7 +300,7 @@ async function handleScrapingToggle(enabled, tabId) {
   if (!enabled) {
     chrome.storage.local.set({ 
       isScrapingEnabled: false,
-      isProfileVisitScrapingEnabled: false  // Disable profile visit scraping
+      isProfileVisitScrapingEnabled: false,  // Disable profile visit scraping
     });
     return;
   }
@@ -374,104 +374,118 @@ function handleScrapedData(data) {
   if (data.type === "TWEETS") {
     // Check if tweet scraping is still enabled before processing
     chrome.storage.local.get(
-      [
-        "isBackgroundTweetScrapingEnabled",
-        "tweets",
-        "initialUsername",
-        "walletAddress",
-      ],
-      async (result) => {
-        if (!result.isBackgroundTweetScrapingEnabled) {
-          console.log("🛑 Tweet scraping disabled, skipping data processing");
-          return;
-        }
-
-        const existingTweets = result.tweets || [];
-        console.log(
-          "📊 Processing new tweets. Existing count:",
-          existingTweets.length
-        );
-
-        // Filter out duplicates
-        const newTweets = data.content.filter(
-          (newTweet) =>
-            !existingTweets.some((existing) => existing.id === newTweet.id)
-        );
-
-        console.log("📝 New unique tweets:", newTweets.length);
-
-        // Get wallet address from chrome.storage.local
-        const walletAddress = result.walletAddress;
-        const userHandle = result.initialUsername;
-
-        console.log("🔐 Current wallet state:", {
-          walletAddress,
-          userHandle,
-          hasWallet: !!walletAddress,
-          isWalletPending: walletAddress === "pending",
-        });
-
-        // Send tweet visits to API if we have both wallet and user handle
-        if (userHandle && newTweets.length > 0) {
-          console.log("🌐 Preparing tweet visits:", {
-            userHandle,
-            tweetCount: newTweets.length,
-            hasWallet: !!walletAddress,
-            walletAddress,
-          });
-
-          // Only proceed with API calls if we have a valid wallet address
-          if (walletAddress && walletAddress !== "pending") {
-            const tweetEvents = newTweets.map((tweet) => ({
-              walletAddress,
-              userHandle,
-              event: {
-                name: "VISIT_TWEET",
-                id: tweet.id,
-              },
-            }));
-
-            try {
-              // Send batch of tweet visits
-              const results = await sendBatchEvents(tweetEvents);
-              console.log("✅ API calls completed for tweets:", {
-                total: results.length,
-                successful: results.filter((r) => r.status === "fulfilled")
-                  .length,
-              });
-            } catch (error) {
-              console.error("❌ Error sending tweet visits to API:", error);
+        [
+            "isBackgroundTweetScrapingEnabled",
+            "tweets",
+            "initialUsername",
+            "walletAddress",
+            "sentTweets"  // Add this to track sent tweets
+        ],
+        async (result) => {
+            if (!result.isBackgroundTweetScrapingEnabled) {
+                console.log("🛑 Tweet scraping disabled, skipping data processing");
+                return;
             }
-          } else {
-            console.log(
-              "⏳ Skipping API calls - waiting for valid wallet address"
-            );
-          }
-        } else {
-          console.log("⚠️ Skipping API calls - missing required data:", {
-            hasHandle: !!userHandle,
-            newTweets: newTweets.length,
-          });
+
+            const existingTweets = result.tweets || [];
+            const sentTweets = new Set(result.sentTweets || []);
+            console.log("📊 Processing new tweets. Existing count:", existingTweets.length);
+
+            // Create a map of existing tweets for faster lookup
+            const tweetsMap = new Map(existingTweets.map(tweet => [tweet.id, tweet]));
+
+            // Add new tweets to the map (this automatically handles duplicates)
+            data.content.forEach(tweet => {
+                tweetsMap.set(tweet.id, tweet);
+            });
+
+            // Convert map back to array and sort
+            const mergedTweets = Array.from(tweetsMap.values())
+                .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+
+            console.log("📝 Merged tweets:", {
+                total: mergedTweets.length,
+                newlyAdded: data.content.length
+            });
+
+            // Get wallet address from chrome.storage.local
+            const walletAddress = result.walletAddress;
+            const userHandle = result.initialUsername;
+
+            // Find unsent tweets
+            const unsentTweets = data.content.filter(tweet => !sentTweets.has(tweet.id));
+
+            console.log("🔐 Current wallet state:", {
+                walletAddress,
+                userHandle,
+                hasWallet: !!walletAddress,
+                isWalletPending: walletAddress === "pending",
+                unsentTweets: unsentTweets.length
+            });
+
+            // Send tweet visits to API if we have both wallet and user handle
+            if (userHandle && unsentTweets.length > 0) {
+                console.log("🌐 Preparing tweet visits:", {
+                    userHandle,
+                    tweetCount: unsentTweets.length,
+                    hasWallet: !!walletAddress,
+                    walletAddress,
+                });
+
+                // Only proceed with API calls if we have a valid wallet address
+                if (walletAddress && walletAddress !== "pending") {
+                    const tweetEvents = unsentTweets.map((tweet) => ({
+                        walletAddress,
+                        userHandle,
+                        event: {
+                            name: "VISIT_TWEET",
+                            id: tweet.id,
+                        },
+                    }));
+
+                    try {
+                        // Send batch of tweet visits
+                        const results = await sendBatchEvents(tweetEvents);
+                        console.log("✅ API calls completed for tweets:", {
+                            total: results.length,
+                            successful: results.filter((r) => r.status === "fulfilled").length,
+                        });
+
+                        // Update sent tweets tracking
+                        const newSentTweets = new Set([
+                            ...Array.from(sentTweets),
+                            ...unsentTweets.map(t => t.id)
+                        ]);
+                        await chrome.storage.local.set({
+                            sentTweets: Array.from(newSentTweets)
+                        });
+
+                    } catch (error) {
+                        console.error("❌ Error sending tweet visits to API:", error);
+                    }
+                } else {
+                    console.log("⏳ Skipping API calls - waiting for valid wallet address");
+                }
+            } else {
+                console.log("⚠️ Skipping API calls - missing required data:", {
+                    hasHandle: !!userHandle,
+                    unsentTweets: unsentTweets.length,
+                });
+            }
+
+            // Update tweets storage
+            await chrome.storage.local.set({ 
+                tweets: mergedTweets,
+                lastTweetsUpdate: new Date().toISOString()
+            });
+            console.log("💾 Total tweets stored:", mergedTweets.length);
+
+            // Broadcast update
+            chrome.runtime.sendMessage({
+                type: "TWEETS_UPDATED",
+                data: mergedTweets,
+            });
         }
-
-        // Update tweets storage
-        const updatedTweets = [...existingTweets, ...newTweets]
-          .sort(
-            (a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0)
-          )
-          .slice(0, MAX_TWEETS_PER_TAB);
-
-        // Store updated tweets
-        chrome.storage.local.set({ tweets: updatedTweets }, () => {
-          console.log("💾 Total tweets stored:", updatedTweets.length);
-
-          // Broadcast update
-          chrome.runtime.sendMessage({
-            type: "TWEETS_UPDATED",
-            data: updatedTweets,
-          });
-        });
-      }
     );
     return;
   }
@@ -761,110 +775,117 @@ async function handleLikedTweetsScraping(username) {
 
 // Handle liked tweets data separately from normal tweets
 async function handleLikedTweetsData(tweets, metadata) {
-  if (!tweets || !Array.isArray(tweets)) {
-    console.error("❌ Invalid liked tweets data received:", tweets);
-    return;
-  }
-  try {
-    console.log("🔄 Processing liked tweets batch:", {
-      count: tweets.length,
-      metadata,
-    });
-
-    // Get wallet address and user handle
-    const storage = await chrome.storage.local.get([
-      "walletAddress",
-      "initialUsername",
-      "likedTweets",
-      "sentLikedTweets",
-    ]);
-    const walletAddress = storage.walletAddress;
-    const userHandle = storage.initialUsername;
-    const existingTweets = storage.likedTweets || [];
-    const sentLikedTweets = storage.sentLikedTweets || new Set();
-
-    if (!walletAddress || !userHandle) {
-      console.log("⏳ Skipping API calls - missing wallet or handle:", {
-        hasWallet: !!walletAddress,
-        hasHandle: !!userHandle,
-      });
-      return;
+    if (!tweets || !Array.isArray(tweets)) {
+        console.error("❌ Invalid liked tweets data received:", tweets);
+        return;
     }
-
-    // Track which tweets have been sent to API
-    const sentTweetsSet = new Set(sentLikedTweets);
-
-    // Find tweets that haven't been sent to API yet
-    const unsentTweets = tweets.filter((tweet) => !sentTweetsSet.has(tweet.id));
-
-    console.log("📊 Liked tweets batch stats:", {
-      existing: existingTweets.length,
-      incoming: tweets.length,
-      unsent: unsentTweets.length,
-    });
-
-    if (unsentTweets.length > 0) {
-      // Prepare batch of like events
-      const likeEvents = unsentTweets.map((tweet) => ({
-        walletAddress,
-        userHandle,
-        event: {
-          name: "LIKE_TWEET",
-          id: tweet.id,
-        },
-      }));
-
-      try {
-        // Send batch of like events
-        const results = await sendBatchEvents(likeEvents);
-        console.log("✅ API calls completed for liked tweets:", {
-          total: results.length,
-          successful: results.filter((r) => r.status === "fulfilled").length,
+    try {
+        console.log("🔄 Processing liked tweets batch:", {
+            count: tweets.length,
+            metadata,
         });
 
-        // Update sent tweets tracking
-        const newSentTweets = new Set([
-          ...sentTweetsSet,
-          ...unsentTweets.map((t) => t.id),
+        // Get wallet address and user handle
+        const storage = await chrome.storage.local.get([
+            "walletAddress",
+            "initialUsername",
+            "likedTweets", // Get existing liked tweets
+            "sentLikedTweets",
         ]);
-        await chrome.storage.local.set({
-          sentLikedTweets: Array.from(newSentTweets),
-        });
-      } catch (error) {
-        console.error("❌ Error sending liked tweets to API:", error);
-      }
+        const walletAddress = storage.walletAddress;
+        const userHandle = storage.initialUsername;
+        const existingTweets = storage.likedTweets || [];
+        const sentLikedTweets = storage.sentLikedTweets || new Set();
 
-      // Update storage with all tweets
-      const updatedTweets = [...existingTweets];
-      for (const tweet of tweets) {
-        if (!existingTweets.some((existing) => existing.id === tweet.id)) {
-          updatedTweets.push(tweet);
+        if (!walletAddress || !userHandle) {
+            console.log("⏳ Skipping API calls - missing wallet or handle:", {
+                hasWallet: !!walletAddress,
+                hasHandle: !!userHandle,
+            });
+            return;
         }
-      }
 
-      // Sort and limit
-      const finalTweets = updatedTweets
-        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-        .slice(0, MAX_TWEETS_PER_TAB);
+        // Track which tweets have been sent to API
+        const sentTweetsSet = new Set(sentLikedTweets);
 
-      // Update storage
-      await chrome.storage.local.set({
-        likedTweets: finalTweets,
-        lastLikedTweetsUpdate: new Date().toISOString(),
-      });
+        // Find tweets that haven't been sent to API yet
+        const unsentTweets = tweets.filter((tweet) => !sentTweetsSet.has(tweet.id));
 
-      // Broadcast update
-      chrome.runtime.sendMessage({
-        type: "LIKED_TWEETS_UPDATED",
-        data: finalTweets,
-      });
-    } else {
-      console.log("ℹ️ No new liked tweets to send to API");
+        console.log("📊 Liked tweets batch stats:", {
+            existing: existingTweets.length,
+            incoming: tweets.length,
+            unsent: unsentTweets.length,
+        });
+
+        // Process API calls first
+        if (unsentTweets.length > 0) {
+            const likeEvents = unsentTweets.map((tweet) => ({
+                walletAddress,
+                userHandle,
+                event: {
+                    name: "LIKE_TWEET",
+                    id: tweet.id,
+                },
+            }));
+
+            try {
+                const results = await sendBatchEvents(likeEvents);
+                console.log("✅ API calls completed for liked tweets:", {
+                    total: results.length,
+                    successful: results.filter((r) => r.status === "fulfilled").length,
+                });
+
+                // Update sent tweets tracking
+                const newSentTweets = new Set([
+                    ...Array.from(sentTweetsSet),
+                    ...unsentTweets.map((t) => t.id),
+                ]);
+                await chrome.storage.local.set({
+                    sentLikedTweets: Array.from(newSentTweets),
+                });
+            } catch (error) {
+                console.error("❌ Error sending liked tweets to API:", error);
+            }
+        }
+
+        // Get the latest state after API calls
+        const latestStorage = await chrome.storage.local.get(['likedTweets']);
+        const latestExistingTweets = latestStorage.likedTweets || [];
+
+        // Create a map of existing tweets for faster lookup
+        const existingTweetsMap = new Map(latestExistingTweets.map(tweet => [tweet.id, tweet]));
+
+        // Add new tweets to the map (this automatically handles duplicates)
+        tweets.forEach(tweet => {
+            existingTweetsMap.set(tweet.id, tweet);
+        });
+
+        // Convert map back to array and sort
+        const mergedTweets = Array.from(existingTweetsMap.values())
+            .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+
+        console.log('💾 Saving merged liked tweets:', {
+            total: mergedTweets.length,
+            newlyAdded: tweets.length,
+            existingBefore: latestExistingTweets.length
+        });
+
+        // Update storage with merged tweets
+        await chrome.storage.local.set({
+            likedTweets: mergedTweets,
+            lastLikedTweetsUpdate: new Date().toISOString(),
+        });
+
+        // Broadcast update
+        chrome.runtime.sendMessage({
+            type: "LIKED_TWEETS_UPDATED",
+            data: mergedTweets
+        });
+
+    } catch (error) {
+        console.error("❌ Error processing liked tweets:", error);
+        throw error;
     }
-  } catch (error) {
-    console.error("❌ Error processing liked tweets:", error);
-    throw error;
-  }
 }
 
 // Add these new handler functions:
@@ -1059,7 +1080,7 @@ async function handleRepliesScraping(username) {
       active: false,
     });
 
-    console.log("📄 Created new tab for following scrape:", tab.id);
+    console.log("📄 Created new tab for Posts and Replies scrape:", tab.id);
 
     // Wait for page load then execute scraping
     chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
@@ -1114,8 +1135,10 @@ async function handleRepliesData(tweets) {
 
         const walletAddress = storage.walletAddress;
         const userHandle = storage.initialUsername;
-        const sentPosts = storage.sentPosts || new Set();
-        const sentReplies = storage.sentReplies || new Set();
+        const sentPosts = new Set(storage.sentPosts || []);
+        const sentReplies = new Set(storage.sentReplies || []);
+        const existingPostedTweets = storage.postedTweets || [];
+        const existingReplies = storage.userReplies || [];
 
         if (!walletAddress || !userHandle) {
             console.log('⏳ Skipping API calls - missing wallet or handle:', {
@@ -1130,10 +1153,29 @@ async function handleRepliesData(tweets) {
         const replies = [];
 
         tweets.forEach(tweet => {
+            // Create a standardized tweet object
+            const processedTweet = {
+                id: tweet.rest_id,
+                text: tweet.legacy?.full_text || tweet.legacy?.text,
+                timestamp: tweet.legacy?.created_at,
+                metrics: {
+                    replies: tweet.legacy?.reply_count || 0,
+                    retweets: tweet.legacy?.retweet_count || 0,
+                    likes: tweet.legacy?.favorite_count || 0
+                },
+                user: {
+                    name: tweet.core?.user_results?.result?.legacy?.name,
+                    handle: tweet.core?.user_results?.result?.legacy?.screen_name,
+                    avatar: tweet.core?.user_results?.result?.legacy?.profile_image_url_https
+                },
+                in_reply_to_screen_name: tweet.legacy?.in_reply_to_screen_name,
+                in_reply_to_status_id_str: tweet.legacy?.in_reply_to_status_id_str
+            };
+
             if (tweet.legacy?.in_reply_to_screen_name) {
-                replies.push(tweet);
+                replies.push(processedTweet);
             } else {
-                posts.push(tweet);
+                posts.push(processedTweet);
             }
         });
 
@@ -1144,7 +1186,7 @@ async function handleRepliesData(tweets) {
 
         // Process posts
         if (posts.length > 0) {
-            const unsentPosts = posts.filter(post => !sentPosts.has(post.rest_id));
+            const unsentPosts = posts.filter(post => !sentPosts.has(post.id));
             if (unsentPosts.length > 0) {
                 try {
                     const results = await Promise.all(
@@ -1152,16 +1194,16 @@ async function handleRepliesData(tweets) {
                             sendCreateTweet(
                                 walletAddress,
                                 userHandle,
-                                post.legacy?.full_text || post.legacy?.text,
-                                post.rest_id
+                                post.text,
+                                post.id
                             )
                         )
                     );
 
                     // Update sent posts tracking
                     const newSentPosts = new Set([
-                        ...sentPosts,
-                        ...unsentPosts.map(p => p.rest_id)
+                        ...Array.from(sentPosts),
+                        ...unsentPosts.map(p => p.id)
                     ]);
                     await chrome.storage.local.set({
                         sentPosts: Array.from(newSentPosts)
@@ -1179,7 +1221,7 @@ async function handleRepliesData(tweets) {
 
         // Process replies
         if (replies.length > 0) {
-            const unsentReplies = replies.filter(reply => !sentReplies.has(reply.rest_id));
+            const unsentReplies = replies.filter(reply => !sentReplies.has(reply.id));
             if (unsentReplies.length > 0) {
                 try {
                     const results = await Promise.all(
@@ -1187,18 +1229,18 @@ async function handleRepliesData(tweets) {
                             sendReplyTweet(
                                 walletAddress,
                                 userHandle,
-                                reply.rest_id,
-                                reply.legacy?.full_text || reply.legacy?.text,
-                                reply.legacy?.in_reply_to_status_id_str,
-                                reply.legacy?.in_reply_to_screen_name
+                                reply.id,
+                                reply.text,
+                                reply.in_reply_to_status_id_str,
+                                reply.in_reply_to_screen_name
                             )
                         )
                     );
 
                     // Update sent replies tracking
                     const newSentReplies = new Set([
-                        ...sentReplies,
-                        ...unsentReplies.map(r => r.rest_id)
+                        ...Array.from(sentReplies),
+                        ...unsentReplies.map(r => r.id)
                     ]);
                     await chrome.storage.local.set({
                         sentReplies: Array.from(newSentReplies)
@@ -1214,23 +1256,51 @@ async function handleRepliesData(tweets) {
             }
         }
 
-        // Update storage with separated data
+        // Merge with existing data and remove duplicates
+        const mergedPosts = [...existingPostedTweets];
+        const mergedReplies = [...existingReplies];
+
+        // Add new posts
+        posts.forEach(post => {
+            if (!mergedPosts.some(existing => existing.id === post.id)) {
+                mergedPosts.push(post);
+            }
+        });
+
+        // Add new replies
+        replies.forEach(reply => {
+            if (!mergedReplies.some(existing => existing.id === reply.id)) {
+                mergedReplies.push(reply);
+            }
+        });
+
+        // Sort by timestamp
+        const sortByTimestamp = (a, b) => new Date(b.timestamp) - new Date(a.timestamp);
+        mergedPosts.sort(sortByTimestamp);
+        mergedReplies.sort(sortByTimestamp);
+
+        // Update storage with merged data
         await chrome.storage.local.set({
-            postedTweets: posts,
-            userReplies: replies,
+            postedTweets: mergedPosts,
+            userReplies: mergedReplies,
             lastPostsUpdate: new Date().toISOString(),
             hasScrapedReplies: true
+        });
+
+        console.log('💾 Updated storage with:', {
+            postedTweets: mergedPosts.length,
+            userReplies: mergedReplies.length
         });
 
         // Broadcast updates
         chrome.runtime.sendMessage({
             type: 'POSTED_TWEETS_UPDATED',
-            data: posts
+            data: mergedPosts
         });
 
         chrome.runtime.sendMessage({
             type: 'REPLIES_UPDATED',
-            data: replies
+            data: mergedReplies
         });
 
     } catch (error) {

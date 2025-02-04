@@ -32,8 +32,8 @@ const ScrapedData = () => {
       'tweets', 
       'followingUsers', 
       'postedTweets',
-      'visitedProfiles',
-      'replies'
+      'userReplies',
+      'visitedProfiles'
     ], (result) => {
       console.log('📊 Loading initial data:', result);
 
@@ -54,11 +54,11 @@ const ScrapedData = () => {
         setPostedTweets(result.postedTweets);
       }
 
-      if (result.replies) {
-        console.log('💬 Setting replied tweets:', result.replies.length);
-        const sortedReplies = (Array.isArray(result.replies) ? result.replies : [])
+      if (result.userReplies) {
+        console.log('💬 Setting replied tweets:', result.userReplies.length);
+        const sortedReplies = (Array.isArray(result.userReplies) ? result.userReplies : [])
           .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
-        setRepliedTweets(sortedReplies);
+        setUserReplies(sortedReplies);
       }
 
       if (result.followingUsers) {
@@ -93,7 +93,9 @@ const ScrapedData = () => {
 
     // Message handler
     const handleMessage = (message) => {
-      console.log('📨 Received message:', message.type);
+      console.log('📨 Received message:', message.type, {
+        dataLength: message.data?.length
+      });
 
       if (message.type === 'SCRAPED_DATA') {
         if (message.data.type === 'PROFILE') {
@@ -118,7 +120,7 @@ const ScrapedData = () => {
           });
         } else if (message.data.type === 'REPLIES') {
           console.log('💬 Updating replied tweets:', message.data.content.length);
-          setRepliedTweets(prevReplies => {
+          setUserReplies(prevReplies => {
             const newReplies = message.data.content;
             const existingRepliesMap = new Map(prevReplies.map(r => [r.id, r]));
             newReplies.forEach(reply => {
@@ -158,6 +160,9 @@ const ScrapedData = () => {
       } else if (message.type === 'VISITED_PROFILES_UPDATED') {
         console.log('👥 Updating visited profiles:', message.data.length);
         setVisitedProfiles(message.data);
+      } else if (message.type === 'REPLIES_UPDATED') {
+        console.log('💬 Updating replied tweets:', message.data.length);
+        setUserReplies(message.data);
       }
     };
 
@@ -557,9 +562,9 @@ const ScrapedData = () => {
           <div className="flex items-center justify-between cursor-pointer" onClick={() => setIsRepliedTweetsListOpen(!isRepliedTweetsListOpen)}>
             <div className="flex flex-col">
               <h2 className="text-2xl font-bold">Replied Tweets</h2>
-              {repliedTweets.length > 0 && (
+              {userReplies.length > 0 && (
                 <p className="text-sm text-gray-600 mt-1">
-                  Showing <span className="font-semibold text-blue-600">{repliedTweets.length}</span> replied tweets
+                  Showing <span className="font-semibold text-blue-600">{userReplies.length}</span> replied tweets
                 </p>
               )}
             </div>
@@ -570,9 +575,9 @@ const ScrapedData = () => {
 
           {isRepliedTweetsListOpen && (
             <div className="mt-4">
-              {repliedTweets.length > 0 ? (
+              {userReplies.length > 0 ? (
                 <div className="space-y-4 mt-4">
-                  {repliedTweets.slice(0, 100).map(tweet => (
+                  {userReplies.slice(0, 100).map(tweet => (
                     <div key={tweet.id} className="border rounded-lg bg-white shadow-md hover:shadow-lg transition-shadow">
                       <div className="p-4 cursor-pointer" onClick={() => setExpandedRepliedTweet(expandedRepliedTweet === tweet.id ? null : tweet.id)}>
                         <div className="flex items-center mb-3">
@@ -623,9 +628,9 @@ const ScrapedData = () => {
                       )}
                     </div>
                   ))}
-                  {repliedTweets.length > 100 && (
+                  {userReplies.length > 100 && (
                     <div className="text-center py-4 text-gray-600">
-                      Showing first 100 replied tweets of {repliedTweets.length} total replies
+                      Showing first 100 replied tweets of {userReplies.length} total replies
                     </div>
                   )}
                 </div>

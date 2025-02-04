@@ -1,7 +1,7 @@
 /* global chrome */
 // API configuration
 export const API_CONFIG = {
-  BASE_URL: 'https://proxy-server-extension.netlify.app/.netlify/functions/proxy',
+  BASE_URL: 'https://camp-wootzapp.up.railway.app/api/events',
   HEADERS: {
     'Content-Type': 'application/json',
     // 'x-extension-password': 'w00tz_APP2Camp*Auth@297'
