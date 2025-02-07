@@ -386,9 +386,9 @@ async function getCommunitiesInfo() {
       if (username && username !== 'home' && username !== 'i') {
         console.log('✅ Already on profile page:', username);
         await scrapeProfileData();
-        console.log('✅ AADITESH Profile data scraped');
+        console.log('✅ Profile data scraped');
         await scrapeLikesCount();
-        console.log('✅ AADITESH Likes count scraped');
+        console.log('✅ Likes count scraped');
         return;
       }
     }
@@ -1747,14 +1747,21 @@ async function handleProfileVisitScraping() {
     const userHandle = storage.initialUsername || storage.userHandle;
 
     // Skip special paths and own profile
-    if (!visitedHandle || 
-        visitedHandle === userHandle || 
-        visitedHandle === storage.initialUsername || 
-        visitedHandle === storage.userHandle ||
-        ['home', 'explore', 'notifications', 'messages', 'i', 'settings', 
-         'search', 'lists', 'communities'].includes(visitedHandle)) {
-        console.log('👤 Skipping special path or own profile:', visitedHandle);
-        return;
+    if (!visitedHandle ||
+      visitedHandle === userHandle ||
+      visitedHandle === storage.initialUsername ||
+      visitedHandle === storage.userHandle ||
+      [
+        'home', 'explore', 'notifications', 'messages', 'i', 'settings',
+        'jobs', 'search', 'lists', 'communities', 'login', 'signup',
+        'privacy', 'tos', 'help', 'about', 'developers', 'status',
+        'account', 'logout', 'intent', 'compose', 'analytics',
+        'moment_maker', 'live', 'topics', 'events', 'safety', 'ads',
+        'verified', 'subscriptions', 'connect', 'support', 'download',
+        'business', 'security', 'pricing', 'profile', 'following', 'followers'
+      ].includes(visitedHandle)) {
+      console.log(':bust_in_silhouette: Skipping special path or own profile:', visitedHandle);
+      return;
     }
 
     // Check for duplicate visit within debounce period (5 seconds)
@@ -1779,9 +1786,26 @@ async function handleProfileVisitScraping() {
         visited: visitedHandle
     });
 
-    // Update visited profiles list if not already included
-    if (!visitedProfiles.includes(visitedHandle)) {
-        visitedProfiles.push(visitedHandle);
+    // Get profile photo URL from the page
+    const profilePhotoElement = document.querySelector('img[src*="profile_images"]'); 
+    const profilePhotoUrl = profilePhotoElement ? profilePhotoElement.src : null;
+
+    // Get user's name from the page
+    const nameElement = document.querySelector('[data-testid="UserName"] div span');
+    const userName = nameElement ? nameElement.textContent.trim() : null;
+
+    // Create enriched profile data
+    const profileVisitData = {
+        handle: visitedHandle,
+        visitTime: new Date().toISOString(),
+        profileUrl: `https://x.com/${visitedHandle}`,
+        profilePhotoUrl: profilePhotoUrl,
+        userName: userName
+    };
+
+    // Update visited profiles list with enriched data
+    if (!visitedProfiles.some(profile => profile.handle === visitedHandle)) {
+        visitedProfiles.push(profileVisitData);
         chrome.storage.local.set({ visitedProfiles });
         // Notify UI about the update
         chrome.runtime.sendMessage({
@@ -1802,59 +1826,59 @@ async function handleProfileVisitScraping() {
 }
 
 // Function to setup profile visit request capture
-function setupProfileVisitRequestCapture() {
-    if (!window.profileVisitRequestData) {
-        console.log('📥 Injecting profile visit interceptor script');
-        const script = document.createElement('script');
-        script.src = chrome.runtime.getURL('profilevisitinterceptor.js');
-        script.onload = () => {
-            console.log('✅ Profile visit interceptor loaded');
-            script.remove();
-        };
-        (document.head || document.documentElement).appendChild(script);
-    }
+// function setupProfileVisitRequestCapture() {
+//     if (!window.profileVisitRequestData) {
+//         console.log('📥 Injecting profile visit interceptor script');
+//         const script = document.createElement('script');
+//         script.src = chrome.runtime.getURL('profilevisitinterceptor.js');
+//         script.onload = () => {
+//             console.log('✅ Profile visit interceptor loaded');
+//             script.remove();
+//         };
+//         (document.head || document.documentElement).appendChild(script);
+//     }
 
-    // Listen for profile visit data from interceptor
-    window.addEventListener('profileVisitDataCaptured', function(event) {
-        if (!event.detail || !event.detail.data) return;
+//     // Listen for profile visit data from interceptor
+//     window.addEventListener('profileVisitDataCaptured', function(event) {
+//         if (!event.detail || !event.detail.data) return;
         
-        const visitData = event.detail.data;
-        console.log('📊 Profile visit data captured:', visitData);
+//         const visitData = event.detail.data;
+//         console.log('📊 Profile visit data captured:', visitData);
         
-        // Double check it's not our own profile
-        chrome.storage.local.get(['initialUsername', 'userHandle', 'lastVisitTime', 'lastVisitedProfile'], (storage) => {
-            if (visitData.handle === storage.initialUsername || 
-                visitData.handle === storage.userHandle) {
-                console.log('🚫 Skipping own profile visit');
-                return;
-            }
+//         // Double check it's not our own profile
+//         chrome.storage.local.get(['initialUsername', 'userHandle', 'lastVisitTime', 'lastVisitedProfile'], (storage) => {
+//             if (visitData.handle === storage.initialUsername || 
+//                 visitData.handle === storage.userHandle) {
+//                 console.log('🚫 Skipping own profile visit');
+//                 return;
+//             }
 
-            // Check for duplicate visit within debounce period
-            const now = Date.now();
-            if (visitData.handle === storage.lastVisitedProfile && 
-                now - (storage.lastVisitTime || 0) < 5000) {
-                console.log('🔄 Skipping duplicate visit within debounce period:', visitData.handle);
-                return;
-            }
+//             // Check for duplicate visit within debounce period
+//             const now = Date.now();
+//             if (visitData.handle === storage.lastVisitedProfile && 
+//                 now - (storage.lastVisitTime || 0) < 5000) {
+//                 console.log('🔄 Skipping duplicate visit within debounce period:', visitData.handle);
+//                 return;
+//             }
 
-            // Update last visit data
-            chrome.storage.local.set({
-                lastVisitedProfile: visitData.handle,
-                lastVisitTime: now
-            });
+//             // Update last visit data
+//             chrome.storage.local.set({
+//                 lastVisitedProfile: visitData.handle,
+//                 lastVisitTime: now
+//             });
             
-            // Send data to background script
-            chrome.runtime.sendMessage({
-                type: 'SEND_PROFILE_VISIT',
-                data: {
-                    visitedHandle: visitData.handle,
-                    userHandle: storage.initialUsername || storage.userHandle,
-                    timestamp: visitData.timestamp
-                }
-            });
-        });
-    });
-}
+//             // Send data to background script
+//             chrome.runtime.sendMessage({
+//                 type: 'SEND_PROFILE_VISIT',
+//                 data: {
+//                     visitedHandle: visitData.handle,
+//                     userHandle: storage.initialUsername || storage.userHandle,
+//                     timestamp: visitData.timestamp
+//                 }
+//             });
+//         });
+//     });
+// }
 
 // Add URL change monitoring for profile visits
 let lastProcessedUrl = '';

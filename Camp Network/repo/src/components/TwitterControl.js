@@ -293,20 +293,20 @@
                  <div className="w-full bg-red-50 rounded-lg p-2 mb-3 border border-red-100 shadow-sm">
                      <div className="text-center text-sm">
                          <p className="flex justify-between items-center mb-1">
-                             <span>Profile Data:</span>
-                             <span>{scrapingStatus.hasScrapedProfile ? '✅' : <LoadingSpinner />}</span>
+                             <span>Profile and Likes Data:</span>
+                             <span>{scrapingStatus.hasScrapedProfile ? '✅' : isMainScrapingEnabled ? <LoadingSpinner /> : '❌'}</span>
                          </p>
                          <p className="flex justify-between items-center mb-1">
-                             <span>Likes Data:</span>
-                             <span>{scrapingStatus.hasScrapedLikes ? '✅' : <LoadingSpinner />}</span>
+                             <span>Tweets Data:</span>
+                             <span>{scrapingStatus.hasScrapedLikes ? '✅' : isMainScrapingEnabled ? <LoadingSpinner /> : '❌'}</span>
                          </p>
                          <p className="flex justify-between items-center mb-1">
                              <span>Following Data:</span>
-                             <span>{scrapingStatus.hasScrapedFollowing ? '✅' : <LoadingSpinner />}</span>
+                             <span>{scrapingStatus.hasScrapedFollowing ? '✅' : isMainScrapingEnabled ? <LoadingSpinner /> : '❌'}</span>
                          </p>
                          <p className="flex justify-between items-center">
                              <span>Posts and Replies Data:</span>
-                             <span>{scrapingStatus.hasScrapedReplies ? '✅' : <LoadingSpinner />}</span>
+                             <span>{scrapingStatus.hasScrapedReplies ? '✅' : isMainScrapingEnabled ? <LoadingSpinner /> : '❌'}</span>
                          </p>
                      </div>
                  </div>
@@ -339,8 +339,8 @@
                          <button
                              onClick={toggleScraping}
                              disabled={!isMainScrapingEnabled}
-                             className={`relative inline-flex h-7 w-14 items-center rounded-full transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#00bcd4] focus:ring-offset-2 ${
-                                 isScrapingEnabled ? 'bg-[#00bcd4]' : 'bg-gray-200'
+                             className={`relative inline-flex h-7 w-14 items-center rounded-full transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#00E8E4FF] focus:ring-offset-2 ${
+                                 isScrapingEnabled ? 'bg-[#00E8E4FF]' : 'bg-gray-200'
                              } ${!isMainScrapingEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                          >
                              <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 ease-in-out ${
@@ -357,8 +357,8 @@
                          <button
                              onClick={toggleBackgroundTweetScraping}
                              disabled={!isMainScrapingEnabled}
-                             className={`relative inline-flex h-7 w-14 items-center rounded-full transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#03a9f4] focus:ring-offset-2 ${
-                                 isBackgroundTweetScrapingEnabled ? 'bg-[#03a9f4]' : 'bg-gray-200'
+                             className={`relative inline-flex h-7 w-14 items-center rounded-full transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#00B5B5FF] focus:ring-offset-2 ${
+                                 isBackgroundTweetScrapingEnabled ? 'bg-[#00B5B5FF]' : 'bg-gray-200'
                              } ${!isMainScrapingEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                          >
                              <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 ease-in-out ${
@@ -375,8 +375,8 @@
                          <button
                              onClick={toggleFollowing}
                              disabled={!isMainScrapingEnabled}
-                             className={`relative inline-flex h-7 w-14 items-center rounded-full transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#00bcd4] focus:ring-offset-2 ${
-                                 isFollowingEnabled ? 'bg-[#00bcd4]' : 'bg-gray-200'
+                             className={`relative inline-flex h-7 w-14 items-center rounded-full transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#00B59AFF] focus:ring-offset-2 ${
+                                 isFollowingEnabled ? 'bg-[#00B59AFF]' : 'bg-gray-200'
                              } ${!isMainScrapingEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                          >
                              <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 ease-in-out ${
@@ -393,8 +393,8 @@
                          <button
                              onClick={handleRepliesScraping}
                              disabled={!isMainScrapingEnabled}
-                             className={`relative inline-flex h-7 w-14 items-center rounded-full transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#008AD4FF] focus:ring-offset-2 ${
-                                 isRepliesScraping ? 'bg-[#008AD4FF]' : 'bg-gray-200'
+                             className={`relative inline-flex h-7 w-14 items-center rounded-full transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#00A6B5FF] focus:ring-offset-2 ${
+                                 isRepliesScraping ? 'bg-[#00A6B5FF]' : 'bg-gray-200'
                              } ${!isMainScrapingEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                          >
                              <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 ease-in-out ${

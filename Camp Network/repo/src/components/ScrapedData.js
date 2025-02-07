@@ -1,9 +1,9 @@
 /* global chrome */
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 const ScrapedData = () => {
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
   const [profileData, setProfileData] = useState(null);
   const [tweets, setTweets] = useState([]);
   const [followingUsers, setFollowingUsers] = useState([]);
@@ -27,103 +27,125 @@ const ScrapedData = () => {
 
   useEffect(() => {
     // Load initial data
-    chrome.storage.local.get([
-      'profileData', 
-      'tweets', 
-      'followingUsers', 
-      'postedTweets',
-      'userReplies',
-      'visitedProfiles'
-    ], (result) => {
-      console.log('📊 Loading initial data:', result);
+    chrome.storage.local.get(
+      [
+        "profileData",
+        "tweets",
+        "followingUsers",
+        "postedTweets",
+        "userReplies",
+        "visitedProfiles",
+      ],
+      (result) => {
+        console.log("📊 Loading initial data:", result);
 
-      if (result.profileData) {
-        console.log('👤 Setting profile data:', result.profileData);
-        setProfileData(result.profileData);
+        if (result.profileData) {
+          console.log("👤 Setting profile data:", result.profileData);
+          setProfileData(result.profileData);
+        }
+
+        if (result.tweets) {
+          console.log("🐦 Setting tweets:", result.tweets.length);
+          const sortedTweets = (
+            Array.isArray(result.tweets) ? result.tweets : []
+          ).sort(
+            (a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0)
+          );
+          setTweets(sortedTweets);
+        }
+
+        if (result.postedTweets) {
+          console.log("📝 Setting posted tweets:", result.postedTweets.length);
+          setPostedTweets(result.postedTweets);
+        }
+
+        if (result.userReplies) {
+          console.log("💬 Setting replied tweets:", result.userReplies.length);
+          const sortedReplies = (
+            Array.isArray(result.userReplies) ? result.userReplies : []
+          ).sort(
+            (a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0)
+          );
+          setUserReplies(sortedReplies);
+        }
+
+        if (result.followingUsers) {
+          console.log(
+            "👥 Setting following users:",
+            result.followingUsers.length
+          );
+          const users = result.followingUsers.map((user) => ({
+            userId: user.username,
+            username: user.username,
+            name: user.name,
+            bio: user.bio || "",
+            followersCount: parseInt(user.followersCount) || 0,
+            followingCount: parseInt(user.followingCount) || 0,
+            verified: Boolean(user.verified),
+            protected: Boolean(user.protected),
+            location: user.location || "",
+            avatar: user.profileImageUrl || user.avatar,
+          }));
+          setFollowingUsers(users);
+        }
+
+        if (result.visitedProfiles) {
+          console.log(
+            "👥 Setting visited profiles:",
+            result.visitedProfiles.length
+          );
+          setVisitedProfiles(result.visitedProfiles || []);
+        }
+
+        setLoading(false);
       }
-
-      if (result.tweets) {
-        console.log('🐦 Setting tweets:', result.tweets.length);
-        const sortedTweets = (Array.isArray(result.tweets) ? result.tweets : [])
-          .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
-        setTweets(sortedTweets);
-      }
-
-      if (result.postedTweets) {
-        console.log('📝 Setting posted tweets:', result.postedTweets.length);
-        setPostedTweets(result.postedTweets);
-      }
-
-      if (result.userReplies) {
-        console.log('💬 Setting replied tweets:', result.userReplies.length);
-        const sortedReplies = (Array.isArray(result.userReplies) ? result.userReplies : [])
-          .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
-        setUserReplies(sortedReplies);
-      }
-
-      if (result.followingUsers) {
-        console.log('👥 Setting following users:', result.followingUsers.length);
-        const users = result.followingUsers.map(user => ({
-          userId: user.username,
-          username: user.username,
-          name: user.name,
-          bio: user.bio || '',
-          followersCount: parseInt(user.followersCount) || 0,
-          followingCount: parseInt(user.followingCount) || 0,
-          verified: Boolean(user.verified),
-          protected: Boolean(user.protected),
-          location: user.location || '',
-          avatar: user.profileImageUrl || user.avatar
-        }));
-        setFollowingUsers(users);
-      }
-
-      if (result.visitedProfiles) {
-        console.log('👥 Setting visited profiles:', result.visitedProfiles.length);
-        setVisitedProfiles(result.visitedProfiles || []);
-      }
-
-      setLoading(false);
-    });
+    );
 
     // Load liked tweets data from storage
-    chrome.storage.local.get(['likedTweets'], (result) => {
+    chrome.storage.local.get(["likedTweets"], (result) => {
       setLikedTweets(result.likedTweets || []);
     });
 
     // Message handler
     const handleMessage = (message) => {
-      console.log('📨 Received message:', message.type, {
-        dataLength: message.data?.length
+      console.log("📨 Received message:", message.type, {
+        dataLength: message.data?.length,
       });
 
-      if (message.type === 'SCRAPED_DATA') {
-        if (message.data.type === 'PROFILE') {
-          console.log('👤 Updating profile:', message.data.content);
+      if (message.type === "SCRAPED_DATA") {
+        if (message.data.type === "PROFILE") {
+          console.log("👤 Updating profile:", message.data.content);
           setProfileData(message.data.content);
-        } else if (message.data.type === 'TWEETS') {
-          console.log('🐦 Adding tweets:', message.data.content.length);
-          setTweets(prevTweets => {
+        } else if (message.data.type === "TWEETS") {
+          console.log("🐦 Adding tweets:", message.data.content.length);
+          setTweets((prevTweets) => {
             const newTweets = message.data.content;
-            const existingTweetsMap = new Map(prevTweets.map(t => [t.id, t]));
-            newTweets.forEach(tweet => {
+            const existingTweetsMap = new Map(prevTweets.map((t) => [t.id, t]));
+            newTweets.forEach((tweet) => {
               if (!existingTweetsMap.has(tweet.id)) {
                 existingTweetsMap.set(tweet.id, tweet);
               }
             });
             const combinedTweets = Array.from(existingTweetsMap.values());
-            return combinedTweets.sort((a, b) => {
-              const dateA = new Date(a.timestamp || 0);
-              const dateB = new Date(b.timestamp || 0);
-              return dateB - dateA;
-            }).slice(0, 15000);
+            return combinedTweets
+              .sort((a, b) => {
+                const dateA = new Date(a.timestamp || 0);
+                const dateB = new Date(b.timestamp || 0);
+                return dateB - dateA;
+              })
+              .slice(0, 15000);
           });
-        } else if (message.data.type === 'REPLIES') {
-          console.log('💬 Updating replied tweets:', message.data.content.length);
-          setUserReplies(prevReplies => {
+        } else if (message.data.type === "REPLIES") {
+          console.log(
+            "💬 Updating replied tweets:",
+            message.data.content.length
+          );
+          setUserReplies((prevReplies) => {
             const newReplies = message.data.content;
-            const existingRepliesMap = new Map(prevReplies.map(r => [r.id, r]));
-            newReplies.forEach(reply => {
+            const existingRepliesMap = new Map(
+              prevReplies.map((r) => [r.id, r])
+            );
+            newReplies.forEach((reply) => {
               if (!existingRepliesMap.has(reply.id)) {
                 existingRepliesMap.set(reply.id, reply);
               }
@@ -136,32 +158,32 @@ const ScrapedData = () => {
             });
           });
         }
-      } else if (message.type === 'FOLLOWING_USERS_UPDATED') {
-        console.log('👥 Updating following users:', message.data.length);
-        const users = message.data.map(user => ({
+      } else if (message.type === "FOLLOWING_USERS_UPDATED") {
+        console.log("👥 Updating following users:", message.data.length);
+        const users = message.data.map((user) => ({
           userId: user.username,
           username: user.username,
           name: user.name,
-          bio: user.bio || '',
+          bio: user.bio || "",
           followersCount: parseInt(user.followersCount) || 0,
           followingCount: parseInt(user.followingCount) || 0,
           verified: Boolean(user.verified),
           protected: Boolean(user.protected),
-          location: user.location || '',
-          avatar: user.profileImageUrl || user.avatar
+          location: user.location || "",
+          avatar: user.profileImageUrl || user.avatar,
         }));
         setFollowingUsers(users);
-      } else if (message.type === 'LIKED_TWEETS_UPDATED') {
-        console.log('❤️ Updating liked tweets:', message.data.length);
+      } else if (message.type === "LIKED_TWEETS_UPDATED") {
+        console.log("❤️ Updating liked tweets:", message.data.length);
         setLikedTweets(message.data);
-      } else if (message.type === 'POSTED_TWEETS_UPDATED') {
-        console.log('📝 Updating posted tweets:', message.data.length);
+      } else if (message.type === "POSTED_TWEETS_UPDATED") {
+        console.log("📝 Updating posted tweets:", message.data.length);
         setPostedTweets(message.data);
-      } else if (message.type === 'VISITED_PROFILES_UPDATED') {
-        console.log('👥 Updating visited profiles:', message.data.length);
+      } else if (message.type === "VISITED_PROFILES_UPDATED") {
+        console.log("👥 Updating visited profiles:", message.data.length);
         setVisitedProfiles(message.data);
-      } else if (message.type === 'REPLIES_UPDATED') {
-        console.log('💬 Updating replied tweets:', message.data.length);
+      } else if (message.type === "REPLIES_UPDATED") {
+        console.log("💬 Updating replied tweets:", message.data.length);
         setUserReplies(message.data);
       }
     };
@@ -171,13 +193,13 @@ const ScrapedData = () => {
   }, []);
 
   return (
-    <div 
+    <div
       className="min-h-screen w-full p-4"
       style={{
         backgroundImage: `url('/wood.jpg')`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
       }}
     >
       <div className="max-w-3xl mx-auto">
@@ -186,7 +208,7 @@ const ScrapedData = () => {
           <div className="flex items-center mb-4 mt-5 justify-between">
             <h2 className="text-2xl font-bold">Profile Data</h2>
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate("/")}
               className="px-4 py-2 bg-[#DC3545] text-white rounded-lg font-medium hover:bg-[#C82333] transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
             >
               Go to Home
@@ -198,23 +220,25 @@ const ScrapedData = () => {
                 {/* Profile Picture */}
                 <div className="w-16 h-16 bg-gray-200 rounded-full overflow-hidden flex-shrink-0">
                   {profileData.profileImageUrl ? (
-                    <img 
-                      src={profileData.profileImageUrl} 
-                      alt="Profile" 
+                    <img
+                      src={profileData.profileImageUrl}
+                      alt="Profile"
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         e.target.onerror = null;
-                        e.target.src = '/default-avatar.png';
+                        e.target.src = "/default-avatar.png";
                       }}
                     />
                   ) : (
                     <div className="w-full h-full bg-gray-200"></div>
                   )}
                 </div>
-                
+
                 {/* Name and Username */}
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">{profileData.userhandle}</h1>
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    {profileData.userhandle}
+                  </h1>
                   <p className="text-gray-600">@{profileData.username}</p>
                 </div>
               </div>
@@ -223,31 +247,42 @@ const ScrapedData = () => {
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-gray-500 text-sm mb-1">Followers</p>
-                  <p className="text-xl font-bold text-gray-900">{profileData.followers}</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {profileData.followers}
+                  </p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-gray-500 text-sm mb-1">Following</p>
-                  <p className="text-xl font-bold text-gray-900">{profileData.following}</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {profileData.following}
+                  </p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-gray-500 text-sm mb-1">Posts</p>
-                  <p className="text-xl font-bold text-gray-900">{profileData.posts}</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {profileData.posts}
+                  </p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-gray-500 text-sm mb-1">Likes</p>
                   <p className="text-xl font-bold text-gray-900">
-                    {profileData.likes !== undefined ? 
-                      profileData.likes : 
+                    {profileData.likes !== undefined ? (
+                      profileData.likes
+                    ) : (
                       <span className="inline-block w-8 h-4 bg-gray-200 animate-pulse rounded"></span>
-                    }
+                    )}
                   </p>
                 </div>
               </div>
 
               {/* Joined Date */}
               <div className="flex items-center justify-start text-gray-600">
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"/>
+                <svg
+                  className="w-5 h-5 mr-2"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" />
                 </svg>
                 <span>Joined {profileData.joinedDate}</span>
               </div>
@@ -255,7 +290,9 @@ const ScrapedData = () => {
           ) : (
             <div className="text-center py-8 bg-white rounded-lg shadow">
               <p className="text-gray-500">
-                {loading ? 'Loading profile...' : 'No profile data collected yet'}
+                {loading
+                  ? "Loading profile..."
+                  : "No profile data collected yet"}
               </p>
             </div>
           )}
@@ -263,7 +300,7 @@ const ScrapedData = () => {
 
         {/* Tweets Section */}
         <div className="bg-white rounded-2xl shadow-lg p-5 mb-4 border border-red-50">
-          <div 
+          <div
             className="flex items-center justify-between cursor-pointer"
             onClick={() => setIsTweetsListOpen(!isTweetsListOpen)}
           >
@@ -271,17 +308,28 @@ const ScrapedData = () => {
               <h2 className="text-2xl font-bold">Recent Tweets</h2>
               {tweets.length > 0 && (
                 <p className="text-sm text-gray-600 mt-1">
-                  Showing <span className="font-semibold text-blue-600">{tweets.length}</span> tweets
+                  Showing{" "}
+                  <span className="font-semibold text-blue-600">
+                    {tweets.length}
+                  </span>{" "}
+                  tweets
                 </p>
               )}
             </div>
             <svg
-              className={`w-6 h-6 transform transition-transform ${isTweetsListOpen ? 'rotate-180' : ''}`}
+              className={`w-6 h-6 transform transition-transform ${
+                isTweetsListOpen ? "rotate-180" : ""
+              }`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
             </svg>
           </div>
 
@@ -289,15 +337,19 @@ const ScrapedData = () => {
             <div className="mt-4">
               {tweets.length > 0 ? (
                 <div className="space-y-4 mt-4">
-                  {tweets.slice(0, 100).map(tweet => (
-                    <div 
-                      key={tweet.id} 
+                  {tweets.slice(0, 100).map((tweet) => (
+                    <div
+                      key={tweet.id}
                       className="border rounded-lg bg-white shadow-md hover:shadow-lg transition-shadow"
                     >
                       {/* Tweet Header - Always visible */}
-                      <div 
+                      <div
                         className="p-4 cursor-pointer"
-                        onClick={() => setExpandedTweet(expandedTweet === tweet.id ? null : tweet.id)}
+                        onClick={() =>
+                          setExpandedTweet(
+                            expandedTweet === tweet.id ? null : tweet.id
+                          )
+                        }
                       >
                         <div className="flex items-center mb-3">
                           {tweet.user?.avatar && (
@@ -307,22 +359,32 @@ const ScrapedData = () => {
                               className="w-10 h-10 rounded-full mr-3"
                               onError={(e) => {
                                 e.target.onerror = null;
-                                e.target.src = '/default-avatar.png';
+                                e.target.src = "/default-avatar.png";
                               }}
                             />
                           )}
                           <div className="flex-grow">
-                            <p className="font-bold">{tweet.user?.name || 'Unknown'}</p>
-                            <p className="text-gray-500 text-sm">@{tweet.user?.handle || tweet.user?.username || 'unknown'}</p>
+                            <p className="font-bold">
+                              {tweet.user?.name || "Unknown"}
+                            </p>
+                            <p className="text-gray-500 text-sm">
+                              @
+                              {tweet.user?.handle ||
+                                tweet.user?.username ||
+                                "unknown"}
+                            </p>
                           </div>
                           <div className="flex items-center space-x-3">
                             <span className="text-sm text-gray-500">
                               {(() => {
-                                if (!tweet.timeText && !tweet.timestamp) return 'Unknown time';
-                                
+                                if (!tweet.timeText && !tweet.timestamp)
+                                  return "Unknown time";
+
                                 if (tweet.timeText) {
                                   // Convert timeText like "2 hours ago" or "5 minutes ago" to "2h" or "5m"
-                                  const match = tweet.timeText.match(/(\d+)\s+(hour|minute|day|month|year)s?\s+ago/);
+                                  const match = tweet.timeText.match(
+                                    /(\d+)\s+(hour|minute|day|month|year)s?\s+ago/
+                                  );
                                   if (match) {
                                     const [_, num, unit] = match;
                                     return `${num}${unit[0]}`; // e.g., "2h", "5m", "3d"
@@ -333,8 +395,9 @@ const ScrapedData = () => {
                                 // For timestamp, show relative time
                                 const tweetDate = new Date(tweet.timestamp);
                                 const now = new Date();
-                                const minutesDiff = (now - tweetDate) / (1000 * 60);
-                                
+                                const minutesDiff =
+                                  (now - tweetDate) / (1000 * 60);
+
                                 if (minutesDiff < 60) {
                                   const minutes = Math.floor(minutesDiff);
                                   return `${minutes}m`;
@@ -342,28 +405,35 @@ const ScrapedData = () => {
                                   const hours = Math.floor(minutesDiff / 60);
                                   return `${hours}h`;
                                 }
-                                
+
                                 return tweetDate.toLocaleDateString();
                               })()}
                             </span>
                             <svg
-                              className={`w-5 h-5 transform transition-transform ${expandedTweet === tweet.id ? 'rotate-180' : ''}`}
+                              className={`w-5 h-5 transform transition-transform ${
+                                expandedTweet === tweet.id ? "rotate-180" : ""
+                              }`}
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
                             >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 9l-7 7-7-7"
+                              />
                             </svg>
                           </div>
                         </div>
 
                         {/* Tweet Text */}
                         <div className="text-gray-800 whitespace-pre-wrap">
-                          {expandedTweet === tweet.id 
-                            ? tweet.text 
-                            : tweet.text?.length > 150 
-                              ? `${tweet.text.substring(0, 150)}...` 
-                              : tweet.text}
+                          {expandedTweet === tweet.id
+                            ? tweet.text
+                            : tweet.text?.length > 150
+                            ? `${tweet.text.substring(0, 150)}...`
+                            : tweet.text}
                         </div>
                       </div>
 
@@ -374,19 +444,25 @@ const ScrapedData = () => {
                             <span className="flex items-center space-x-2">
                               <span className="p-2 rounded-full hover:bg-gray-100">
                                 <span className="mr-1">💬</span>
-                                {tweet.metrics?.replies || tweet.engagement?.replies || 0}
+                                {tweet.metrics?.replies ||
+                                  tweet.engagement?.replies ||
+                                  0}
                               </span>
                             </span>
                             <span className="flex items-center space-x-2">
                               <span className="p-2 rounded-full hover:bg-gray-100">
                                 <span className="mr-1">🔄</span>
-                                {tweet.metrics?.retweets || tweet.engagement?.retweets || 0}
+                                {tweet.metrics?.retweets ||
+                                  tweet.engagement?.retweets ||
+                                  0}
                               </span>
                             </span>
                             <span className="flex items-center space-x-2">
                               <span className="p-2 rounded-full hover:bg-gray-100">
                                 <span className="mr-1">❤️</span>
-                                {tweet.metrics?.likes || tweet.engagement?.likes || 0}
+                                {tweet.metrics?.likes ||
+                                  tweet.engagement?.likes ||
+                                  0}
                               </span>
                             </span>
                           </div>
@@ -403,7 +479,7 @@ const ScrapedData = () => {
               ) : (
                 <div className="text-center py-8 bg-white rounded-lg shadow mt-4">
                   <p className="text-gray-500">
-                    {loading ? 'Loading tweets...' : 'No tweets collected yet'}
+                    {loading ? "Loading tweets..." : "No tweets collected yet"}
                   </p>
                 </div>
               )}
@@ -413,163 +489,214 @@ const ScrapedData = () => {
 
         {/* Posted Tweets Section */}
         <div className="bg-white rounded-2xl shadow-lg p-5 mb-4 border border-red-50">
-            <div 
-                className="flex items-center justify-between cursor-pointer"
-                onClick={() => setIsPostedTweetsListOpen(!isPostedTweetsListOpen)}
-            >
-                <div className="flex flex-col">
-                    <h2 className="text-2xl font-bold">Posted Tweets</h2>
-                    {postedTweets.length > 0 && (
-                        <p className="text-sm text-gray-600 mt-1">
-                            Showing <span className="font-semibold text-blue-600">{postedTweets.length}</span> posted tweets
-                        </p>
-                    )}
-                </div>
-                <svg
-                    className={`w-6 h-6 transform transition-transform ${isPostedTweetsListOpen ? 'rotate-180' : ''}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+          <div
+            className="flex items-center justify-between cursor-pointer"
+            onClick={() => setIsPostedTweetsListOpen(!isPostedTweetsListOpen)}
+          >
+            <div className="flex flex-col">
+              <h2 className="text-2xl font-bold">Posted Tweets</h2>
+              {postedTweets.length > 0 && (
+                <p className="text-sm text-gray-600 mt-1">
+                  Showing{" "}
+                  <span className="font-semibold text-blue-600">
+                    {postedTweets.length}
+                  </span>{" "}
+                  posted tweets
+                </p>
+              )}
             </div>
+            <svg
+              className={`w-6 h-6 transform transition-transform ${
+                isPostedTweetsListOpen ? "rotate-180" : ""
+              }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </div>
 
-            {isPostedTweetsListOpen && (
-                <div className="mt-4">
-                    {postedTweets.length > 0 ? (
-                        <div className="space-y-4 mt-4">
-                            {postedTweets.slice(0, 100).map(tweet => (
-                                <div 
-                                    key={tweet.id} 
-                                    className="border rounded-lg bg-white shadow-md hover:shadow-lg transition-shadow"
-                                >
-                                    {/* Tweet Header - Always visible */}
-                                    <div 
-                                        className="p-4 cursor-pointer"
-                                        onClick={() => setExpandedPostedTweet(expandedPostedTweet === tweet.id ? null : tweet.id)}
-                                    >
-                                        <div className="flex items-center mb-3">
-                                            {tweet.user?.avatar && (
-                                                <img
-                                                    src={tweet.user.avatar}
-                                                    alt="Profile"
-                                                    className="w-10 h-10 rounded-full mr-3"
-                                                    onError={(e) => {
-                                                        e.target.onerror = null;
-                                                        e.target.src = '/default-avatar.png';
-                                                    }}
-                                                />
-                                            )}
-                                            <div className="flex-grow">
-                                                <p className="font-bold">{tweet.user?.name || 'Unknown'}</p>
-                                                <p className="text-gray-500 text-sm">@{tweet.user?.handle || 'unknown'}</p>
-                                            </div>
-                                            <div className="flex items-center space-x-3">
-                                                <span className="text-sm text-gray-500">
-                                                    {(() => {
-                                                        if (!tweet.timestamp) return 'Unknown time';
-                                                        
-                                                        const tweetDate = new Date(tweet.timestamp);
-                                                        const now = new Date();
-                                                        const minutesDiff = (now - tweetDate) / (1000 * 60);
-                                                        
-                                                        if (minutesDiff < 60) {
-                                                            const minutes = Math.floor(minutesDiff);
-                                                            return `${minutes}m`;
-                                                        } else if (minutesDiff < 24 * 60) {
-                                                            const hours = Math.floor(minutesDiff / 60);
-                                                            return `${hours}h`;
-                                                        }
-                                                        
-                                                        return tweetDate.toLocaleDateString();
-                                                    })()}
-                                                </span>
-                                                <svg
-                                                    className={`w-5 h-5 transform transition-transform ${expandedPostedTweet === tweet.id ? 'rotate-180' : ''}`}
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    viewBox="0 0 24 24"
-                                                >
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                </svg>
-                                            </div>
-                                        </div>
-
-                                        {/* Reply Info */}
-                                        {tweet.in_reply_to_screen_name && (
-                                            <div className="text-sm text-gray-500 mb-2">
-                                                Replying to @{tweet.in_reply_to_screen_name}
-                                            </div>
-                                        )}
-
-                                        {/* Tweet Text */}
-                                        <div className="text-gray-800 whitespace-pre-wrap">
-                                            {expandedPostedTweet === tweet.id 
-                                                ? tweet.text 
-                                                : tweet.text?.length > 150 
-                                                    ? `${tweet.text.substring(0, 150)}...` 
-                                                    : tweet.text}
-                                        </div>
-                                    </div>
-
-                                    {/* Expanded Content */}
-                                    {expandedPostedTweet === tweet.id && (
-                                        <div className="px-4 pb-4 border-t border-gray-100 mt-2 pt-4">
-                                            <div className="flex items-center justify-around text-sm text-gray-500">
-                                                <span className="flex items-center space-x-2">
-                                                    <span className="p-2 rounded-full hover:bg-gray-100">
-                                                        <span className="mr-1">💬</span>
-                                                        {tweet.metrics?.replies || 0}
-                                                    </span>
-                                                </span>
-                                                <span className="flex items-center space-x-2">
-                                                    <span className="p-2 rounded-full hover:bg-gray-100">
-                                                        <span className="mr-1">🔄</span>
-                                                        {tweet.metrics?.retweets || 0}
-                                                    </span>
-                                                </span>
-                                                <span className="flex items-center space-x-2">
-                                                    <span className="p-2 rounded-full hover:bg-gray-100">
-                                                        <span className="mr-1">❤️</span>
-                                                        {tweet.metrics?.likes || 0}
-                                                    </span>
-                                                </span>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                            {postedTweets.length > 100 && (
-                                <div className="text-center py-4 text-gray-600">
-                                    Showing first 100 posted tweets of {postedTweets.length} total posts
-                                </div>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="text-center py-8 bg-white rounded-lg shadow mt-4">
-                            <p className="text-gray-500">
-                                {loading ? 'Loading posted tweets...' : 'No posted tweets collected yet'}
+          {isPostedTweetsListOpen && (
+            <div className="mt-4">
+              {postedTweets.length > 0 ? (
+                <div className="space-y-4 mt-4">
+                  {postedTweets.slice(0, 100).map((tweet) => (
+                    <div
+                      key={tweet.id}
+                      className="border rounded-lg bg-white shadow-md hover:shadow-lg transition-shadow"
+                    >
+                      {/* Tweet Header - Always visible */}
+                      <div
+                        className="p-4 cursor-pointer"
+                        onClick={() =>
+                          setExpandedPostedTweet(
+                            expandedPostedTweet === tweet.id ? null : tweet.id
+                          )
+                        }
+                      >
+                        <div className="flex items-center mb-3">
+                          {tweet.user?.avatar && (
+                            <img
+                              src={tweet.user.avatar}
+                              alt="Profile"
+                              className="w-10 h-10 rounded-full mr-3"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = "/default-avatar.png";
+                              }}
+                            />
+                          )}
+                          <div className="flex-grow">
+                            <p className="font-bold">
+                              {tweet.user?.name || "Unknown"}
                             </p>
+                            <p className="text-gray-500 text-sm">
+                              @{tweet.user?.handle || "unknown"}
+                            </p>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <span className="text-sm text-gray-500">
+                              {(() => {
+                                if (!tweet.timestamp) return "Unknown time";
+
+                                const tweetDate = new Date(tweet.timestamp);
+                                const now = new Date();
+                                const minutesDiff =
+                                  (now - tweetDate) / (1000 * 60);
+
+                                if (minutesDiff < 60) {
+                                  const minutes = Math.floor(minutesDiff);
+                                  return `${minutes}m`;
+                                } else if (minutesDiff < 24 * 60) {
+                                  const hours = Math.floor(minutesDiff / 60);
+                                  return `${hours}h`;
+                                }
+
+                                return tweetDate.toLocaleDateString();
+                              })()}
+                            </span>
+                            <svg
+                              className={`w-5 h-5 transform transition-transform ${
+                                expandedPostedTweet === tweet.id
+                                  ? "rotate-180"
+                                  : ""
+                              }`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 9l-7 7-7-7"
+                              />
+                            </svg>
+                          </div>
                         </div>
-                    )}
+
+                        {/* Reply Info */}
+                        {tweet.in_reply_to_screen_name && (
+                          <div className="text-sm text-gray-500 mb-2">
+                            Replying to @{tweet.in_reply_to_screen_name}
+                          </div>
+                        )}
+
+                        {/* Tweet Text */}
+                        <div className="text-gray-800 whitespace-pre-wrap">
+                          {expandedPostedTweet === tweet.id
+                            ? tweet.text
+                            : tweet.text?.length > 150
+                            ? `${tweet.text.substring(0, 150)}...`
+                            : tweet.text}
+                        </div>
+                      </div>
+
+                      {/* Expanded Content */}
+                      {expandedPostedTweet === tweet.id && (
+                        <div className="px-4 pb-4 border-t border-gray-100 mt-2 pt-4">
+                          <div className="flex items-center justify-around text-sm text-gray-500">
+                            <span className="flex items-center space-x-2">
+                              <span className="p-2 rounded-full hover:bg-gray-100">
+                                <span className="mr-1">💬</span>
+                                {tweet.metrics?.replies || 0}
+                              </span>
+                            </span>
+                            <span className="flex items-center space-x-2">
+                              <span className="p-2 rounded-full hover:bg-gray-100">
+                                <span className="mr-1">🔄</span>
+                                {tweet.metrics?.retweets || 0}
+                              </span>
+                            </span>
+                            <span className="flex items-center space-x-2">
+                              <span className="p-2 rounded-full hover:bg-gray-100">
+                                <span className="mr-1">❤️</span>
+                                {tweet.metrics?.likes || 0}
+                              </span>
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {postedTweets.length > 100 && (
+                    <div className="text-center py-4 text-gray-600">
+                      Showing first 100 posted tweets of {postedTweets.length}{" "}
+                      total posts
+                    </div>
+                  )}
                 </div>
-            )}
+              ) : (
+                <div className="text-center py-8 bg-white rounded-lg shadow mt-4">
+                  <p className="text-gray-500">
+                    {loading
+                      ? "Loading posted tweets..."
+                      : "No posted tweets collected yet"}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
-        
+
         {/* Replied Tweets Section */}
         <div className="bg-white rounded-2xl shadow-lg p-5 mb-4 border border-red-50">
-          <div className="flex items-center justify-between cursor-pointer" onClick={() => setIsRepliedTweetsListOpen(!isRepliedTweetsListOpen)}>
+          <div
+            className="flex items-center justify-between cursor-pointer"
+            onClick={() => setIsRepliedTweetsListOpen(!isRepliedTweetsListOpen)}
+          >
             <div className="flex flex-col">
               <h2 className="text-2xl font-bold">Replied Tweets</h2>
               {userReplies.length > 0 && (
                 <p className="text-sm text-gray-600 mt-1">
-                  Showing <span className="font-semibold text-blue-600">{userReplies.length}</span> replied tweets
+                  Showing{" "}
+                  <span className="font-semibold text-blue-600">
+                    {userReplies.length}
+                  </span>{" "}
+                  replied tweets
                 </p>
               )}
             </div>
-            <svg className={`w-6 h-6 transform transition-transform ${isRepliedTweetsListOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            <svg
+              className={`w-6 h-6 transform transition-transform ${
+                isRepliedTweetsListOpen ? "rotate-180" : ""
+              }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
             </svg>
           </div>
 
@@ -577,16 +704,41 @@ const ScrapedData = () => {
             <div className="mt-4">
               {userReplies.length > 0 ? (
                 <div className="space-y-4 mt-4">
-                  {userReplies.slice(0, 100).map(tweet => (
-                    <div key={tweet.id} className="border rounded-lg bg-white shadow-md hover:shadow-lg transition-shadow">
-                      <div className="p-4 cursor-pointer" onClick={() => setExpandedRepliedTweet(expandedRepliedTweet === tweet.id ? null : tweet.id)}>
+                  {userReplies.slice(0, 100).map((tweet) => (
+                    <div
+                      key={tweet.id}
+                      className="border rounded-lg bg-white shadow-md hover:shadow-lg transition-shadow"
+                    >
+                      <div
+                        className="p-4 cursor-pointer"
+                        onClick={() =>
+                          setExpandedRepliedTweet(
+                            expandedRepliedTweet === tweet.id ? null : tweet.id
+                          )
+                        }
+                      >
                         <div className="flex items-center mb-3">
                           {tweet.user?.avatar && (
-                            <img src={tweet.user.avatar} alt="Profile" className="w-10 h-10 rounded-full mr-3" onError={(e) => { e.target.onerror = null; e.target.src = '/default-avatar.png'; }} />
+                            <img
+                              src={tweet.user.avatar}
+                              alt="Profile"
+                              className="w-10 h-10 rounded-full mr-3"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = "/default-avatar.png";
+                              }}
+                            />
                           )}
                           <div className="flex-grow">
-                            <p className="font-bold">{tweet.user?.name || 'Unknown'}</p>
-                            <p className="text-gray-500 text-sm">@{tweet.user?.handle || tweet.user?.username || 'unknown'}</p>
+                            <p className="font-bold">
+                              {tweet.user?.name || "Unknown"}
+                            </p>
+                            <p className="text-gray-500 text-sm">
+                              @
+                              {tweet.user?.handle ||
+                                tweet.user?.username ||
+                                "unknown"}
+                            </p>
                           </div>
                         </div>
 
@@ -598,7 +750,11 @@ const ScrapedData = () => {
                         )}
 
                         <div className="text-gray-800 whitespace-pre-wrap">
-                          {expandedRepliedTweet === tweet.id ? tweet.text : tweet.text?.length > 150 ? `${tweet.text.substring(0, 150)}...` : tweet.text}
+                          {expandedRepliedTweet === tweet.id
+                            ? tweet.text
+                            : tweet.text?.length > 150
+                            ? `${tweet.text.substring(0, 150)}...`
+                            : tweet.text}
                         </div>
                       </div>
 
@@ -630,14 +786,17 @@ const ScrapedData = () => {
                   ))}
                   {userReplies.length > 100 && (
                     <div className="text-center py-4 text-gray-600">
-                      Showing first 100 replied tweets of {userReplies.length} total replies
+                      Showing first 100 replied tweets of {userReplies.length}{" "}
+                      total replies
                     </div>
                   )}
                 </div>
               ) : (
                 <div className="text-center py-8 bg-white rounded-lg shadow mt-4">
                   <p className="text-gray-500">
-                    {loading ? 'Loading replied tweets...' : 'No replied tweets collected yet'}
+                    {loading
+                      ? "Loading replied tweets..."
+                      : "No replied tweets collected yet"}
                   </p>
                 </div>
               )}
@@ -647,17 +806,36 @@ const ScrapedData = () => {
 
         {/* Liked Tweets Section */}
         <div className="bg-white rounded-2xl shadow-lg p-5 mb-4 border border-red-50">
-          <div className="flex items-center justify-between cursor-pointer" onClick={() => setIsLikedTweetsListOpen(!isLikedTweetsListOpen)}>
+          <div
+            className="flex items-center justify-between cursor-pointer"
+            onClick={() => setIsLikedTweetsListOpen(!isLikedTweetsListOpen)}
+          >
             <div className="flex flex-col">
               <h2 className="text-2xl font-bold">Liked Tweets</h2>
               {likedTweets.length > 0 && (
                 <p className="text-sm text-gray-600 mt-1">
-                  Showing <span className="font-semibold text-blue-600">{likedTweets.length}</span> liked tweets
+                  Showing{" "}
+                  <span className="font-semibold text-blue-600">
+                    {likedTweets.length}
+                  </span>{" "}
+                  liked tweets
                 </p>
               )}
             </div>
-            <svg className={`w-6 h-6 transform transition-transform ${isLikedTweetsListOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            <svg
+              className={`w-6 h-6 transform transition-transform ${
+                isLikedTweetsListOpen ? "rotate-180" : ""
+              }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
             </svg>
           </div>
 
@@ -665,20 +843,49 @@ const ScrapedData = () => {
             <div className="mt-4">
               {likedTweets.length > 0 ? (
                 <div className="space-y-4 mt-4">
-                  {likedTweets.slice(0, 100).map(tweet => (
-                    <div key={tweet.id} className="border rounded-lg bg-white shadow-md hover:shadow-lg transition-shadow">
-                      <div className="p-4 cursor-pointer" onClick={() => setExpandedLikedTweet(expandedLikedTweet === tweet.id ? null : tweet.id)}>
+                  {likedTweets.slice(0, 100).map((tweet) => (
+                    <div
+                      key={tweet.id}
+                      className="border rounded-lg bg-white shadow-md hover:shadow-lg transition-shadow"
+                    >
+                      <div
+                        className="p-4 cursor-pointer"
+                        onClick={() =>
+                          setExpandedLikedTweet(
+                            expandedLikedTweet === tweet.id ? null : tweet.id
+                          )
+                        }
+                      >
                         <div className="flex items-center mb-3">
                           {tweet.user?.avatar && (
-                            <img src={tweet.user.avatar} alt="Profile" className="w-10 h-10 rounded-full mr-3" onError={(e) => { e.target.onerror = null; e.target.src = '/default-avatar.png'; }} />
+                            <img
+                              src={tweet.user.avatar}
+                              alt="Profile"
+                              className="w-10 h-10 rounded-full mr-3"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = "/default-avatar.png";
+                              }}
+                            />
                           )}
                           <div className="flex-grow">
-                            <p className="font-bold">{tweet.user?.name || 'Unknown'}</p>
-                            <p className="text-gray-500 text-sm">@{tweet.user?.handle || tweet.user?.username || 'unknown'}</p>
+                            <p className="font-bold">
+                              {tweet.user?.name || "Unknown"}
+                            </p>
+                            <p className="text-gray-500 text-sm">
+                              @
+                              {tweet.user?.handle ||
+                                tweet.user?.username ||
+                                "unknown"}
+                            </p>
                           </div>
                         </div>
                         <div className="text-gray-800 whitespace-pre-wrap">
-                          {expandedLikedTweet === tweet.id ? tweet.text : tweet.text?.length > 150 ? `${tweet.text.substring(0, 150)}...` : tweet.text}
+                          {expandedLikedTweet === tweet.id
+                            ? tweet.text
+                            : tweet.text?.length > 150
+                            ? `${tweet.text.substring(0, 150)}...`
+                            : tweet.text}
                         </div>
                       </div>
                       {expandedLikedTweet === tweet.id && (
@@ -709,14 +916,17 @@ const ScrapedData = () => {
                   ))}
                   {likedTweets.length > 100 && (
                     <div className="text-center py-4 text-gray-600">
-                      Showing first 100 liked tweets of {likedTweets.length} total liked tweets
+                      Showing first 100 liked tweets of {likedTweets.length}{" "}
+                      total liked tweets
                     </div>
                   )}
                 </div>
               ) : (
                 <div className="text-center py-8 bg-white rounded-lg shadow mt-4">
                   <p className="text-gray-500">
-                    {loading ? 'Loading liked tweets...' : 'No liked tweets collected yet'}
+                    {loading
+                      ? "Loading liked tweets..."
+                      : "No liked tweets collected yet"}
                   </p>
                 </div>
               )}
@@ -726,7 +936,7 @@ const ScrapedData = () => {
 
         {/* Following Users Section */}
         <div className="bg-white rounded-2xl shadow-lg p-5 mb-4 border border-red-50">
-          <div 
+          <div
             className="flex items-center justify-between cursor-pointer"
             onClick={() => setIsFollowingListOpen(!isFollowingListOpen)}
           >
@@ -734,11 +944,11 @@ const ScrapedData = () => {
               <h2 className="text-2xl font-bold">Following Users</h2>
               {followingUsers.length > 0 && profileData?.following && (
                 <p className="text-sm text-gray-600 mt-1">
-                  For now we have details of{' '}
+                  For now we have details of{" "}
                   <span className="font-semibold text-blue-600">
                     {followingUsers.length}
-                  </span>
-                  {' '}users from the following list out of{' '}
+                  </span>{" "}
+                  users from the following list out of{" "}
                   <span className="font-semibold text-blue-600">
                     {profileData?.following}
                   </span>
@@ -746,22 +956,33 @@ const ScrapedData = () => {
               )}
             </div>
             <svg
-              className={`w-6 h-6 transform transition-transform ${isFollowingListOpen ? 'rotate-180' : ''}`}
+              className={`w-6 h-6 transform transition-transform ${
+                isFollowingListOpen ? "rotate-180" : ""
+              }`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
             </svg>
           </div>
 
           {isFollowingListOpen && followingUsers.length > 0 ? (
             <div className="mt-4 space-y-4">
-              {followingUsers.map(user => (
+              {followingUsers.map((user) => (
                 <div
                   key={user.userId}
                   className="p-4 border rounded-lg bg-white shadow-md hover:shadow-lg transition-shadow cursor-pointer"
-                  onClick={() => setExpandedUser(expandedUser === user.userId ? null : user.userId)}
+                  onClick={() =>
+                    setExpandedUser(
+                      expandedUser === user.userId ? null : user.userId
+                    )
+                  }
                 >
                   {/* User Card Header */}
                   <div className="flex items-center">
@@ -776,7 +997,9 @@ const ScrapedData = () => {
                     </div>
                     <div className="ml-4 flex-grow">
                       <div className="font-bold text-gray-900">{user.name}</div>
-                      <div className="text-sm text-gray-500">@{user.username}</div>
+                      <div className="text-sm text-gray-500">
+                        @{user.username}
+                      </div>
                     </div>
                     <div className="text-sm text-gray-500">
                       {user.verified && (
@@ -799,9 +1022,7 @@ const ScrapedData = () => {
                   {expandedUser === user.userId && (
                     <div className="mt-4 pt-4 border-t border-gray-200">
                       {user.bio && (
-                        <div className="mb-3 text-gray-700">
-                          {user.bio}
-                        </div>
+                        <div className="mb-3 text-gray-700">{user.bio}</div>
                       )}
 
                       <div className="grid grid-cols-2 gap-4 text-sm">
@@ -820,7 +1041,9 @@ const ScrapedData = () => {
                         {user.location && (
                           <div className="col-span-2">
                             <span className="text-gray-500">Location:</span>
-                            <span className="ml-2 font-medium">{user.location}</span>
+                            <span className="ml-2 font-medium">
+                              {user.location}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -832,7 +1055,9 @@ const ScrapedData = () => {
           ) : isFollowingListOpen && followingUsers.length === 0 ? (
             <div className="mt-4 text-center py-8 bg-white rounded-lg shadow">
               <p className="text-gray-500">
-                {loading ? 'Loading following users...' : 'No following users collected yet'}
+                {loading
+                  ? "Loading following users..."
+                  : "No following users collected yet"}
               </p>
             </div>
           ) : null}
@@ -840,7 +1065,7 @@ const ScrapedData = () => {
 
         {/* Visited Profiles Section */}
         <div className="bg-white rounded-2xl shadow-lg p-5 mb-4 border border-red-50">
-          <div 
+          <div
             className="flex items-center justify-between cursor-pointer"
             onClick={() => setIsVisitedProfilesOpen(!isVisitedProfilesOpen)}
           >
@@ -848,17 +1073,28 @@ const ScrapedData = () => {
               <h2 className="text-2xl font-bold">Visited Profiles</h2>
               {visitedProfiles.length > 0 && (
                 <p className="text-sm text-gray-600 mt-1">
-                  Showing <span className="font-semibold text-blue-600">{visitedProfiles.length}</span> visited profiles
+                  Showing{" "}
+                  <span className="font-semibold text-blue-600">
+                    {visitedProfiles.length}
+                  </span>{" "}
+                  visited profiles
                 </p>
               )}
             </div>
             <svg
-              className={`w-6 h-6 transform transition-transform ${isVisitedProfilesOpen ? 'rotate-180' : ''}`}
+              className={`w-6 h-6 transform transition-transform ${
+                isVisitedProfilesOpen ? "rotate-180" : ""
+              }`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
             </svg>
           </div>
 
@@ -866,30 +1102,50 @@ const ScrapedData = () => {
             <div className="mt-4">
               {visitedProfiles.length > 0 ? (
                 <div className="space-y-4">
-                  {visitedProfiles.map((handle, index) => (
-                    <div 
+                  {visitedProfiles.map((profile, index) => (
+                    <div
                       key={index}
                       className="p-4 border rounded-lg bg-white shadow-md hover:shadow-lg transition-shadow"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
                           <div className="flex-shrink-0">
-                            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                              <span className="text-gray-500 text-lg">@</span>
-                            </div>
+                            {profile.profilePhotoUrl ? (
+                              <img
+                                src={profile.profilePhotoUrl}
+                                alt={profile.handle}
+                                className="w-10 h-10 rounded-full"
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = "/default-avatar.png";
+                                }}
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                                <span className="text-gray-500 text-lg">@</span>
+                              </div>
+                            )}
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">@{handle}</p>
+                            {profile.userName && (
+                              <div className="font-bold text-gray-900">
+                                {profile.userName}
+                              </div>
+                            )}
+                            <a
+                              href={profile.profileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium text-gray-900 hover:text-blue-600 transition-colors"
+                            >
+                              @{profile.handle}
+                            </a>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm text-gray-800">Visited at: </p>
+                              <p className="text-sm text-gray-500">{new Date(profile.visitTime).toLocaleString()} </p>
+                            </div> 
                           </div>
                         </div>
-                        <a
-                          href={`https://x.com/${handle}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-4 py-2 text-sm bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors duration-200"
-                        >
-                          View Profile
-                        </a>
                       </div>
                     </div>
                   ))}
@@ -897,7 +1153,9 @@ const ScrapedData = () => {
               ) : (
                 <div className="text-center py-8 bg-white rounded-lg shadow mt-4">
                   <p className="text-gray-500">
-                    {loading ? 'Loading visited profiles...' : 'No profiles visited yet'}
+                    {loading
+                      ? "Loading visited profiles..."
+                      : "No profiles visited yet"}
                   </p>
                 </div>
               )}
@@ -909,4 +1167,4 @@ const ScrapedData = () => {
   );
 };
 
-export default ScrapedData; 
+export default ScrapedData;
