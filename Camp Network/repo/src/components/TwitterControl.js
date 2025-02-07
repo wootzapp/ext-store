@@ -439,7 +439,7 @@
                      
                      <p className="text-gray-600 mb-6">
                          WootzApp is requesting permission to access Twitter with Camp Network. 
-                         This will allow the application to scrape profile data, likes, and following information.
+                         This will allow the application to scrape profile data, likes, following, and posts and replies information.
                      </p>
  
                      <div className="flex justify-end space-x-3">

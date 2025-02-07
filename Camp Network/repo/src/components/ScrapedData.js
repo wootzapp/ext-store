@@ -1140,10 +1140,9 @@ const ScrapedData = () => {
                             >
                               @{profile.handle}
                             </a>
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm text-gray-800">Visited at: </p>
-                              <p className="text-sm text-gray-500">{new Date(profile.visitTime).toLocaleString()} </p>
-                            </div> 
+                            <p className="text-sm text-gray-500">
+                              {new Date(profile.visitTime).toLocaleString()}
+                            </p> 
                           </div>
                         </div>
                       </div>
