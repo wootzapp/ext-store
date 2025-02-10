@@ -1142,7 +1142,7 @@ const ScrapedData = () => {
                             </a>
                             <p className="text-sm text-gray-500">
                               {new Date(profile.visitTime).toLocaleString()}
-                            </p> 
+                            </p>
                           </div>
                         </div>
                       </div>

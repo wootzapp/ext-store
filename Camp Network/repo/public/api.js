@@ -1,11 +1,11 @@
 /* global chrome */
 // API configuration
 export const API_CONFIG = {
-  BASE_URL: 'https://camp-wootzapp.up.railway.app/api/events',
+  BASE_URL: "https://camp-wootzapp.up.railway.app/api/events",
   HEADERS: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
     // 'x-extension-password': 'w00tz_APP2Camp*Auth@297'
-  }
+  },
 };
 
 // Store for tracking sent events to prevent duplicates
@@ -19,14 +19,14 @@ function generateEventKey(eventType, uniqueId) {
 // Helper function to check if event was already sent
 async function wasEventSent(eventType, uniqueId) {
   const key = generateEventKey(eventType, uniqueId);
-  
+
   // Check in-memory cache first
   if (sentEvents.has(key)) {
     return true;
   }
 
   // Check chrome storage
-  const result = await chrome.storage.local.get(['sentEvents']);
+  const result = await chrome.storage.local.get(["sentEvents"]);
   const storedEvents = result.sentEvents || {};
   return !!storedEvents[key];
 }
@@ -34,12 +34,12 @@ async function wasEventSent(eventType, uniqueId) {
 // Helper function to mark event as sent
 async function markEventAsSent(eventType, uniqueId) {
   const key = generateEventKey(eventType, uniqueId);
-  
+
   // Add to in-memory cache
   sentEvents.set(key, Date.now());
-  
+
   // Add to chrome storage
-  const result = await chrome.storage.local.get(['sentEvents']);
+  const result = await chrome.storage.local.get(["sentEvents"]);
   const storedEvents = result.sentEvents || {};
   storedEvents[key] = Date.now();
   await chrome.storage.local.set({ sentEvents: storedEvents });
@@ -48,10 +48,10 @@ async function markEventAsSent(eventType, uniqueId) {
 // Generic function to send data to API with detailed logging
 async function sendToAPI(data) {
   // Don't send if wallet address is pending
-  if (data.walletAddress === 'pending') {
-    console.log('⏳ Skipping API call - waiting for wallet address:', {
+  if (data.walletAddress === "pending") {
+    console.log("⏳ Skipping API call - waiting for wallet address:", {
       eventType: data.event.name,
-      userHandle: data.userHandle
+      userHandle: data.userHandle,
     });
     return null;
   }
@@ -59,28 +59,28 @@ async function sendToAPI(data) {
   // Check if this event was already sent
   const uniqueId = data.event.id || data.event.handle || data.event.text;
   if (await wasEventSent(data.event.name, uniqueId)) {
-    console.log('🔄 Skipping duplicate event:', {
+    console.log("🔄 Skipping duplicate event:", {
       eventType: data.event.name,
-      uniqueId
+      uniqueId,
     });
     return null;
   }
 
-  console.log('🚀 Preparing API request:', {
+  console.log("🚀 Preparing API request:", {
     eventType: data.event.name,
-    userHandle: data.userHandle
+    userHandle: data.userHandle,
   });
 
   try {
     const response = await fetch(API_CONFIG.BASE_URL, {
-      method: 'POST',
+      method: "POST",
       headers: {
         ...API_CONFIG.HEADERS,
-        'Origin': chrome.runtime.getURL(''),
-        'Accept': 'application/json'
+        Origin: chrome.runtime.getURL(""),
+        Accept: "application/json",
       },
       body: JSON.stringify(data),
-      credentials: 'omit'
+      credentials: "omit",
     });
 
     if (!response.ok) {
@@ -88,22 +88,22 @@ async function sendToAPI(data) {
     }
 
     const result = await response.json();
-    
+
     // Only mark as sent if the API call was successful
     if (result.success) {
       await markEventAsSent(data.event.name, uniqueId);
     }
 
-    console.log('✅ API call successful:', {
+    console.log("✅ API call successful:", {
       eventType: data.event.name,
-      response: result
+      response: result,
     });
     return result;
   } catch (error) {
-    console.error('❌ API call failed:', {
+    console.error("❌ API call failed:", {
       eventType: data.event.name,
       error: error.message,
-      data: data
+      data: data,
     });
     throw error;
   }
@@ -111,18 +111,18 @@ async function sendToAPI(data) {
 
 // Function to send profile visit data
 async function sendProfileVisit(walletAddress, userHandle, visitedHandle) {
-  console.log('📤 Preparing to send profile visit:', {
+  console.log("📤 Preparing to send profile visit:", {
     visitor: userHandle,
-    visited: visitedHandle
+    visited: visitedHandle,
   });
 
   const data = {
     walletAddress,
     userHandle,
     event: {
-      name: 'VISIT_PROFILE',
-      handle: visitedHandle
-    }
+      name: "VISIT_PROFILE",
+      handle: visitedHandle,
+    },
   };
 
   return sendToAPI(data);
@@ -130,18 +130,18 @@ async function sendProfileVisit(walletAddress, userHandle, visitedHandle) {
 
 // Function to send tweet visit data
 async function sendTweetVisit(walletAddress, userHandle, tweetId) {
-  console.log('📤 Preparing to send tweet visit:', {
+  console.log("📤 Preparing to send tweet visit:", {
     user: userHandle,
-    tweetId: tweetId
+    tweetId: tweetId,
   });
 
   const data = {
     walletAddress,
     userHandle,
     event: {
-      name: 'VISIT_TWEET',
-      id: tweetId
-    }
+      name: "VISIT_TWEET",
+      id: tweetId,
+    },
   };
 
   return sendToAPI(data);
@@ -149,18 +149,18 @@ async function sendTweetVisit(walletAddress, userHandle, tweetId) {
 
 // Function to send like tweet event with deduplication
 async function sendLikeTweet(walletAddress, userHandle, tweetId) {
-  console.log('📤 Preparing to send like tweet event:', {
+  console.log("📤 Preparing to send like tweet event:", {
     user: userHandle,
-    tweetId: tweetId
+    tweetId: tweetId,
   });
 
   const data = {
     walletAddress,
     userHandle,
     event: {
-      name: 'LIKE_TWEET',
-      id: tweetId
-    }
+      name: "LIKE_TWEET",
+      id: tweetId,
+    },
   };
 
   return sendToAPI(data);
@@ -168,9 +168,9 @@ async function sendLikeTweet(walletAddress, userHandle, tweetId) {
 
 // Batch processing function with deduplication
 async function sendBatchEvents(events) {
-  console.log('📦 Starting batch processing:', {
+  console.log("📦 Starting batch processing:", {
     batchSize: events.length,
-    eventTypes: events.map(e => e.event.name)
+    eventTypes: events.map((e) => e.event.name),
   });
 
   // Filter out duplicates before processing
@@ -182,22 +182,24 @@ async function sendBatchEvents(events) {
     }
   }
 
-  console.log('📊 Batch stats:', {
+  console.log("📊 Batch stats:", {
     total: events.length,
     unique: uniqueEvents.length,
-    duplicates: events.length - uniqueEvents.length
+    duplicates: events.length - uniqueEvents.length,
   });
 
-  const results = await Promise.allSettled(uniqueEvents.map(event => sendToAPI(event)));
-  
-  const succeeded = results.filter(r => r.status === 'fulfilled').length;
-  const failed = results.filter(r => r.status === 'rejected').length;
-  
-  console.log('📊 Batch processing complete:', {
+  const results = await Promise.allSettled(
+    uniqueEvents.map((event) => sendToAPI(event))
+  );
+
+  const succeeded = results.filter((r) => r.status === "fulfilled").length;
+  const failed = results.filter((r) => r.status === "rejected").length;
+
+  console.log("📊 Batch processing complete:", {
     total: uniqueEvents.length,
     succeeded,
     failed,
-    successRate: `${((succeeded / uniqueEvents.length) * 100).toFixed(1)}%`
+    successRate: `${((succeeded / uniqueEvents.length) * 100).toFixed(1)}%`,
   });
 
   return results;
@@ -205,18 +207,18 @@ async function sendBatchEvents(events) {
 
 // Function to send unlike tweet event
 async function sendUnlikeTweet(walletAddress, userHandle, tweetId) {
-  console.log('📤 Preparing to send unlike tweet event:', {
+  console.log("📤 Preparing to send unlike tweet event:", {
     user: userHandle,
-    tweetId: tweetId
+    tweetId: tweetId,
   });
 
   const data = {
     walletAddress,
     userHandle,
     event: {
-      name: 'UNLIKE_TWEET',
-      id: tweetId
-    }
+      name: "UNLIKE_TWEET",
+      id: tweetId,
+    },
   };
 
   return sendToAPI(data);
@@ -224,18 +226,18 @@ async function sendUnlikeTweet(walletAddress, userHandle, tweetId) {
 
 // Function to send retweet event
 async function sendRetweet(walletAddress, userHandle, tweetId) {
-  console.log('📤 Preparing to send retweet event:', {
+  console.log("📤 Preparing to send retweet event:", {
     user: userHandle,
-    tweetId: tweetId
+    tweetId: tweetId,
   });
 
   const data = {
     walletAddress,
     userHandle,
     event: {
-      name: 'RETWEET',
-      id: tweetId
-    }
+      name: "RETWEET",
+      id: tweetId,
+    },
   };
 
   return sendToAPI(data);
@@ -243,18 +245,18 @@ async function sendRetweet(walletAddress, userHandle, tweetId) {
 
 // Function to send remove retweet event
 async function sendRemoveRetweet(walletAddress, userHandle, tweetId) {
-  console.log('📤 Preparing to send remove retweet event:', {
+  console.log("📤 Preparing to send remove retweet event:", {
     user: userHandle,
-    tweetId: tweetId
+    tweetId: tweetId,
   });
 
   const data = {
     walletAddress,
     userHandle,
     event: {
-      name: 'REMOVE_RETWEET',
-      id: tweetId
-    }
+      name: "REMOVE_RETWEET",
+      id: tweetId,
+    },
   };
 
   return sendToAPI(data);
@@ -262,60 +264,71 @@ async function sendRemoveRetweet(walletAddress, userHandle, tweetId) {
 
 // Function to send follow profile event
 async function sendFollowProfile(walletAddress, userHandle, followedHandle) {
-  console.log('📤 Preparing to send follow profile event:', {
+  console.log("📤 Preparing to send follow profile event:", {
     follower: userHandle,
-    followed: followedHandle
+    followed: followedHandle,
   });
 
   const data = {
     walletAddress,
     userHandle,
     event: {
-      name: 'FOLLOW_PROFILE',
-      handle: followedHandle
-    }
+      name: "FOLLOW_PROFILE",
+      handle: followedHandle,
+    },
   };
 
   return sendToAPI(data);
 }
 
 // Function to send unfollow profile event
-async function sendUnfollowProfile(walletAddress, userHandle, unfollowedHandle) {
-  console.log('📤 Preparing to send unfollow profile event:', {
+async function sendUnfollowProfile(
+  walletAddress,
+  userHandle,
+  unfollowedHandle
+) {
+  console.log("📤 Preparing to send unfollow profile event:", {
     unfollower: userHandle,
-    unfollowed: unfollowedHandle
+    unfollowed: unfollowedHandle,
   });
 
   const data = {
     walletAddress,
     userHandle,
     event: {
-      name: 'UNFOLLOW_PROFILE',
-      handle: unfollowedHandle
-    }
+      name: "UNFOLLOW_PROFILE",
+      handle: unfollowedHandle,
+    },
   };
 
   return sendToAPI(data);
 }
 
 // Function to send reply tweet event
-async function sendReplyTweet(walletAddress, userHandle, replyTweetId, replyText, originalTweetId, originalTweetHandle) {
-  console.log('📤 Preparing to send reply tweet event:', {
+async function sendReplyTweet(
+  walletAddress,
+  userHandle,
+  replyTweetId,
+  replyText,
+  originalTweetId,
+  originalTweetHandle
+) {
+  console.log("📤 Preparing to send reply tweet event:", {
     user: userHandle,
     replyTo: originalTweetHandle,
-    replyTweetId: replyTweetId
+    replyTweetId: replyTweetId,
   });
 
   const data = {
     walletAddress,
     userHandle,
     event: {
-      name: 'REPLY_TWEET',
+      name: "REPLY_TWEET",
       id: replyTweetId,
       text: replyText,
       originalTweetId: originalTweetId,
-      originalTweetHandle: originalTweetHandle
-    }
+      originalTweetHandle: originalTweetHandle,
+    },
   };
 
   return sendToAPI(data);
@@ -323,20 +336,20 @@ async function sendReplyTweet(walletAddress, userHandle, replyTweetId, replyText
 
 // Function to send create tweet event
 async function sendCreateTweet(walletAddress, userHandle, text, tweetId) {
-  console.log('📤 Preparing to send create tweet event:', {
+  console.log("📤 Preparing to send create tweet event:", {
     user: userHandle,
     text: text,
-    id: tweetId
+    id: tweetId,
   });
 
   const data = {
     walletAddress,
     userHandle,
     event: {
-      name: 'CREATE_TWEET',
+      name: "CREATE_TWEET",
       text,
-      id: tweetId
-    }
+      id: tweetId,
+    },
   };
 
   return sendToAPI(data);
@@ -344,18 +357,18 @@ async function sendCreateTweet(walletAddress, userHandle, text, tweetId) {
 
 // Function to send delete tweet event
 async function sendDeleteTweet(walletAddress, userHandle, tweetId) {
-  console.log('📤 Preparing to send delete tweet event:', {
+  console.log("📤 Preparing to send delete tweet event:", {
     user: userHandle,
-    tweetId: tweetId
+    tweetId: tweetId,
   });
 
   const data = {
     walletAddress,
     userHandle,
     event: {
-      name: 'DELETE_TWEET',
-      id: tweetId
-    }
+      name: "DELETE_TWEET",
+      id: tweetId,
+    },
   };
 
   return sendToAPI(data);
@@ -374,5 +387,5 @@ export {
   sendUnfollowProfile,
   sendReplyTweet,
   sendCreateTweet,
-  sendDeleteTweet
-}; 
+  sendDeleteTweet,
+};
