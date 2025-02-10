@@ -22,13 +22,26 @@ async function wasEventSent(eventType, uniqueId) {
 
   // Check in-memory cache first
   if (sentEvents.has(key)) {
+    console.log("🔄 Found event in memory cache:", { eventType, uniqueId });
     return true;
   }
 
-  // Check chrome storage
+  // Check chrome storage with timestamp
   const result = await chrome.storage.local.get(["sentEvents"]);
   const storedEvents = result.sentEvents || {};
-  return !!storedEvents[key];
+  
+  if (storedEvents[key]) {
+    // Check if the event was sent in the last 24 hours
+    const timeSinceSent = Date.now() - storedEvents[key];
+    const wasSentRecently = timeSinceSent < 24 * 60 * 60 * 1000; // 24 hours
+    
+    if (wasSentRecently) {
+      console.log("🔄 Found recent event in storage:", { eventType, uniqueId });
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 // Helper function to mark event as sent

@@ -1,31 +1,29 @@
 console.log("🚀 Content script loaded on:", window.location.href);
 /*global chrome*/
 
-// Control flags
 const scrapedTweetIds = new Set();
 let capturedRequestData = null;
 let isScrapingStarted = false;
 let isProfileScrapingEnabled = false;
 
-// URL identifiers
 const TWEET_SCRAPE_IDENTIFIER = "?q=wootzapp-tweets";
 const FOLLOWING_SCRAPE_IDENTIFIER = "?q=wootzapp-following";
 const LIKED_TWEETS_SCRAPE_IDENTIFIER = "?q=wootzapp-liked-tweets";
 const REPLIES_SCRAPE_IDENTIFIER = "?q=wootzapp-replies";
-
-// Request limits
 const MAX_LIKED_TWEETS_REQUESTS_PER_TAB = 15;
 
-// Interceptor states
 let repliesInterceptorInjected = false;
 let likedTweetsRequestCount = 0;
-
-// Observers and listeners
 let tweetObserver = null;
 let scrollListener = null;
-
-// Add a flag to track if background scraping is being stopped
 let isStoppingBackgroundScrape = false;
+let requestCount = 0;
+const MAX_REQUESTS_PER_TAB = 15;
+
+
+const MAX_TWEETS = 150;
+let tweetStorage = new Map(); 
+
 
 // Add new function to check Twitter auth status
 async function checkTwitterAuth() {
@@ -538,16 +536,6 @@ async function scrapeProfileData() {
   }
 }
 
-// Helper function to get current profile data
-function getCurrentProfileData() {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(["profileData"], (result) => {
-      console.log("Current stored profile data:", result.profileData);
-      resolve(result.profileData);
-    });
-  });
-}
-
 // Function to wait for element
 function waitForElement(selectors, timeout = 10000) {
   return new Promise((resolve) => {
@@ -635,6 +623,7 @@ async function clickFollowingButton() {
     return null;
   }
 }
+
 // Function to capture network requests
 function setupRequestCapture() {
   return new Promise((resolve) => {
@@ -667,25 +656,6 @@ function setupRequestCapture() {
     };
     (document.head || document.documentElement).appendChild(script);
   });
-}
-
-// Function to wait for request data
-async function waitForRequestData(maxAttempts = 20) {
-  console.log("Waiting for request data...");
-
-  for (let i = 0; i < maxAttempts; i++) {
-    console.log(`Attempt ${i + 1}/${maxAttempts}`);
-
-    // Trigger scroll to generate requests
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    if (capturedRequestData?.url && capturedRequestData?.headers) {
-      console.log("Request data captured successfully!");
-      return true;
-    }
-  }
-
-  return false;
 }
 
 // Main scraping function
@@ -1095,20 +1065,6 @@ setTimeout(() => {
   initTweetScraping();
 }, 2000);
 
-// Add URL change monitoring
-// let lastUrl = window.location.href;
-// new MutationObserver(() => {
-//   if (window.location.href !== lastUrl) {
-//     lastUrl = window.location.href;
-//     console.log('📍 URL changed to:', lastUrl);
-
-//     if (lastUrl.includes('x.com/home')) {
-//       console.log('🏠 On Twitter home page, checking auth...');
-//       checkTwitterAuth();
-//     }
-//   }
-// }).observe(document, { subtree: true, childList: true });
-
 // Initial check when script loads
 if (window.location.href.includes("x.com")) {
   console.log("🔄 Initial Twitter page load, checking auth...");
@@ -1388,13 +1344,6 @@ async function makeTimelineRequest(
   }
 }
 
-// Add at the top of the file with other global variables
-let requestCount = 0;
-const MAX_REQUESTS_PER_TAB = 15;
-
-// Add this near the top of the file
-const MAX_TWEETS = 15000;
-let tweetStorage = new Map(); // Use Map for better performance
 
 // Add this function to check if tweet scraping is enabled
 async function isTweetScrapingEnabled() {
@@ -1403,38 +1352,6 @@ async function isTweetScrapingEnabled() {
       resolve(result.isBackgroundTweetScrapingEnabled || false);
     });
   });
-}
-
-// Function to handle liked tweets scraping
-
-// Add function to find likes link with multiple selectors
-async function findLikesLink(maxAttempts = 10) {
-  console.log("🔍 Looking for likes link...");
-
-  const selectors = [
-    'a[href$="/likes"]',
-    '[data-testid="AppTabBar_Likes_Link"]',
-    'a[role="tab"][href$="/likes"]',
-    'nav a[href$="/likes"]',
-  ];
-
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    console.log(`🔄 Attempt ${attempt + 1}/${maxAttempts} to find likes link`);
-
-    for (const selector of selectors) {
-      const element = document.querySelector(selector);
-      if (element) {
-        console.log(`✅ Found likes link with selector: ${selector}`);
-        return element;
-      }
-    }
-
-    // Wait before next attempt
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-  }
-
-  console.log("❌ Could not find likes link after all attempts");
-  return null;
 }
 
 // Add this function to handle clicking the likes button

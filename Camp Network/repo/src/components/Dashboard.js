@@ -148,6 +148,8 @@ const Dashboard = () => {
           isScrapingEnabled: false,
           isBackgroundTweetScrapingEnabled: false,
           isFollowingEnabled: false,
+          isProfileScrapingEnabled: false,
+          isLikedTweetsScrapingEnabled: false,
         },
         () => {
           console.log("✅ Successfully disabled all Twitter scraping toggles");
@@ -220,6 +222,8 @@ const Dashboard = () => {
         isScrapingEnabled: false,
         isBackgroundTweetScrapingEnabled: false,
         isFollowingEnabled: false,
+        isProfileScrapingEnabled: false,
+        isLikedTweetsScrapingEnabled: false
       },
       () => {
         console.log("✅ Successfully disabled all Twitter scraping toggles");

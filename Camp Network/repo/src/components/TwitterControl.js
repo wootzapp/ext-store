@@ -195,39 +195,45 @@ const TwitterControl = () => {
     console.log("🔄 Toggling profile scraping to:", newState);
 
     setIsProfileScrapingEnabled(newState);
-    setScrapingStatus((prev) => ({
-      ...prev,
-      isProfileScraping: newState,
-      hasScrapedProfile: false,
-    }));
-
-    chrome.storage.local.set(
-      {
+    if(newState){
+      setScrapingStatus((prev) => ({
+        ...prev,
+        isProfileScraping: newState,
+        hasScrapedProfile: false,
+        hasScrapedLikes: false
+      }));
+      chrome.storage.local.set({
         isProfileScrapingEnabled: newState,
         isProfileVisitScrapingEnabled: newState,
         hasScrapedProfile: false,
-      },
-      () => {
-        chrome.runtime.sendMessage({
-          type: "TOGGLE_PROFILE_SCRAPING",
-          enabled: newState,
-        });
-        // If turning off, stop all profile visit scraping
-        if (!newState) {
-          chrome.tabs.query({ url: "*://*.x.com/*" }, (tabs) => {
-            tabs.forEach((tab) => {
-              chrome.tabs
-                .sendMessage(tab.id, {
-                  type: "STOP_PROFILE_VISIT_SCRAPING",
-                })
-                .catch((error) => {
-                  console.log("Tab might not be ready:", error);
-                });
+        hasScrapedLikes: false
+      });
+      chrome.runtime.sendMessage({
+        type: "TOGGLE_PROFILE_SCRAPING",
+        enabled: newState,
+      });
+    } 
+    else{
+      setScrapingStatus((prev) => ({
+        ...prev,
+        isProfileScraping: newState,
+      }));
+      chrome.storage.local.set({
+        isProfileScrapingEnabled: newState,
+        isProfileVisitScrapingEnabled: newState,
+      });
+      chrome.tabs.query({ url: "*://*.x.com/*" }, (tabs) => {
+        tabs.forEach((tab) => {
+          chrome.tabs
+            .sendMessage(tab.id, {
+              type: "STOP_PROFILE_VISIT_SCRAPING",
+            })
+            .catch((error) => {
+              console.log("Tab might not be ready:", error);
             });
-          });
-        }
-      }
-    );
+        });
+      });
+    }
   };
 
   const toggleLikedTweetsScraping = () => {
@@ -235,24 +241,32 @@ const TwitterControl = () => {
     console.log("🔄 Toggling liked tweets scraping to:", newState);
 
     setIsLikedTweetsScrapingEnabled(newState);
-    setScrapingStatus((prev) => ({
-      ...prev,
-      isLikedTweetsScraping: newState,
-      hasScrapedLikes: false,
-    }));
+    if(newState){
+      setScrapingStatus((prev) => ({
+        ...prev,
+        isLikedTweetsScraping: newState,
+        hasScrapedLikes: false,
+      }));
 
-    chrome.storage.local.set(
-      {
+      chrome.storage.local.set({
         isLikedTweetsScrapingEnabled: newState,
         hasScrapedLikes: false,
-      },
-      () => {
-        chrome.runtime.sendMessage({
-          type: "START_LIKED_TWEETS_SCRAPING",
-          enabled: newState,
-        });
-      }
-    );
+      });
+      chrome.runtime.sendMessage({
+        type: "START_LIKED_TWEETS_SCRAPING",
+        enabled: newState,
+      });
+    }
+    else{
+      setScrapingStatus((prev) => ({
+        ...prev,
+        isLikedTweetsScraping: newState,
+      }));
+
+      chrome.storage.local.set({
+        isLikedTweetsScrapingEnabled: newState,
+      });
+    }
   };
 
   const handlePermissionResponse = (accepted) => {
@@ -271,12 +285,14 @@ const TwitterControl = () => {
         isBackgroundTweetScrapingEnabled: false,
         isFollowingEnabled: false,
         isRepliesScrapingEnabled: false,
+        isLikedTweetsScrapingEnabled: false
       });
       setIsMainScrapingEnabled(false);
       setIsProfileScrapingEnabled(false);
       setIsBackgroundTweetScrapingEnabled(false);
       setIsFollowingEnabled(false);
       setIsRepliesScraping(false);
+      setIsLikedTweetsScrapingEnabled(false);
 
       chrome.runtime.sendMessage({
         type: "STOP_ALL_SCRAPING",
@@ -395,7 +411,7 @@ const TwitterControl = () => {
               <p className="flex justify-between items-center mb-1">
                 <span>Liked Tweets Data:</span>
                 <span>
-                  {scrapingStatus.hasScrapedLikes ? (
+                  {scrapingStatus.isLikedTweetsScraping ? (
                     "✅"
                   ) : isLikedTweetsScrapingEnabled ? (
                     <LoadingSpinner />
