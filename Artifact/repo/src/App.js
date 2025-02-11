@@ -12,6 +12,8 @@ import { useAuthToken } from './hooks/useAuthToken';
 import { isTokenExpired } from './services/tokenUtils';
 import TwitterControl from './components/TwitterControl';
 import ScrapedData from './components/ScrapedData';
+import NewSignup from './components/NewSignup';
+import LandingPage from './components/LandingPage';
 
 function App() {
   const { token, loading, error, saveToken, clearToken } = useAuthToken();
@@ -26,22 +28,22 @@ function App() {
     return success;
   };
 
-  const handleLogout = async () => {
-    const success = await clearToken();
-    // localStorage.removeItem('authToken');
-    // navigate('/relicdao/dashboard');
-    // navigate('/relicdao/dashboard', { replace: true });
-    if (!success) {
-      console.error('Failed to clear token');
-    }
-    return success;
-  };
+  // const handleLogout = async () => {
+  //   const success = await clearToken();
+  //   // localStorage.removeItem('authToken');
+  //   // navigate('/relicdao/dashboard');
+  //   // navigate('/relicdao/dashboard', { replace: true });
+  //   if (!success) {
+  //     console.error('Failed to clear token');
+  //   }
+  //   return success;
+  // };
 
   const ProtectedRoute = ({ children }) => {
     if (loading) {
       return <div>Loading...</div>; // Or a loading spinner
     }
-    // const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem('authToken');
     if (token && isTokenExpired(token)) {
       return <Navigate to="/login" replace />;
     }
@@ -65,8 +67,14 @@ function App() {
       <Router>
         <div className="min-h-screen min-w-screen relative">
           <Routes>
+            <Route path="/signup" element={<NewSignup />} />
+           
+            <Route path="/relicdao/dashboard" element={
+              <RelicDAODashboard />
+            } />
+            
             <Route path="/login" element={
-              token ? <Navigate to="/relicdao/dashboard" /> : <Login onLoginSuccess={handleLoginSuccess} />
+              <Login onLoginSuccess={handleLoginSuccess} />
             } />
             <Route path="/rewards" element={
               token ? <Navigate to="/relicdao/dashboard" /> : <RelicDAOHomePage />
@@ -74,34 +82,20 @@ function App() {
             <Route path="/relicdao" element={
               token ? <Navigate to="/relicdao/dashboard" /> : <RelicDAOHomePage />
             } />
-            <Route path="/signup" element={
-              token ? <Navigate to="/relicdao/dashboard" /> : <SignUpPage />
+
+            <Route path="/home" element={
+              <RelicDAOHomePage />
             } />
-            <Route path="/relicdao/dashboard" element={
-              <ProtectedRoute>
-                <RelicDAODashboard onLogout={handleLogout} />
-              </ProtectedRoute>
-            } />
+            
             <Route path="/relicdao/dashboard/profile" element={
               <ProtectedRoute>
                 <ProfilePage />
               </ProtectedRoute>
             } />
             
+            {/* Add a default route that redirects to /signup */}
             <Route path="*" element={
-              token ? <Navigate to="/relicdao/dashboard" /> : <Navigate to="/relicdao" />
-            } />
-
-<Route path="/twitter-control" element={<TwitterControl />} />
-            
-            <Route 
-              path="/scraped-data" 
-              element={
-                <ProtectedRoute>
-                  <ScrapedData />
-                </ProtectedRoute>
-              } 
-            />
+              token ? <Navigate to="/relicdao/dashboard" /> : <Navigate to="/relicdao" />} />
           </Routes>
         </div>
       </Router>

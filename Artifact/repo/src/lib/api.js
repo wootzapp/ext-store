@@ -57,7 +57,9 @@ export async function loginWallet(email, password) {
 
         authToken = responseData.data.id_token;
         localStorage.setItem('authToken', responseData.data.id_token);
-        console.log("Authentication token stored successfully");
+        console.log("Authentication token stored successfully", responseData.data.id_token);
+        localStorage.setItem('refreshToken', responseData.data.refresh_token);
+        console.log("Refresh token stored successfully", responseData.data.refresh_token);
 
         return responseData;
     } catch (error) {
@@ -79,7 +81,7 @@ export function getAuthToken() {
 
 // Function to use the auth token in other API calls
 export async function makeAuthenticatedRequest(url, options = {}) {
-    const token = getAuthToken();
+    const token = localStorage.getItem('authToken');
     if (!token) {
         throw new Error("No authentication token found");
     }

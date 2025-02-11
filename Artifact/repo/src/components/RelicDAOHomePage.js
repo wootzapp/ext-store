@@ -12,10 +12,11 @@ const RelicDAOHomePage = () => {
     const { token } = useAuthToken();
     
     const handleSignUp = () => {
-        const signupUrl = "https://dev.relicdao.com";
-        window.location.href = signupUrl;
-        console.log("trying to connect");
-    };
+        // const signupUrl = "https://dev.relicdao.com";
+        // window.location.href = signupUrl;
+        // console.log("trying to connect");
+        navigate('/signup');
+        };
 
     const handleLogin = () => {
         navigate('/login');
