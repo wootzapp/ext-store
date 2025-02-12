@@ -22,5 +22,5 @@ const NewSignup = () => {
     </div>
   );
 };
-
+  
 export default NewSignup;

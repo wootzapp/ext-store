@@ -37,8 +37,7 @@
         "widget.html",
         "static/js/*",
         "static/css/*",
-        "icons/*",
-        "tokeninterceptor.js"
+        "icons/*"
       ],
       "matches": ["<all_urls>"],
       "use_dynamic_url": true

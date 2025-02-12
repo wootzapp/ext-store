@@ -24,6 +24,7 @@ import { useSecretKey } from '../lib/useSecretKey';
 import { omniAbi } from '../lib/omni';
 import { useAuthToken } from '../hooks/useAuthToken';
 
+
 const InfoSheet = ({ onClose }) => {
     return (
         <div className="bg-black text-white p-3 rounded-t-2xl max-w-md mx-auto h-[90vh] overflow-y-auto">
@@ -162,11 +163,11 @@ const RelicDAODashboard = () => {
     const [account, setAccount] = useState(null);
     const [profileData, setProfileData] = useState(null);
     const [hasInitiatedKeyGeneration, setHasInitiatedKeyGeneration] = useState(false);
-
+    const [prf, setPrf] = useState(null);   
     
     // Initialize the useSecretKey hook
     const { handleGetKey, secretKey, isLoading } = useSecretKey({
-        userIdentity: profileData?.omnikey_id,
+        userIdentity: prf?.omnikey_id,
         account: account,
         userAddress: walletAddress,
         omniKeyStore: process.env.REACT_APP_ENVIRONMENT === "production"
@@ -307,7 +308,7 @@ const RelicDAODashboard = () => {
                 localStorage.setItem('authToken', token.authToken);
                 console.log('🔑 Token Aaditesh:', token);
                 const profile = await getUserProfile();
-                
+                console.log('🔑 Profile Aaditesh for wallet initialization:', profile);
                 if (!isSubscribed) return;
 
                 if (!token || !profile) {
@@ -331,8 +332,9 @@ const RelicDAODashboard = () => {
                 if (!isSubscribed) return;
 
                 const address = wallet.address;
-                console.log('✅ Wallet initialized:', { address });
+              
                 setWalletAddress(address);
+                console.log('✅ Wallet initialized:', { address });
                 setAccount(wallet);
             } catch (error) {
                 if (!isSubscribed) return;
@@ -354,13 +356,21 @@ const RelicDAODashboard = () => {
     // Secret key generation effect
     useEffect(() => {
         const generateSecretKey = async () => {
-            if (!walletAddress || !profileData?.omnikey_id || hasInitiatedKeyGeneration || isLoading) {
+
+            if(!prf) {
+                const prf = await getUserProfile();
+                setPrf(prf);
+                console.log('🔑 Profile Aaditesh for secret key generation:', prf);
+            }
+
+            console.log('Secret key generation effect', {walletAddress, prf, hasInitiatedKeyGeneration, isLoading});
+            if (!walletAddress || !prf?.omnikey_id || hasInitiatedKeyGeneration || isLoading) {
                 return;
             }
 
             console.log('🏗️ Triggering secret key generation...', {
                 hasWallet: !!walletAddress,
-                hasOmniKeyId: !!profileData?.omnikey_id,
+                hasOmniKeyId: !!prf?.omnikey_id,
                 hasInitiated: hasInitiatedKeyGeneration
             });
 

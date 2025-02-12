@@ -82,6 +82,7 @@ export function getAuthToken() {
 // Function to use the auth token in other API calls
 export async function makeAuthenticatedRequest(url, options = {}) {
     const token = localStorage.getItem('authToken');
+    console.log('🔑 Token Aaditesh getuserprofile:', token);
     if (!token) {
         throw new Error("No authentication token found");
     }

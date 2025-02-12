@@ -39,20 +39,20 @@ function App() {
   //   return success;
   // };
 
-  const ProtectedRoute = ({ children }) => {
-    if (loading) {
-      return <div>Loading...</div>; // Or a loading spinner
-    }
-    const token = localStorage.getItem('authToken');
-    if (token && isTokenExpired(token)) {
-      return <Navigate to="/login" replace />;
-    }
-    // setToken(localStorage.getItem('authToken'));
-    if (!token) {
-      return <Navigate to="/login" replace />;
-    }
-    return children;
-  };
+  // const ProtectedRoute = ({ children }) => {
+  //   if (loading) {
+  //     return <div>Loading...</div>; // Or a loading spinner
+  //   }
+  //   const token = localStorage.getItem('authToken');
+  //   if (token && isTokenExpired(token)) {
+  //     return <Navigate to="/login" replace />;
+  //   }
+  //   // setToken(localStorage.getItem('authToken'));
+  //   if (!token) {
+  //     return <Navigate to="/login" replace />;
+  //   }
+  //   return children;
+  // };
 
   // if (loading) {
   //   return <div>Loading...</div>; // Or a loading spinner
@@ -88,9 +88,7 @@ function App() {
             } />
             
             <Route path="/relicdao/dashboard/profile" element={
-              <ProtectedRoute>
-                <ProfilePage />
-              </ProtectedRoute>
+                <ProfilePage />         
             } />
             
             {/* Add a default route that redirects to /signup */}
