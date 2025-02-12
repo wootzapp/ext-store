@@ -8,17 +8,41 @@
     "https://*.sapien.io/*",
     "https://pulse.walletconnect.com/*",
     "https://explorer-api.walletconnect.com/*",
-    "https://api2.amplitude.com/*"
+    "https://api2.amplitude.com/*",
+    "https://*.amazonaws.com/*",
+    "https://app.sapien.io/*"
   ],
   "permissions": [
     "activeTab",
     "storage",
     "cookies",
     "webRequest",
-    "webRequestBlocking"
+    "webRequestBlocking",
+    "scripting",
+    "tabs"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://app.sapien.io/*", 
+        "https://auth.privy.io/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["interceptor.js"],
+      "matches": ["<all_urls>"]
+    }
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: blob: filesystem: chrome-extension:; media-src 'self' blob: filesystem: chrome-extension:; connect-src *;"
+    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: blob: filesystem: chrome-extension: https://*.amazonaws.com; connect-src *; frame-src https://app.sapien.io/ https://auth.privy.io/; frame-ancestors https://app.sapien.io/ https://auth.privy.io/"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
   },
   "icons": {
     "16": "icons/icon.png",
