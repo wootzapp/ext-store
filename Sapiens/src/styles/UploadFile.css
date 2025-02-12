@@ -1,0 +1,136 @@
+.upload-container {
+    min-height: 100vh;
+    background-color: #0a0f2a;
+    color: white;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+  }
+  
+  .menu-icon {
+    font-size: 24px;
+    cursor: pointer;
+  }
+  
+  .balance {
+    background: rgba(0, 162, 255, 0.1);
+    border: 1px solid #00a2ff;
+    border-radius: 20px;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .amount {
+    color: #00a2ff;
+    font-weight: bold;
+  }
+  
+  .content-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 30px;
+    padding: 20px;
+    margin: 20px;
+    border: 1px solid rgba(0, 162, 255, 0.2);
+    border-radius: 15px;
+    background: rgba(13, 20, 69, 0.5);
+  }
+  
+  .instructions-button {
+    background-color: transparent;
+    color: #00a2ff;
+    border: 1px solid #00a2ff;
+    border-radius: 25px;
+    padding: 10px 30px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  
+  .instructions-button:hover {
+    background-color: rgba(0, 162, 255, 0.1);
+  }
+  
+  .upload-area {
+    width: 100%;
+    max-width: 500px;
+    height: 200px;
+    border: 2px dashed rgba(0, 162, 255, 0.3);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  
+  .upload-area:hover {
+    border-color: #00a2ff;
+    background-color: rgba(0, 162, 255, 0.05);
+  }
+  
+  .file-input {
+    display: none;
+  }
+  
+  .upload-label {
+    text-align: center;
+    cursor: pointer;
+  }
+  
+  .upload-icon {
+    font-size: 40px;
+    margin-bottom: 10px;
+  }
+  
+  .confirmation-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+  }
+  
+  .expiration {
+    color: rgba(255, 255, 255, 0.7);
+  }
+  
+  .submit-button {
+    background-color: #00a2ff;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    padding: 12px 40px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  
+  .submit-button:hover {
+    background-color: #0088d6;
+  }
+  
+  .submit-button.disabled {
+    background-color: #666;
+    cursor: not-allowed;
+  }
+  
+  /* Add this to your existing styles for drag and drop effect */
+  .upload-area.dragging {
+    border-color: #00a2ff;
+    background-color: rgba(0, 162, 255, 0.1);
+  }
