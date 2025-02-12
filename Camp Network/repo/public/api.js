@@ -1,4 +1,6 @@
 /* global chrome */
+import throttle from './throttle.js';
+
 // API configuration
 export const API_CONFIG = {
   BASE_URL: "https://camp-wootzapp.up.railway.app/api/events",
@@ -10,6 +12,8 @@ export const API_CONFIG = {
 
 // Store for tracking sent events to prevent duplicates
 const sentEvents = new Map();
+const unsentEvents = new Map();
+const pendingEvents = new Map(); // Track events currently being processed
 
 // Helper function to generate event key
 function generateEventKey(eventType, uniqueId) {
@@ -19,6 +23,12 @@ function generateEventKey(eventType, uniqueId) {
 // Helper function to check if event was already sent
 async function wasEventSent(eventType, uniqueId) {
   const key = generateEventKey(eventType, uniqueId);
+
+  // Check if event is currently being processed
+  if (pendingEvents.has(key)) {
+    console.log("⏳ Event is currently being processed:", { eventType, uniqueId });
+    return true;
+  }
 
   // Check in-memory cache first
   if (sentEvents.has(key)) {
@@ -37,7 +47,13 @@ async function wasEventSent(eventType, uniqueId) {
     
     if (wasSentRecently) {
       console.log("🔄 Found recent event in storage:", { eventType, uniqueId });
+      // Add to memory cache to avoid future storage checks
+      sentEvents.set(key, storedEvents[key]);
       return true;
+    } else {
+      // Remove old event from storage
+      delete storedEvents[key];
+      await chrome.storage.local.set({ sentEvents: storedEvents });
     }
   }
   
@@ -47,18 +63,134 @@ async function wasEventSent(eventType, uniqueId) {
 // Helper function to mark event as sent
 async function markEventAsSent(eventType, uniqueId) {
   const key = generateEventKey(eventType, uniqueId);
+  const timestamp = Date.now();
 
   // Add to in-memory cache
-  sentEvents.set(key, Date.now());
+  sentEvents.set(key, timestamp);
 
   // Add to chrome storage
   const result = await chrome.storage.local.get(["sentEvents"]);
   const storedEvents = result.sentEvents || {};
-  storedEvents[key] = Date.now();
+  storedEvents[key] = timestamp;
   await chrome.storage.local.set({ sentEvents: storedEvents });
+
+  // Remove from unsent and pending events
+  unsentEvents.delete(key);
+  pendingEvents.delete(key);
+  
+  // Clean up storage
+  const result2 = await chrome.storage.local.get(["unsentEvents"]);
+  const storedUnsentEvents = result2.unsentEvents || {};
+  delete storedUnsentEvents[key];
+  await chrome.storage.local.set({ unsentEvents: storedUnsentEvents });
 }
 
-// Generic function to send data to API with detailed logging
+// Helper function to mark event as unsent
+async function markEventAsUnsent(eventType, uniqueId, data) {
+  const key = generateEventKey(eventType, uniqueId);
+
+  // Don't add if already sent or pending
+  if (sentEvents.has(key) || pendingEvents.has(key)) {
+    return;
+  }
+
+  // Add to in-memory cache
+  unsentEvents.set(key, { data, timestamp: Date.now() });
+
+  // Add to chrome storage
+  const result = await chrome.storage.local.get(["unsentEvents"]);
+  const storedUnsentEvents = result.unsentEvents || {};
+  storedUnsentEvents[key] = { data, timestamp: Date.now() };
+  await chrome.storage.local.set({ unsentEvents: storedUnsentEvents });
+}
+
+// Function to retry unsent events
+async function retryUnsentEvents() {
+  const result = await chrome.storage.local.get(["unsentEvents"]);
+  const storedUnsentEvents = result.unsentEvents || {};
+  const currentTime = Date.now();
+
+  console.log("🔄 Starting retry of unsent events:", {
+    totalEvents: Object.keys(storedUnsentEvents).length
+  });
+
+  for (const [key, eventData] of Object.entries(storedUnsentEvents)) {
+    // Skip if event is currently being processed
+    if (pendingEvents.has(key)) {
+      console.log("⏳ Skipping retry - event is currently being processed:", key);
+      continue;
+    }
+
+    // Skip if event was sent recently
+    if (await wasEventSent(eventData.data.event.name, eventData.data.event.id || eventData.data.event.handle || eventData.data.event.text)) {
+      console.log("✅ Skipping retry - event was already sent:", key);
+      delete storedUnsentEvents[key];
+      continue;
+    }
+
+    // Only retry events less than 24h old
+    if (currentTime - eventData.timestamp < 24 * 60 * 60 * 1000) {
+      console.log("🔄 Retrying event:", key);
+      
+      try {
+        // Mark as pending before retry
+        pendingEvents.set(key, Date.now());
+        
+        await throttle(async () => {
+          try {
+            const response = await fetch(API_CONFIG.BASE_URL, {
+              method: "POST",
+              headers: {
+                ...API_CONFIG.HEADERS,
+                Origin: chrome.runtime.getURL(""),
+                Accept: "application/json",
+              },
+              body: JSON.stringify(eventData.data),
+              credentials: "omit",
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (result.success) {
+              console.log("✅ Retry successful for event:", key);
+              await markEventAsSent(eventData.data.event.name, eventData.data.event.id || eventData.data.event.handle || eventData.data.event.text);
+              delete storedUnsentEvents[key];
+            } else {
+              console.log("❌ Retry failed (API error) for event:", key);
+              // Keep in unsent events but update timestamp
+              eventData.timestamp = Date.now();
+              storedUnsentEvents[key] = eventData;
+            }
+          } catch (error) {
+            console.error("❌ Retry failed for event:", key, error);
+            // Keep in unsent events but update timestamp
+            eventData.timestamp = Date.now();
+            storedUnsentEvents[key] = eventData;
+          } finally {
+            pendingEvents.delete(key);
+          }
+        });
+      } catch (error) {
+        console.error("❌ Error during retry of event:", key, error);
+        pendingEvents.delete(key);
+      }
+    } else {
+      console.log("⏰ Removing old unsent event:", key);
+      delete storedUnsentEvents[key];
+    }
+  }
+
+  // Update storage with cleaned up unsent events
+  await chrome.storage.local.set({ unsentEvents: storedUnsentEvents });
+  
+  console.log("✅ Retry cycle completed. Remaining unsent events:", Object.keys(storedUnsentEvents).length);
+}
+
+// Generic function to send data to API with throttling and retry
 async function sendToAPI(data) {
   // Don't send if wallet address is pending
   if (data.walletAddress === "pending") {
@@ -71,55 +203,80 @@ async function sendToAPI(data) {
 
   // Check if this event was already sent
   const uniqueId = data.event.id || data.event.handle || data.event.text;
-  if (await wasEventSent(data.event.name, uniqueId)) {
+  const eventType = data.event.name;
+  const key = generateEventKey(eventType, uniqueId);
+
+  if (await wasEventSent(eventType, uniqueId)) {
     console.log("🔄 Skipping duplicate event:", {
-      eventType: data.event.name,
+      eventType,
       uniqueId,
     });
     return null;
   }
 
-  console.log("🚀 Preparing API request:", {
-    eventType: data.event.name,
-    userHandle: data.userHandle,
+  // Mark as pending before making API call
+  pendingEvents.set(key, Date.now());
+
+  // Save to storage before making API call
+  await markEventAsUnsent(eventType, uniqueId, data);
+
+  return throttle(async () => {
+    try {
+      console.log("🚀 Making API request:", {
+        eventType: data.event.name,
+        userHandle: data.userHandle,
+      });
+
+      const response = await fetch(API_CONFIG.BASE_URL, {
+        method: "POST",
+        headers: {
+          ...API_CONFIG.HEADERS,
+          Origin: chrome.runtime.getURL(""),
+          Accept: "application/json",
+        },
+        body: JSON.stringify(data),
+        credentials: "omit",
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      // Check for both success formats
+      if (result.success || result.status === 'success') {
+        await markEventAsSent(eventType, uniqueId);
+        console.log("✅ API call successful:", {
+          eventType: data.event.name,
+          response: result,
+        });
+      } else {
+        // Remove from pending but keep in unsent for retry
+        pendingEvents.delete(key);
+        console.log("⚠️ API call returned error:", {
+          eventType: data.event.name,
+          response: result,
+        });
+      }
+      
+      return result;
+    } catch (error) {
+      // Remove from pending but keep in unsent for retry
+      pendingEvents.delete(key);
+      
+      console.error("❌ API call failed:", {
+        eventType: data.event.name,
+        error: error.message,
+        data: data,
+      });
+
+      // Ensure the event is marked for retry
+      await markEventAsUnsent(eventType, uniqueId, data);
+      
+      throw error;
+    }
   });
-
-  try {
-    const response = await fetch(API_CONFIG.BASE_URL, {
-      method: "POST",
-      headers: {
-        ...API_CONFIG.HEADERS,
-        Origin: chrome.runtime.getURL(""),
-        Accept: "application/json",
-      },
-      body: JSON.stringify(data),
-      credentials: "omit",
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-
-    // Only mark as sent if the API call was successful
-    if (result.success) {
-      await markEventAsSent(data.event.name, uniqueId);
-    }
-
-    console.log("✅ API call successful:", {
-      eventType: data.event.name,
-      response: result,
-    });
-    return result;
-  } catch (error) {
-    console.error("❌ API call failed:", {
-      eventType: data.event.name,
-      error: error.message,
-      data: data,
-    });
-    throw error;
-  }
 }
 
 // Function to send profile visit data
@@ -386,6 +543,9 @@ async function sendDeleteTweet(walletAddress, userHandle, tweetId) {
 
   return sendToAPI(data);
 }
+
+// Initialize retry mechanism with more frequent retries for failed events
+setInterval(retryUnsentEvents, 2 * 60 * 1000); // Retry every 2 minutes
 
 // Export all functions
 export {

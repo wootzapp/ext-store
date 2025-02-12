@@ -2,10 +2,14 @@
 /*global chrome*/
 import {
   sendProfileVisit,
-  sendTweetVisit,
   sendBatchEvents,
   sendCreateTweet,
   sendReplyTweet,
+  sendUnfollowProfile,
+  sendUnlikeTweet,
+  sendDeleteTweet,
+  sendRetweet,
+  sendRemoveRetweet,
 } from "./api.js";
 
 const PING_INTERVAL = 6000;
@@ -306,6 +310,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       else{
         console.log("❌ No initial username found for Liked Tweetts Scrapping.");
+      }
+    });
+  } else if (message.type === "SEND_UNFOLLOW_EVENT") {
+    console.log("📤 Processing unfollow event:", message.data);
+    const { walletAddress, userHandle, unfollowedHandle } = message.data;
+    
+    sendUnfollowProfile(walletAddress, userHandle, unfollowedHandle)
+      .catch(error => console.error("❌ Error sending unfollow event:", error));
+  } else if (message.type === "SEND_UNLIKE_TWEET_EVENT") {
+    console.log("📤 Processing unlike tweet event:", message.data);
+    const { walletAddress, userHandle, tweetId } = message.data;
+    
+    sendUnlikeTweet(walletAddress, userHandle, tweetId)
+      .catch(error => console.error("❌ Error sending unlike tweet event:", error));
+  } else if (message.type === "SEND_DELETE_TWEET_EVENT") {
+    console.log("📤 Processing delete tweet event:", message.data);
+    const { walletAddress, userHandle, tweetId } = message.data;
+    
+    sendDeleteTweet(walletAddress, userHandle, tweetId)
+      .catch(error => console.error("❌ Error sending delete tweet event:", error));
+  } else if (message.type === "SEND_REMOVE_RETWEET_EVENT") {
+    console.log("📤 Processing remove retweet event:", message.data);
+    
+    // Get wallet address and user handle from storage
+    chrome.storage.local.get(["walletAddress", "initialUsername"], (result) => {
+      const { walletAddress, initialUsername } = result;
+      const { tweetId } = message.data;
+      
+      if (walletAddress && initialUsername) {
+        sendRemoveRetweet(walletAddress, initialUsername, tweetId)
+          .catch(error => console.error("❌ Error sending remove retweet event:", error));
+      } else {
+        console.error("❌ Missing wallet address or username for remove retweet event");
       }
     });
   }
@@ -1116,18 +1153,22 @@ async function handleRepliesData(tweets) {
     const storage = await chrome.storage.local.get([
       "userReplies",
       "postedTweets",
+      "retweetedTweets",  // Add this
       "walletAddress",
       "initialUsername",
       "sentPosts",
       "sentReplies",
+      "sentRetweets",  // Add this
     ]);
 
     const walletAddress = storage.walletAddress;
     const userHandle = storage.initialUsername;
     const sentPosts = new Set(storage.sentPosts || []);
     const sentReplies = new Set(storage.sentReplies || []);
+    const sentRetweets = new Set(storage.sentRetweets || []); // Add this
     const existingPostedTweets = storage.postedTweets || [];
     const existingReplies = storage.userReplies || [];
+    const existingRetweets = storage.retweetedTweets || []; // Add this
 
     if (!walletAddress || !userHandle) {
       console.log("⏳ Skipping API calls - missing wallet or handle:", {
@@ -1137,12 +1178,12 @@ async function handleRepliesData(tweets) {
       return;
     }
 
-    // Separate posts and replies
+    // Separate posts, retweets and replies
     const posts = [];
     const replies = [];
+    const retweets = [];  // New array for retweets
 
     tweets.forEach((tweet) => {
-      // Create a standardized tweet object
       const processedTweet = {
         id: tweet.rest_id,
         text: tweet.legacy?.full_text || tweet.legacy?.text,
@@ -1155,16 +1196,31 @@ async function handleRepliesData(tweets) {
         user: {
           name: tweet.core?.user_results?.result?.legacy?.name,
           handle: tweet.core?.user_results?.result?.legacy?.screen_name,
-          avatar:
-            tweet.core?.user_results?.result?.legacy?.profile_image_url_https,
+          avatar: tweet.core?.user_results?.result?.legacy?.profile_image_url_https,
         },
         in_reply_to_screen_name: tweet.legacy?.in_reply_to_screen_name,
         in_reply_to_status_id_str: tweet.legacy?.in_reply_to_status_id_str,
       };
 
-      if (tweet.legacy?.in_reply_to_screen_name) {
+      // Check for retweet first by looking for retweeted_status_result
+      if (tweet.legacy?.retweeted_status_result) {
+        // This is a retweet
+        const originalTweet = tweet.legacy.retweeted_status_result.result;
+        processedTweet.original_tweet = {
+          id: originalTweet.rest_id,
+          text: originalTweet.legacy?.full_text || originalTweet.legacy?.text,
+          user: {
+            name: originalTweet.core?.user_results?.result?.legacy?.name,
+            handle: originalTweet.core?.user_results?.result?.legacy?.screen_name,
+            avatar: originalTweet.core?.user_results?.result?.legacy?.profile_image_url_https
+          }
+        };
+        retweets.push(processedTweet);
+      } else if (tweet.legacy?.in_reply_to_screen_name) {
+        // This is a reply
         replies.push(processedTweet);
       } else if (userHandle === processedTweet.user.handle) {
+        // This is a regular post
         posts.push(processedTweet);
       }
     });
@@ -1172,6 +1228,7 @@ async function handleRepliesData(tweets) {
     console.log("📊 Separated tweets:", {
       posts: posts.length,
       replies: replies.length,
+      retweets: retweets.length
     });
 
     // Process posts
@@ -1243,9 +1300,40 @@ async function handleRepliesData(tweets) {
       }
     }
 
+    // Process retweets
+    if (retweets.length > 0) {
+      const unsentRetweets = retweets.filter((retweet) => !sentRetweets.has(retweet.id));
+      if (unsentRetweets.length > 0) {
+        try {
+          const results = await Promise.all(
+            unsentRetweets.map((retweet) =>
+              sendRetweet(walletAddress, userHandle, retweet.id)
+            )
+          );
+
+          // Update sent retweets tracking
+          const newSentRetweets = new Set([
+            ...Array.from(sentRetweets),
+            ...unsentRetweets.map((r) => r.id),
+          ]);
+          await chrome.storage.local.set({
+            sentRetweets: Array.from(newSentRetweets),
+          });
+
+          console.log("✅ Processed retweets:", {
+            total: results.length,
+            successful: results.filter((r) => r.success).length,
+          });
+        } catch (error) {
+          console.error("❌ Error processing retweets:", error);
+        }
+      }
+    }
+
     // Merge with existing data and remove duplicates
     const mergedPosts = [...existingPostedTweets];
     const mergedReplies = [...existingReplies];
+    const mergedRetweets = [...existingRetweets]; // Add this
 
     // Add new posts
     posts.forEach((post) => {
@@ -1261,16 +1349,24 @@ async function handleRepliesData(tweets) {
       }
     });
 
+    // Add new retweets
+    retweets.forEach((retweet) => {
+      if (!mergedRetweets.some((existing) => existing.id === retweet.id)) {
+        mergedRetweets.push(retweet);
+      }
+    });
+
     // Sort by timestamp
-    const sortByTimestamp = (a, b) =>
-      new Date(b.timestamp) - new Date(a.timestamp);
+    const sortByTimestamp = (a, b) => new Date(b.timestamp) - new Date(a.timestamp);
     mergedPosts.sort(sortByTimestamp);
     mergedReplies.sort(sortByTimestamp);
+    mergedRetweets.sort(sortByTimestamp);
 
     // Update storage with merged data
     await chrome.storage.local.set({
       postedTweets: mergedPosts,
       userReplies: mergedReplies,
+      retweetedTweets: mergedRetweets,
       lastPostsUpdate: new Date().toISOString(),
       hasScrapedReplies: true,
     });
@@ -1278,6 +1374,7 @@ async function handleRepliesData(tweets) {
     console.log("💾 Updated storage with:", {
       postedTweets: mergedPosts.length,
       userReplies: mergedReplies.length,
+      retweetedTweets: mergedRetweets.length
     });
 
     // Broadcast updates
@@ -1290,6 +1387,11 @@ async function handleRepliesData(tweets) {
       type: "REPLIES_UPDATED",
       data: mergedReplies,
     });
+
+    chrome.runtime.sendMessage({
+      type: "RETWEETS_UPDATED",
+      data: mergedRetweets,
+    });
   } catch (error) {
     console.error("❌ Error processing tweets:", error);
     throw error;
@@ -1298,60 +1400,66 @@ async function handleRepliesData(tweets) {
 
 // Add new handler functions
 async function handleProfileScraping(enabled) {
-  console.log("🔄 Handling profile and visit scraping:", enabled);
-  if (!enabled) {
-    chrome.storage.local.set({ 
-      isProfileScrapingEnabled: false,
-      isProfileVisitScrapingEnabled: false,
-     });
-    return;
-  }
-
-  try {
-    console.log("🔄 Starting profile and visit scraping...");
-    
-    // Get username before proceeding
-    const storage = await chrome.storage.local.get(['initialUsername', 'hasInitialAuth']);
-    
-    // If no username exists, open x.com in background
-    if (!storage.initialUsername && !storage.hasInitialAuth) {
-      console.log('⚠️ No username found, opening x.com for authentication...');
-      await chrome.tabs.create({
-        url: 'https://x.com',
-        active: false
-      });
-      return; // Exit and wait for auth to complete
+    console.log("🔄 Handling profile and visit scraping:", enabled);
+    if (!enabled) {
+        chrome.storage.local.set({ 
+            isProfileScrapingEnabled: false,
+            isProfileVisitScrapingEnabled: false,
+        });
+        return;
     }
 
-    console.log('✅ Username found, proceeding with scraping:', storage.initialUsername);
-    
-    chrome.storage.local.set({
-      isProfileScrapingEnabled: true,
-      isProfileVisitScrapingEnabled: true, 
-      hasScrapedProfile: false,
-    });
-    // Create profile scraping tab
-    const initialTab = await chrome.tabs.create({
-      url: `https://x.com/${storage.initialUsername}${PROFILE_SCRAPE_IDENTIFIER}`,
-      active: false,
-    });
+    try {
+        console.log("🔄 Starting profile scraping...");
+        
+        // Get username before proceeding
+        const storage = await chrome.storage.local.get(['initialUsername', 'hasInitialAuth', 'hasScrapedProfile']);
+        
+        // If profile is already scraped, don't scrape again
+        if (storage.hasScrapedProfile) {
+            console.log('✅ Profile already scraped, skipping...');
+            return;
+        }
 
-    // Set up profile visit monitoring on all Twitter tabs
-    const twitterTabs = await chrome.tabs.query({ url: ["*://*.x.com/*", "*://*.twitter.com/*"] });
-    for (const tab of twitterTabs) {
-      chrome.tabs.sendMessage(tab.id, {
-        type: 'EXECUTE_PROFILE_VISIT_SCRAPING'
-      }).catch(error => {
-        console.log('Tab might not be ready yet:', error, tab.id);
-      });
+        // If no username exists, open x.com in background
+        if (!storage.initialUsername && !storage.hasInitialAuth) {
+            console.log('⚠️ No username found, opening x.com for authentication...');
+            await chrome.tabs.create({
+                url: 'https://x.com',
+                active: false
+            });
+            return; // Exit and wait for auth to complete
+        }
+
+        console.log('✅ Username found, proceeding with one-time scraping:', storage.initialUsername);
+        
+        chrome.storage.local.set({
+            isProfileScrapingEnabled: true,
+            isProfileVisitScrapingEnabled: true
+        });
+
+        // Create profile scraping tab for one-time scrape
+        const initialTab = await chrome.tabs.create({
+            url: `https://x.com/${storage.initialUsername}${PROFILE_SCRAPE_IDENTIFIER}`,
+            active: false,
+        });
+
+        // Set up profile visit monitoring on all Twitter tabs
+        const twitterTabs = await chrome.tabs.query({ url: ["*://*.x.com/*", "*://*.twitter.com/*"] });
+        for (const tab of twitterTabs) {
+            chrome.tabs.sendMessage(tab.id, {
+                type: 'EXECUTE_PROFILE_VISIT_SCRAPING'
+            }).catch(error => {
+                console.log('Tab might not be ready yet:', error, tab.id);
+            });
+        }
+
+        console.log("✅ Created profile scraping tab:", initialTab.id);
+    } catch (error) {
+        console.error("❌ Error in profile scraping:", error);
+        chrome.storage.local.set({ 
+            isProfileScrapingEnabled: false, 
+            isProfileVisitScrapingEnabled: false
+        });
     }
-
-    console.log("✅ Created profile scraping tab:", initialTab.id);
-  } catch (error) {
-    console.error("❌ Error in profile scraping:", error);
-    chrome.storage.local.set({ 
-      isProfileScrapingEnabled: false, 
-      isProfileVisitScrapingEnabled: false, 
-    });
-  }
 }

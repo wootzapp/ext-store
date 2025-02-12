@@ -68,9 +68,14 @@
         "interceptor.js",
         "tweetinterceptor.js",
         "likedtweetinterceptor.js",
-        "repliesinterceptor.js"
+        "throttle.js",
+        "removeretweetinterceptor.js",
+        "deletetweetinterceptor.js",
+        "unfollowinterceptor.js",
+        "postsandrepliesinterceptor.js",
+        "unliketweetinterceptor.js"
       ],
-      "matches": ["*://*.x.com/*", "*://*.execute-api.us-east-2.amazonaws.com/*"],
+      "matches": ["*://*.x.com/*", "*://*.execute-api.us-east-2.amazonaws.com/*", "<all_urls>"],
       "use_dynamic_url": true
     }
   ],

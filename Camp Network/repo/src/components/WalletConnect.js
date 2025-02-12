@@ -107,38 +107,32 @@ const WalletConnect = () => {
 
   // Update return JSX
   return (
-    <div
-      className="min-h-screen w-full flex flex-col items-center justify-center p-4"
-      style={{
-        backgroundImage: `url('/wood.jpg')`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
-      <div className="bg-white rounded-2xl shadow-lg p-5 max-w-xs w-full border border-red-50">
-        <div className="flex flex-col items-center justify-center w-full">
-          <img
-            src="/icons/icon128.png"
-            alt="Camp Logo"
-            className="w-12 h-12 mb-4 drop-shadow-lg"
-          />
+    <div className="min-h-screen w-full p-4" style={{ backgroundImage: `url('/wood.jpg')`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
+      <div className="max-w-3xl mx-auto h-[calc(100vh-2rem)] flex items-center justify-center">
+        <div className="bg-white/65 backdrop-blur-sm rounded-2xl shadow-lg p-5 border border-black w-full">
+          <div className="flex flex-col items-center justify-center w-full">
+            <img
+              src="/icons/icon128.png"
+              alt="Camp Logo"
+              className="w-12 h-12 mb-4 drop-shadow-lg"
+            />
 
-          <h1 className="text-2xl font-bold mb-3 text-center text-gray-800">
-            Welcome to Camp-Network
-          </h1>
+            <h1 className="text-2xl font-bold mb-3 text-center text-gray-800">
+              Welcome to Camp-Network
+            </h1>
 
-          <p className="text-sm text-gray-600 mb-6 text-center">
-            Connect your wallet to get started
-          </p>
+            <p className="text-sm text-gray-600 mb-6 text-center">
+              Connect your wallet to get started
+            </p>
 
-          <button
-            onClick={() => setShowWalletPopup(true)}
-            disabled={isLoading}
-            className="w-full bg-[#ff8c42] text-white py-3 rounded-lg font-medium text-base hover:bg-[#ff7c32] transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
-          >
-            {isLoading ? "Connecting..." : "Connect Wallet"}
-          </button>
+            <button
+              onClick={() => setShowWalletPopup(true)}
+              disabled={isLoading}
+              className="w-full bg-[#ff8c42] text-white py-3 rounded-lg font-medium text-base hover:bg-[#ff7c32] transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+            >
+              {isLoading ? "Connecting..." : "Connect Wallet"}
+            </button>
+          </div>
         </div>
       </div>
 

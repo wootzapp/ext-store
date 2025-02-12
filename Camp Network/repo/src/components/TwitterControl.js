@@ -1,6 +1,7 @@
 /* global chrome */
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import SyncToggleButton from "../helper/syncButton";
 
 const LoadingSpinner = () => (
   <div className="inline-block w-4 h-4 relative">
@@ -302,7 +303,19 @@ const TwitterControl = () => {
 
   const toggleMainScraping = () => {
     if (!isMainScrapingEnabled) {
-      setShowPermissionDialog(true);
+      // Check for initial auth before showing permission dialog
+      chrome.storage.local.get(['hasInitialAuth', 'initialUsername'], (result) => {
+        if (!result.hasInitialAuth || !result.initialUsername) {
+          console.log("🔄 No initial auth found, opening Twitter...");
+          // Open Twitter in new tab for authentication
+          chrome.tabs.create({ url: "https://x.com" }, (tab) => {
+            console.log("📱 Opened Twitter tab for initial auth:", tab.id);
+          });
+          return;
+        }
+        // If we have initial auth, show permission dialog
+        setShowPermissionDialog(true);
+      });
     } else {
       // When turning off main scraping, disable all other toggles first
       chrome.storage.local.set(
@@ -372,234 +385,102 @@ const TwitterControl = () => {
   };
 
   return (
-    <div
-      className="min-h-screen w-full flex flex-col items-center justify-center p-4"
-      style={{
-        backgroundImage: `url('/wood.jpg')`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
-      <div className="bg-white rounded-2xl shadow-lg p-5 max-w-xs w-full border border-red-50">
-        <div className="flex flex-col items-center justify-center w-full">
-          <img
-            src="/icons/icon128.png"
-            alt="Camp Logo"
-            className="w-12 h-12 mb-4 drop-shadow-lg"
-          />
-
-          <h1 className="text-2xl font-bold mb-3 text-center text-gray-800">
-            Twitter Scraping Control
-          </h1>
-
-          {/* Status Card */}
-          <div className="w-full bg-red-50 rounded-lg p-2 mb-3 border border-red-100 shadow-sm">
-            <div className="text-center text-sm">
-              <p className="flex justify-between items-center mb-1">
-                <span>Profile Data:</span>
-                <span>
-                  {scrapingStatus.hasScrapedProfile ? (
-                    "✅"
-                  ) : isProfileScrapingEnabled ? (
-                    <LoadingSpinner />
-                  ) : (
-                    "❌"
-                  )}
-                </span>
-              </p>
-              <p className="flex justify-between items-center mb-1">
-                <span>Liked Tweets Data:</span>
-                <span>
-                  {scrapingStatus.isLikedTweetsScraping ? (
-                    "✅"
-                  ) : isLikedTweetsScrapingEnabled ? (
-                    <LoadingSpinner />
-                  ) : (
-                    "❌"
-                  )}
-                </span>
-              </p>
-              <p className="flex justify-between items-center mb-1">
-                <span>Following Data:</span>
-                <span>
-                  {scrapingStatus.hasScrapedFollowing ? (
-                    "✅"
-                  ) : isFollowingEnabled ? (
-                    <LoadingSpinner />
-                  ) : (
-                    "❌"
-                  )}
-                </span>
-              </p>
-              <p className="flex justify-between items-center">
-                <span>Posts and Replies Data:</span>
-                <span>
-                  {scrapingStatus.hasScrapedReplies ? (
-                    "✅"
-                  ) : isRepliesScraping ? (
-                    <LoadingSpinner />
-                  ) : (
-                    "❌"
-                  )}
-                </span>
-              </p>
-            </div>
-          </div>
-
-          {/* Toggles Section */}
-          <div className="flex flex-col items-center space-y-2 mb-4 w-full">
-            {/* Main Scraping Toggle */}
-            <div className="flex items-center justify-between w-full px-2">
-              <span className="text-sm font-medium text-gray-700">
-                Scrap Twitter
-              </span>
-              <button
-                onClick={toggleMainScraping}
-                className={`relative inline-flex h-7 w-14 items-center rounded-full transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#ff8c42] focus:ring-offset-2 ${
-                  isMainScrapingEnabled ? "bg-[#ff8c42]" : "bg-gray-200"
-                }`}
-              >
-                <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 ease-in-out ${
-                    isMainScrapingEnabled ? "translate-x-8" : "translate-x-1"
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Profile & Likes Toggle */}
-            <div className="flex items-center justify-between w-full px-2">
-              <span className="text-sm font-medium text-gray-700">
-                Profile Scraping
-              </span>
-              <button
-                onClick={toggleProfileScraping}
-                disabled={!isMainScrapingEnabled}
-                className={`relative inline-flex h-7 w-14 items-center rounded-full transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#00E8E4FF] focus:ring-offset-2 ${
-                  isProfileScrapingEnabled ? "bg-[#00E8E4FF]" : "bg-gray-200"
-                } ${
-                  !isMainScrapingEnabled ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-              >
-                <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 ease-in-out ${
-                    isProfileScrapingEnabled ? "translate-x-8" : "translate-x-1"
-                  }`}
-                />
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between w-full px-2">
-              <span className="text-sm font-medium text-gray-700">
-                Liked Tweets Scraping
-              </span>
-              <button
-                onClick={toggleLikedTweetsScraping}
-                disabled={!isMainScrapingEnabled}
-                className={`relative inline-flex h-7 w-14 items-center rounded-full transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#00B5B5FF] focus:ring-offset-2 ${
-                  isLikedTweetsScrapingEnabled
-                    ? "bg-[#00B5B5FF]"
-                    : "bg-gray-200"
-                } ${
-                  !isMainScrapingEnabled ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-              >
-                <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 ease-in-out ${
-                    isLikedTweetsScrapingEnabled
-                      ? "translate-x-8"
-                      : "translate-x-1"
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Background Tweet Toggle */}
-            <div className="flex items-center justify-between w-full px-2">
-              <span className="text-sm font-medium text-gray-700">
-                Tweet Scraping
-              </span>
-              <button
-                onClick={toggleBackgroundTweetScraping}
-                disabled={!isMainScrapingEnabled}
-                className={`relative inline-flex h-7 w-14 items-center rounded-full transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#00B5B5FF] focus:ring-offset-2 ${
-                  isBackgroundTweetScrapingEnabled
-                    ? "bg-[#00B5B5FF]"
-                    : "bg-gray-200"
-                } ${
-                  !isMainScrapingEnabled ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-              >
-                <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 ease-in-out ${
-                    isBackgroundTweetScrapingEnabled
-                      ? "translate-x-8"
-                      : "translate-x-1"
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Following Toggle */}
-            <div className="flex items-center justify-between w-full px-2">
-              <span className="text-sm font-medium text-gray-700">
-                Following Scraping
-              </span>
-              <button
-                onClick={toggleFollowing}
-                disabled={!isMainScrapingEnabled}
-                className={`relative inline-flex h-7 w-14 items-center rounded-full transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#00B59AFF] focus:ring-offset-2 ${
-                  isFollowingEnabled ? "bg-[#00B59AFF]" : "bg-gray-200"
-                } ${
-                  !isMainScrapingEnabled ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-              >
-                <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 ease-in-out ${
-                    isFollowingEnabled ? "translate-x-8" : "translate-x-1"
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Posts and Replies Toggle */}
-            <div className="flex items-center justify-between w-full px-2">
-              <span className="text-sm font-medium text-gray-700">
-                Posts and Replies Scraping
-              </span>
-              <button
-                onClick={handleRepliesScraping}
-                disabled={!isMainScrapingEnabled}
-                className={`relative inline-flex h-7 w-14 items-center rounded-full transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#00A6B5FF] focus:ring-offset-2 ${
-                  isRepliesScraping ? "bg-[#00A6B5FF]" : "bg-gray-200"
-                } ${
-                  !isMainScrapingEnabled ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-              >
-                <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 ease-in-out ${
-                    isRepliesScraping ? "translate-x-8" : "translate-x-1"
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-
-          <div className="flex space-x-2 w-full">
+    <div className="min-h-screen w-full p-4" style={{ backgroundImage: `url('/wood.jpg')`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
+      <div className="max-w-3xl mx-auto h-[calc(100vh-2rem)] flex items-center justify-center">
+        <div className="bg-white/65 backdrop-blur-sm rounded-2xl shadow-lg p-5 border border-black w-full">
+          {/* Header Section */}
+          <div className="flex items-center justify-between mb-6">
+            <button
+              onClick={() => navigate("/")}
+              className="flex items-center py-2 text-gray-700 hover:text-gray-900 transition-all duration-300"
+            >
+              <span className="text-2xl font-bold mr-1 text-orange-500" style={{ transform: 'rotate(-45deg)' }}>⇱</span>
+            </button>
+            <h2 className="text-2xl px-1 font-bold text-center text-gray-800">
+              Scraping Controls
+            </h2>
             <button
               onClick={() => navigate("/scraped-data")}
-              className="w-1/2 bg-[#3AADA8] text-white py-3 rounded-lg font-medium text-base hover:bg-[#2A9D98] transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+              className="px-1 py-2 bg-[#3AADA8] text-white rounded-lg font-medium hover:bg-[#2A9D98] transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 border border-orange-500"
             >
               View Data
             </button>
+          </div>
 
-            <button
-              onClick={() => navigate("/")}
-              className="w-1/2 bg-[#DC3545] text-white py-3 rounded-lg font-medium text-base hover:bg-[#C82333] transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
-            >
-              Back
-            </button>
+          {/* Toggles Section */}
+          <div className="bg-white/25 backdrop-blur-sm rounded-2xl shadow-lg px-1 py-2 border border-black w-full">
+            <div className="flex flex-col items-center space-y-2 mb-4 w-full">
+              {/* Main Scraping Toggle */}
+              <SyncToggleButton
+                isEnabled={isMainScrapingEnabled}
+                onClick={toggleMainScraping}
+                label="Scrap Twitter"
+                status={isMainScrapingEnabled}
+                customColors={{
+                  toggle: 'bg-[#ff8c42]'
+                }}
+              />
+
+              {/* Profile & Likes Toggle */}
+              <SyncToggleButton
+                isEnabled={isProfileScrapingEnabled}
+                onClick={toggleProfileScraping}
+                disabled={!isMainScrapingEnabled}
+                label="Profile Scraping"
+                status={scrapingStatus.hasScrapedProfile}
+                customColors={{
+                  toggle: 'bg-[#00B59AFF]'
+                }}
+              />
+
+              {/* Liked Tweets Toggle */}
+              <SyncToggleButton
+                isEnabled={isLikedTweetsScrapingEnabled}
+                onClick={toggleLikedTweetsScraping}
+                disabled={!isMainScrapingEnabled}
+                label="Likes Scraping"
+                status={scrapingStatus.hasScrapedLikes}
+                customColors={{
+                  toggle: 'bg-[#00B59AFF]'
+                }}
+              />
+
+              {/* Background Tweet Toggle */}
+              <SyncToggleButton
+                isEnabled={isBackgroundTweetScrapingEnabled}
+                onClick={toggleBackgroundTweetScraping}
+                disabled={!isMainScrapingEnabled}
+                label="Tweet Scraping"
+                status={isBackgroundTweetScrapingEnabled}
+                customColors={{
+                  toggle: 'bg-[#00B59AFF]'
+                }}
+              />
+
+              {/* Following Toggle */}
+              <SyncToggleButton
+                isEnabled={isFollowingEnabled}
+                onClick={toggleFollowing}
+                disabled={!isMainScrapingEnabled}
+                label="Following Scraping"
+                status={scrapingStatus.hasScrapedFollowing}
+                customColors={{
+                  toggle: 'bg-[#00B59AFF]'
+                }}
+              />
+
+              {/* Posts and Replies Toggle */}
+              <SyncToggleButton
+                isEnabled={isRepliesScraping}
+                onClick={handleRepliesScraping}
+                disabled={!isMainScrapingEnabled}
+                label="Posts Scraping"
+                status={scrapingStatus.hasScrapedReplies}
+                customColors={{
+                  toggle: 'bg-[#00B59AFF]'
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>

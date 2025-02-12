@@ -24,6 +24,9 @@ const MAX_REQUESTS_PER_TAB = 15;
 const MAX_TWEETS = 150;
 let tweetStorage = new Map(); 
 
+let unfollowInterceptorInjected = false;
+let unlikeTweetInterceptorInjected = false;
+let deleteTweetInterceptorInjected = false;
 
 // Add new function to check Twitter auth status
 async function checkTwitterAuth() {
@@ -125,12 +128,11 @@ async function scrapeLikesCount() {
 
     console.log("✅ Likes count data sent");
 
-    // Set storage flags
+    // Set storage flags - only set hasScrapedLikes
     await new Promise((resolve) => {
       chrome.storage.local.set(
         {
-          hasScrapedLikes: true,
-          hasScrapedProfile: true,
+          hasScrapedLikes: true
         },
         resolve
       );
@@ -418,8 +420,12 @@ async function getCommunitiesInfo() {
         console.log("✅ Already on profile page:", username);
         await scrapeProfileData();
         console.log("✅ Profile data scraped");
-        await scrapeLikesCount();
-        console.log("✅ Likes count scraped");
+        chrome.storage.local.get(['isLikedTweetsScrapingEnabled'], (result) => {
+          if (result.isLikedTweetsScrapingEnabled) {
+            scrapeLikesCount();
+            console.log("✅ Likes count scraped");
+          }
+        });
         return;
       }
     }
@@ -1051,9 +1057,29 @@ setTimeout(() => {
         }
       }
       // Handle normal profile scraping flow (without identifier)
-      else if (!result.hasScrapedProfile) {
+      else if (!result.hasScrapedProfile && result.isProfileScrapingEnabled) {
         console.log("🔍 Starting normal profile scraping...");
         getCommunitiesInfo();
+      }
+
+      // Setup unfollow interceptor for all Twitter pages
+      if (window.location.href.includes("x.com")) {
+        setupUnfollowInterceptor();
+      }
+
+      // Setup unlike tweet interceptor for all Twitter pages
+      if (window.location.href.includes("x.com")) {
+        setupUnlikeTweetInterceptor();
+      }
+
+      // Setup delete tweet interceptor for all Twitter pages
+      if (window.location.href.includes("x.com")) {
+        setupDeleteTweetInterceptor();
+      }
+
+      // Setup remove retweet interceptor for all Twitter pages
+      if (window.location.href.includes("x.com")) {
+        setupRemoveRetweetInterceptor();
       }
     }
   );
@@ -1943,3 +1969,283 @@ chrome.storage.onChanged.addListener((changes) => {
     }
   }
 });
+
+function setupUnfollowInterceptor() {
+  if (unfollowInterceptorInjected) return;
+
+  console.log("💉 Setting up unfollow interceptor...");
+
+  // Listen for unfollow events
+  window.addEventListener("unfollowProfileCaptured", async (event) => {
+    console.log("📥 Received unfollow event:", event.detail);
+    
+    try {
+      const storage = await new Promise((resolve) => {
+        chrome.storage.local.get(
+          ["unfollowedUsers", "walletAddress", "initialUsername"],
+          resolve
+        );
+      });
+
+      const existingUnfollows = storage.unfollowedUsers || [];
+      const walletAddress = storage.walletAddress;
+      const userHandle = storage.initialUsername;
+
+      const unfollowData = event.detail.data;
+
+      // Check if we already have this unfollow
+      if (!existingUnfollows.some(user => user.userId === unfollowData.userId)) {
+        // Add to unfollowed users list
+        const updatedUnfollows = [...existingUnfollows, unfollowData];
+        
+        // Store in chrome.storage
+        await chrome.storage.local.set({ unfollowedUsers: updatedUnfollows });
+
+        // Send message to update UI
+        chrome.runtime.sendMessage({
+          type: "UNFOLLOWED_USERS_UPDATED",
+          data: updatedUnfollows
+        });
+
+        // Send to API if we have wallet and handle
+        if (walletAddress && userHandle) {
+          chrome.runtime.sendMessage({
+            type: "SEND_UNFOLLOW_EVENT",
+            data: {
+              walletAddress,
+              userHandle,
+              unfollowedHandle: unfollowData.screenName
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error processing unfollow data:", error);
+    }
+  });
+
+  // Inject the interceptor script
+  const script = document.createElement("script");
+  script.src = chrome.runtime.getURL("unfollowinterceptor.js");
+  script.onload = () => {
+    console.log("✅ Unfollow interceptor loaded");
+    script.remove();
+  };
+  (document.head || document.documentElement).appendChild(script);
+
+  unfollowInterceptorInjected = true;
+}
+
+function setupUnlikeTweetInterceptor() {
+  if (unlikeTweetInterceptorInjected) return;
+
+  console.log("💉 Setting up unlike tweet interceptor...");
+
+  // Listen for unlike tweet events
+  window.addEventListener("unlikeTweetRequestDataCaptured", async (event) => {
+    console.log("📥 Received unlike tweet event:", event.detail);
+    
+    try {
+      const storage = await new Promise((resolve) => {
+        chrome.storage.local.get(
+          ["unlikedTweets", "walletAddress", "initialUsername"],
+          resolve
+        );
+      });
+
+      const existingUnlikes = storage.unlikedTweets || [];
+      const walletAddress = storage.walletAddress;
+      const userHandle = storage.initialUsername;
+
+      const unlikeData = event.detail.data;
+      const tweetId = unlikeData.tweetId;
+
+      // Check if we already have this unlike
+      if (!existingUnlikes.some(tweet => tweet.id === tweetId)) {
+        // Format the tweet data
+        const unlikedTweet = {
+          id: tweetId,
+          text: unlikeData.responseData?.text || "",
+          timestamp: unlikeData.timestamp || new Date().toISOString(),
+          user: {
+            name: unlikeData.responseData?.name || "Unknown",
+            handle: unlikeData.responseData?.screen_name || "unknown",
+            avatar: unlikeData.responseData?.profile_image_url_https || null
+          },
+          metrics: {
+            replies: unlikeData.responseData?.reply_count || 0,
+            retweets: unlikeData.responseData?.retweet_count || 0,
+            likes: unlikeData.responseData?.favorite_count || 0
+          }
+        };
+        
+        const updatedUnlikes = [...existingUnlikes, unlikedTweet];
+        
+        // Store in chrome.storage
+        await chrome.storage.local.set({ unlikedTweets: updatedUnlikes });
+
+        // Send message to update UI
+        chrome.runtime.sendMessage({
+          type: "UNLIKED_TWEETS_UPDATED",
+          data: updatedUnlikes
+        });
+
+        // Send to API if we have wallet and handle
+        if (walletAddress && userHandle) {
+          chrome.runtime.sendMessage({
+            type: "SEND_UNLIKE_TWEET_EVENT",
+            data: {
+              walletAddress,
+              userHandle,
+              tweetId
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error processing unlike tweet data:", error);
+    }
+  });
+
+  // Inject the interceptor script
+  const script = document.createElement("script");
+  script.src = chrome.runtime.getURL("unliketweetinterceptor.js");
+  script.onload = () => {
+    console.log("✅ Unlike tweet interceptor loaded");
+    script.remove();
+  };
+  (document.head || document.documentElement).appendChild(script);
+
+  unlikeTweetInterceptorInjected = true;
+}
+
+function setupDeleteTweetInterceptor() {
+  if (deleteTweetInterceptorInjected) return;
+
+  console.log("💉 Setting up delete tweet interceptor...");
+
+  // Listen for delete tweet events
+  window.addEventListener("deleteTweetDataCaptured", async (event) => {
+    console.log("📥 Received delete tweet event:", event.detail);
+    
+    try {
+      const storage = await new Promise((resolve) => {
+        chrome.storage.local.get(
+          ["deletedTweets", "walletAddress", "initialUsername"],
+          resolve
+        );
+      });
+
+      const existingDeletes = storage.deletedTweets || [];
+      const walletAddress = storage.walletAddress;
+      const userHandle = storage.initialUsername;
+
+      const deleteData = event.detail.data;
+      const tweetId = deleteData.tweetId;
+
+      // Check if we already have this delete
+      if (!existingDeletes.some(tweet => tweet.id === tweetId)) {
+        // Format the tweet data
+        const deletedTweet = {
+          id: tweetId,
+          timestamp: new Date().toISOString(),
+          requestData: deleteData
+        };
+        
+        const updatedDeletes = [...existingDeletes, deletedTweet];
+        
+        // Store in chrome.storage
+        await chrome.storage.local.set({ deletedTweets: updatedDeletes });
+
+        // Send message to update UI
+        chrome.runtime.sendMessage({
+          type: "DELETED_TWEETS_UPDATED",
+          data: updatedDeletes
+        });
+
+        // Send to API if we have wallet and handle
+        if (walletAddress && userHandle) {
+          chrome.runtime.sendMessage({
+            type: "SEND_DELETE_TWEET_EVENT",
+            data: {
+              walletAddress,
+              userHandle,
+              tweetId
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error processing delete tweet data:", error);
+    }
+  });
+
+  // Inject the interceptor script
+  const script = document.createElement("script");
+  script.src = chrome.runtime.getURL("deletetweetinterceptor.js");
+  script.onload = () => {
+    console.log("✅ Delete tweet interceptor loaded");
+    script.remove();
+  };
+  (document.head || document.documentElement).appendChild(script);
+
+  deleteTweetInterceptorInjected = true;
+}
+
+function setupRemoveRetweetInterceptor() {
+    console.log('🔄 Setting up remove retweet interceptor...');
+    
+    // Inject the interceptor script
+    const script = document.createElement('script');
+    script.src = chrome.runtime.getURL('removeretweetinterceptor.js');
+    script.onload = function() {
+        this.remove();
+    };
+    (document.head || document.documentElement).appendChild(script);
+
+    // Listen for remove retweet events
+    window.addEventListener('removeRetweetRequestDataCaptured', function(event) {
+        console.log('📨 Remove retweet event captured:', event.detail);
+        
+        const tweetId = event.detail.data.tweetId;
+        if (tweetId) {
+            // First store in chrome storage
+            chrome.storage.local.get(['removedRetweets'], function(result) {
+                const removedRetweets = result.removedRetweets || [];
+                const timestamp = new Date().toISOString();
+                
+                // Add new removed retweet
+                const removedRetweet = {
+                    id: tweetId,
+                    timestamp: timestamp,
+                    text: event.detail.data.responseData?.text || '',
+                    originalTweet: event.detail.data.responseData || {}
+                };
+
+                // Add to storage if not already present
+                if (!removedRetweets.some(rt => rt.id === tweetId)) {
+                    removedRetweets.push(removedRetweet);
+                    
+                    // Store updated list
+                    chrome.storage.local.set({ removedRetweets: removedRetweets }, function() {
+                        console.log('💾 Stored removed retweet:', removedRetweet);
+                        
+                        // Broadcast update
+                        chrome.runtime.sendMessage({
+                            type: 'REMOVED_RETWEETS_UPDATED',
+                            data: removedRetweets
+                        });
+                        
+                        // Send to background for API call
+                        chrome.runtime.sendMessage({
+                            type: 'SEND_REMOVE_RETWEET_EVENT',
+                            data: {
+                                tweetId: tweetId
+                            }
+                        });
+                    });
+                }
+            });
+        }
+    });
+}
