@@ -82,8 +82,8 @@ const OTPInput = ({ email, onAuthComplete }) => {
         headers: {
           "accept": "application/json",
           "content-type": "application/json",
-          "privy-app-id": "cm668wd7e0162w7562xb9xnhu",
-          "privy-ca-id": "b63f2350-b686-4f70-894a-0d8f1f870592",
+          "privy-app-id": "cm05notwe04i9tkaqro03obfj",
+          "privy-ca-id": "74c5e8f9-01a4-4de4-88ac-b1c52234b570",
           "privy-client": "react-auth:1.98.4",
         },
         method: "POST",

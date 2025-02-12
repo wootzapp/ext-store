@@ -4,6 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { DashboardAPI } from '../services/api';
 import '../styles/Dashboard.css';
 import wootzapp_icon from '../assets/wootzapp.png';
+import multiplierIcon from '../assets/multiplier.png';
+import dollarIcon from '../assets/dollar.png';
+import pointsIcon from '../assets/points.png';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -60,20 +63,28 @@ const Dashboard = () => {
     try {
         // First get the auth token from storage
         let token = await new Promise((resolve, reject) => {
-            chrome.storage.local.get(['authToken'], function(result) {
+            chrome.storage.local.get(['authToken', 'authData'], function(result) {
                 if (chrome.runtime.lastError) {
                     reject(new Error('Failed to get auth token: ' + chrome.runtime.lastError.message));
                     return;
                 }
-                if (!result.authToken) {
-                    reject(new Error('Auth token not found in storage'));
+                
+                // Try to get token from direct storage first
+                if (result.authToken) {
+                    resolve(result.authToken);
                     return;
                 }
-                resolve(result.authToken);
+                
+                // If not found, try to get from authData
+                if (result.authData && result.authData.token) {
+                    resolve(result.authData.token);
+                    return;
+                }
+                
+                reject(new Error('Auth token not found in storage'));
             });
         });
         console.log('Auth token retrieved from storage');
-        // token="eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IkxsOFM5aEMweTdicDl6djRqMTZsdmVQdC0xX0VQR3pZNUZ5VkoxMHhEZm8ifQ.eyJzaWQiOiJjbTY5Zm5panEwMGl6YnV4Ym5kYWg4bXBuIiwiaXNzIjoicHJpdnkuaW8iLCJpYXQiOjE3Mzc3MDE3MDEsImF1ZCI6ImNtMDVub3R3ZTA0aTl0a2Fxcm8wM29iZmoiLCJzdWIiOiJkaWQ6cHJpdnk6Y202N296NmNzMDFwNzEzOGI1ZjlxejN2YyIsImV4cCI6MTczNzcwNTMwMX0.s4HjfBZS7UNUCJh0jmy8ButwituzQh6OD-R3O4Tao5xatPh9gvrzn-9pfu5WLLi2lsZz3QBZuqQwFIuylTbyiA";
 
         // Call the native sapienGraphQL function
         const response = await new Promise((resolve, reject) => {
@@ -110,7 +121,7 @@ const Dashboard = () => {
         try {
           const data = await callSapienGraphQL();
           console.log("Sapien data:", JSON.stringify(data, null, 2));
-          // navigate('/vehicle-positioning', { state: { sapienData: data } }); // Navigate to the new page
+          navigate('/vehicle-positioning', { state: { sapienData: data } }); // Navigate to the new page
         } catch (error) {
           console.error('Failed to fetch Sapien data:', error);
         }          
@@ -202,6 +213,10 @@ const Dashboard = () => {
     }
   };
 
+  const handleBack = () => {
+    navigate('/');
+  };
+
   if (isLoading) {
     return (
       <div className="loading-container">
@@ -222,27 +237,26 @@ const Dashboard = () => {
     <div className="dashboard">
       <header className="dashboard-header">
         <div className="dashboard-header-left">
-          {/* Removed menu icon */}
+          <button className="back-button" onClick={handleBack}>⟪</button>
         </div>
         <div className="dashboard-header-right">
-          <div className="balance">
-            <span>$0.16 USDC</span>
+          <div className="dashboard-stats">
+            <div className="stat-item">
+              <img src={multiplierIcon} alt="Multiplier" className="stat-icon" />
+              <span>1.00X</span>
+            </div>
+            <div className="stat-item">
+              <img src={dollarIcon} alt="Dollar" className="stat-icon" />
+              <span>0</span>
+            </div>
+            <div className="stat-item">
+              <img src={pointsIcon} alt="Points" className="stat-icon" />
+              <span>101</span>
+            </div>
           </div>
-          {/* Hidden file input */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            style={{ display: 'none' }}
-          />
-          {/* Connect to Wallet button */}
-          <button 
-            onClick={handleFileSelect}
-            className="connect-wallet-button"
-          >
+          <button className="connect-wallet-button">
             <img src={wootzapp_icon} alt="Connect to Wallet" className="wallet-icon" />
-            Connect to Wallet
+            Connect Wallet
           </button>
         </div>
       </header>
