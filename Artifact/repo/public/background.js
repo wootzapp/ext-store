@@ -1,8 +1,9 @@
-
 // Add these variables at the top level
 let storedAuthToken = null;
 let storedSecretKey = null;
 let storedIsLoggedIn = false;
+let storedRefreshToken = null;
+let refreshTokenTimer = null;
 
 // Update storage change listener to store values in variables
 chrome.storage.onChanged.addListener((changes, namespace) => {
@@ -18,7 +19,10 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
     if (changes.isLoggedIn) {
       storedIsLoggedIn = changes.isLoggedIn.newValue;
     }
-
+    if (changes.refreshToken) {
+      storedRefreshToken = changes.refreshToken.newValue;
+    }
+   
     // Process queue if all conditions are met
     if (storedAuthToken && storedIsLoggedIn && storedSecretKey) {
       console.log('🔑 All auth conditions met, processing queue');
@@ -203,11 +207,12 @@ async function processUrlQueue() {
   }
 }
 
-// Initialize stored values on startup
-chrome.storage.local.get(['authToken', 'secretKey', 'isLoggedIn'], (result) => {
+// Update initialization to remove token refresh setup
+chrome.storage.local.get(['authToken', 'secretKey', 'isLoggedIn', 'refreshToken'], (result) => {
   storedAuthToken = result.authToken || null;
   storedSecretKey = result.secretKey || null;
   storedIsLoggedIn = result.isLoggedIn || false;
+  storedRefreshToken = result.refreshToken || null;
   console.log('🔄 Initialized stored values');
 });
 
@@ -230,7 +235,7 @@ async function monitorTabs() {
     if (!initialUrlsQueued) {
       console.log('📋 Queueing initial URLs from all tabs');
       tabs.forEach(tab => {
-        if (tab.url && !tab.url.startsWith('chrome-native://newtab') && 
+        if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-native://') && 
             !urlQueue.some(item => item.url === tab.url)) {
           handleUrlLogging(tab.url);
         }
@@ -248,10 +253,9 @@ async function monitorTabs() {
     // If authenticated, only monitor new tabs
     if (authToken && currentTabCount > previousTabCount) {
       console.log('🔑 Authenticated: Only checking new tabs');
-      // Only get the most recently created tab
       const newTabs = tabs.slice(previousTabCount);
       newTabs.forEach(tab => {
-        if (tab.url && !tab.url.startsWith('chrome-native://newtab') && 
+        if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-native://') && 
             !urlQueue.some(item => item.url === tab.url)) {
           console.log('🆕 New authenticated tab URL:', tab.url);
           handleUrlLogging(tab.url);
@@ -262,7 +266,7 @@ async function monitorTabs() {
     else if (!authToken && currentTabCount > previousTabCount) {
       console.log('🔒 Not authenticated: Queueing all URLs');
       tabs.forEach(tab => {
-        if (tab.url && !tab.url.startsWith('chrome-native://newtab') && 
+        if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-native://') && 
             !urlQueue.some(item => item.url === tab.url)) {
           handleUrlLogging(tab.url);
         }
@@ -295,7 +299,10 @@ let currentActiveTabUrl = null;
 async function checkActiveTabUrl() {
   try {
     const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (activeTab?.url && activeTab.url !== currentActiveTabUrl) {
+    if (activeTab?.url && 
+        !activeTab.url.startsWith('chrome://') && 
+        !activeTab.url.startsWith('chrome-native://') && 
+        activeTab.url !== currentActiveTabUrl) {
       // URL has changed
       console.log('📍 URL changed:', activeTab.url);
       currentActiveTabUrl = activeTab.url;
@@ -314,3 +321,83 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
   console.log('🔄 Tab activated:', activeInfo.tabId);
   checkActiveTabUrl();
 });
+
+// Add message listener for refresh token updates
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'REFRESH_TOKEN_UPDATE') {
+    storedRefreshToken = message.refreshToken;
+    console.log('🔑 Refresh token updated:', storedRefreshToken);
+    
+    // Store refresh token in local storage
+    chrome.storage.local.set({ refreshToken: storedRefreshToken });
+    
+    // Setup refresh token timer
+    setupRefreshTokenTimer();
+  }
+});
+
+// Function to refresh authentication token
+async function refreshAuthToken() {
+  console.log('🔄 Attempting to refresh auth token');
+  try {
+    const response = await fetch('https://api-staging-0.gotartifact.com/v2/users/authentication/refresh', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        refresh_token: storedRefreshToken
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Refresh failed: ${response.status}`);
+    }
+
+    const { data } = await response.json();
+    // Update stored auth token with new value from the correct path
+    console.log('🔑 Refresh token response:', data);
+    
+    // Update both local storage and memory variables
+    storedAuthToken = data.id_token;
+    storedRefreshToken = data.refresh_token;
+    
+    await chrome.storage.local.set({ 
+      authToken: data.id_token,
+      refreshToken: data.refresh_token 
+    });
+
+    console.log('✅ Auth token refreshed successfully:', {
+      newAuthToken: storedAuthToken,
+      newRefreshToken: storedRefreshToken
+    });
+
+    const authtoken= await chrome.storage.local.get(['authToken']);
+    const refreshtoken= await chrome.storage.local.get(['refreshToken']);
+    console.log('🔑 Refreshed data',{authtoken,refreshtoken});
+
+
+  } catch (error) {
+    console.error('❌ Failed to refresh auth token:', error);
+  }
+}
+
+// Function to setup refresh token timer
+function setupRefreshTokenTimer() {
+  // Clear existing timer if any
+  if (refreshTokenTimer) {
+    clearInterval(refreshTokenTimer);
+  }
+
+  // Only set up timer if we have a refresh token
+  if (storedRefreshToken) {
+    console.log('⏰ Setting up refresh token timer');
+    // Run every 55 minutes (3300000 milliseconds)
+    refreshTokenTimer = setInterval(refreshAuthToken, 3300000);
+    
+    // Trigger initial refresh
+    refreshAuthToken();
+  } else {
+    console.log('⚠️ No refresh token available, timer not set');
+  }
+}

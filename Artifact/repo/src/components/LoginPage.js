@@ -48,6 +48,22 @@ const LoginPage = ({ onLoginSuccess }) => {
       
       if (response && response.success) {
         const token = response.data.id_token;
+        const refreshToken = response.data.refresh_token;
+        
+        localStorage.setItem('refreshToken', refreshToken);
+        localStorage.setItem('authToken', token);
+
+        await chrome.storage.local.set({
+          refreshToken: refreshToken,
+          authToken: token,
+          isLoggedIn: true
+        });
+        // Send refresh token to background script
+        chrome.runtime.sendMessage({ 
+          type: 'REFRESH_TOKEN_UPDATE',
+          refreshToken: refreshToken
+        });
+        
         const saveSuccess = await onLoginSuccess(token);
         
         if (saveSuccess) {

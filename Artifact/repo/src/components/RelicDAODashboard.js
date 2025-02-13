@@ -22,6 +22,8 @@ import { createThirdwebClient } from 'thirdweb';
 import { loadWallets } from '../lib/thirdweb_controller';
 import { useSecretKey } from '../lib/useSecretKey';
 import { omniAbi } from '../lib/omni';
+import { useAuthToken } from '../hooks/useAuthToken';
+
 
 const InfoSheet = ({ onClose }) => {
     return (
@@ -72,24 +74,53 @@ const InfoSheet = ({ onClose }) => {
 };
 
 
-const SettingsSheet = ({ onClose, onLogout }) => {
+const SettingsSheet = ({ onClose}) => {
     const navigate = useNavigate();
+    const { clearToken } = useAuthToken();
+    
     const handleProfileButton = async () => {
         console.log("Profile button pressed");
         const token = localStorage.getItem('authToken');
         navigate('/relicdao/dashboard/profile');
     };
+
+    const onLogout_clearStorage = () => {
+        console.log("Logging out");
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('dataStakingStatus');
+        localStorage.removeItem('twitterConnected');
+        navigate('/logout');
+    };
     
     const handleLogout = async () => {
-        // Check if current tab is chrome new tab
-        const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        const isNewTab = activeTab?.url === 'chrome-native://newtab/';
+        try {
+            // Check if current tab is chrome new tab
+            const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            const isNewTab = activeTab?.url === 'chrome-native://newtab/';
 
-        // Set isLoggedIn to false in chrome storage
-        chrome.storage.local.set({
-            isLoggedIn: false,
-            authToken: null
-        }, async () => {
+            // Clear token using the hook
+            await clearToken();
+
+            localStorage.setItem('authToken', null);
+            localStorage.setItem('refreshToken', null);
+            localStorage.setItem('secretKey', null);
+            localStorage.setItem('twitterConnected', false);
+            localStorage.setItem('dataStakingStatus', false);
+
+            // Clear ALL relevant storage
+            await chrome.storage.local.clear();
+            
+            // Set specific logout flags
+            await chrome.storage.local.set({
+                isLoggedIn: false,
+                authToken: null,
+                refreshToken: null,
+                secretKey: null,
+                twitterConnected: false,
+                dataStakingStatus: false
+            });
+
             console.log('Logged out, storage updated');
             
             // If we're on a new tab page, close it and open a new one
@@ -98,8 +129,12 @@ const SettingsSheet = ({ onClose, onLogout }) => {
                 await chrome.tabs.create({ url: 'chrome-native://newtab/' });
             }
             
-            onLogout();
-        });
+            onLogout_clearStorage();
+        } catch (error) {
+            console.error('Error during logout:', error);
+            // Fallback logout - ensure user is still logged out even if there's an error
+            onLogout_clearStorage();
+        }
     };
 
     return (
@@ -129,7 +164,7 @@ const SettingsSheet = ({ onClose, onLogout }) => {
     );
 }
 
-const RelicDAODashboard = ({onLogout}) => {
+const RelicDAODashboard = () => {
     const navigate = useNavigate();
     const [isPressed, setIsPressed] = useState(false);
     const [isInfoSheetOpen, setInfoSheetOpen] = useState(false);
@@ -146,10 +181,18 @@ const RelicDAODashboard = ({onLogout}) => {
     const [account, setAccount] = useState(null);
     const [profileData, setProfileData] = useState(null);
     const [hasInitiatedKeyGeneration, setHasInitiatedKeyGeneration] = useState(false);
-
+    const [prf, setPrf] = useState(null);   
+    const [isRetrying, setIsRetrying] = useState(false);
+    const [retryTimeout, setRetryTimeout] = useState(null);
+    
+    // Add retry mechanism for profile fetching
+    const [retryCount, setRetryCount] = useState(0);
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 2000; // 2 seconds
+    
     // Initialize the useSecretKey hook
     const { handleGetKey, secretKey, isLoading } = useSecretKey({
-        userIdentity: profileData?.omnikey_id,
+        userIdentity: prf?.omnikey_id,
         account: account,
         userAddress: walletAddress,
         omniKeyStore: process.env.REACT_APP_ENVIRONMENT === "production"
@@ -175,25 +218,37 @@ const RelicDAODashboard = ({onLogout}) => {
         }, [])
     });
 
-    useEffect(() => {
-        const token = localStorage.getItem('authToken');
+    // Add new function to sync tokens
+    const syncAuthToken = async () => {
+        const localToken = localStorage.getItem('authToken');
         
-        // Set auth token and login status in chrome storage
-        // if (token) {
-        //     chrome.storage.local.set({
-        //         authToken: token,
-        //         isLoggedIn: true
-        //     }, () => {
-        //         console.log('🔑 Auth token and login status set in chrome storage');
-        //     });
-        // }
+        const chromeStorage = await chrome.storage.local.get(['authToken']);
+        
+        const chromeToken = chromeStorage.authToken;
 
-        const apiUrl = process.env.REACT_APP_CORE_API_URL;
-        // Fetch points and level data when the component mounts
+
+        const localrefreshToken = localStorage.getItem('refreshToken');
+        const chromerefreshToken = chromeStorage.refreshToken;
+
+        if (chromeToken && chromeToken !== localToken) {
+            console.log('🔄 Syncing auth token from chrome storage to local storage');
+            console.log('🔑 Chrome storage , local storage and chrome token:',{chromeToken,localToken,chromeStorage,localrefreshToken,chromerefreshToken});
+        
+            localStorage.setItem('authToken', chromeToken);
+            localStorage.setItem('refreshToken', chromerefreshToken);
+            console.log('✅ Auth token synced');
+            return chromeToken;
+        }
+        return localToken;
+    };
+
+    useEffect(() => {
         const fetchUserData = async () => {
+            await syncAuthToken();
+            const token = localStorage.getItem('authToken');
             if (token) {
                 try {
-                    const response = await axios.get(`${apiUrl}/v2/xp/me`, {
+                    const response = await axios.get(`${process.env.REACT_APP_CORE_API_URL}/v2/xp/me`, {
                         headers: {
                             Authorization: `Bearer ${token}`
                         }
@@ -203,7 +258,7 @@ const RelicDAODashboard = ({onLogout}) => {
                         setLevel(response.data.level);
                     }
 
-                    const userResponse = await axios.get(`${apiUrl}/v2/users/me`, {
+                    const userResponse = await axios.get(`${process.env.REACT_APP_CORE_API_URL}/v2/users/me`, {
                       headers: {
                         Authorization: `Bearer ${token}`,
                       },
@@ -213,21 +268,33 @@ const RelicDAODashboard = ({onLogout}) => {
                         setReferralCode(userResponse.data.profile.referral_code);
                     } 
 
-                    const stakingResponse = await axios.post(`${apiUrl}/v2/externals/data-staking/verify`,
-                        {
-                          reward: "TELEGRAM_FEATURED_AD_REWARD",
-                        },
-                        {
-                          headers: {
-                            Authorization: `Bearer ${token}`,
-                          },
-                        }
-                    );
-              
-                    if (stakingResponse.data.success) {
-                        console.log(stakingResponse.data);
-                        setIsDataStakingOn(stakingResponse.data.success); 
+                    // Check if we already have the staking status in localStorage
+                    const storedStakingStatus = localStorage.getItem('dataStakingStatus');
+                    if (storedStakingStatus === 'true') {
+                        setIsDataStakingOn(true);
+                        return; // Skip API call if we already know it's verified
                     }
+
+                    // Only call the staking API if we don't have a stored status
+                    // const stakingResponse = await axios.post(
+                    //     `${process.env.REACT_APP_CORE_API_URL}/v2/externals/data-staking/verify`,
+                    //     {
+                    //         reward: "TELEGRAM_FEATURED_AD_REWARD",
+                    //     },
+                    //     {
+                    //         headers: {
+                    //             Authorization: `Bearer ${token}`,
+                    //         },
+                    //     }
+                    // );
+                    
+                    // if (stakingResponse.data.success) {
+                    //     setIsDataStakingOn(stakingResponse.data.success);
+                    //     // Store the status in localStorage if verified
+                    //     if (stakingResponse.data.success) {
+                    //         localStorage.setItem('dataStakingStatus', 'true');
+                    //     }
+                    // }
                 } catch (error) {
                     console.error('Error fetching data:', error);
                     // If there's an auth error, clear the storage
@@ -240,14 +307,10 @@ const RelicDAODashboard = ({onLogout}) => {
                 }
             }
         };
-        fetchUserData();
 
-        // TODO: Can use websocket instead of calling the api on an interval.
+        fetchUserData();
         const intervalId = setInterval(fetchUserData, 30000);
-        return () => {
-            clearInterval(intervalId);
-            // Don't clear storage on unmount as user might still be logged in
-        };
+        return () => clearInterval(intervalId);
     }, []);
 
     const client = createThirdwebClient({
@@ -266,9 +329,11 @@ const RelicDAODashboard = ({onLogout}) => {
             
             console.log('🔄 Starting wallet initialization...');
             try {
-                const token = localStorage.getItem('authToken');
+                const token = await chrome.storage.local.get('authToken');
+                localStorage.setItem('authToken', token.authToken);
+                console.log('🔑 Token Aaditesh:', token);
                 const profile = await getUserProfile();
-                
+                console.log('🔑 Profile Aaditesh for wallet initialization:', profile);
                 if (!isSubscribed) return;
 
                 if (!token || !profile) {
@@ -286,12 +351,15 @@ const RelicDAODashboard = ({onLogout}) => {
                     hasToken: !!token
                 });
 
-                const wallet = await loadWallets(token, profile.user_uid);
+                console.log('🔑 Token:', token);
+                console.log('🔑 Profile UID:', profile.user_uid);
+                const wallet = await loadWallets();
                 if (!isSubscribed) return;
 
                 const address = wallet.address;
-                console.log('✅ Wallet initialized:', { address });
+              
                 setWalletAddress(address);
+                console.log('✅ Wallet initialized:', { address });
                 setAccount(wallet);
             } catch (error) {
                 if (!isSubscribed) return;
@@ -310,46 +378,63 @@ const RelicDAODashboard = ({onLogout}) => {
         };
     }, []);
 
-    // Secret key generation effect
+    // Modify the secret key generation effect
     useEffect(() => {
         const generateSecretKey = async () => {
-            if (!walletAddress || !profileData?.omnikey_id || hasInitiatedKeyGeneration || isLoading) {
-                return;
+            try {
+                // If we don't have a profile yet, fetch it
+                if (!prf) {
+                    const profile = await getUserProfile();
+                    console.log('🔑 Profile fetched for secret key generation:', profile);
+                    
+                    // If profile doesn't have omnikey_id and we haven't exceeded retries
+                    if (!profile?.omnikey_id && retryCount < MAX_RETRIES) {
+                        console.log(`⏳ No omnikey_id found, retrying... (${retryCount + 1}/${MAX_RETRIES})`);
+                        setTimeout(() => {
+                            setRetryCount(prev => prev + 1);
+                        }, RETRY_DELAY);
+                        return;
+                    }
+                    
+                    setPrf(profile);
+                    
+                    // Early return if we still don't have what we need
+                    if (!profile?.omnikey_id) {
+                        console.error('❌ Failed to get omnikey_id after retries');
+                        return;
+                    }
+                }
+
+                // Only proceed with key generation if we have both wallet and omnikey_id
+                if (!walletAddress || !prf?.omnikey_id || hasInitiatedKeyGeneration) {
+                    return;
+                }
+
+                console.log('🏗️ Triggering secret key generation...', {
+                    hasWallet: !!walletAddress,
+                    hasOmniKeyId: !!prf?.omnikey_id,
+                    hasInitiated: hasInitiatedKeyGeneration
+                });
+
+                setHasInitiatedKeyGeneration(true);
+                await handleGetKey();
+            } catch (error) {
+                console.error('Error in generateSecretKey:', error);
+                // Retry on error if we haven't exceeded max retries
+                if (retryCount < MAX_RETRIES) {
+                    setTimeout(() => {
+                        setRetryCount(prev => prev + 1);
+                    }, RETRY_DELAY);
+                }
             }
-
-            console.log('🏗️ Triggering secret key generation...', {
-                hasWallet: !!walletAddress,
-                hasOmniKeyId: !!profileData?.omnikey_id,
-                hasInitiated: hasInitiatedKeyGeneration
-            });
-
-            setHasInitiatedKeyGeneration(true);
-            await handleGetKey();
         };
 
         generateSecretKey();
-    }, [walletAddress, profileData, handleGetKey, hasInitiatedKeyGeneration, isLoading]);
+    }, [walletAddress, prf, hasInitiatedKeyGeneration, retryCount]);
 
     useEffect(() => {
         // Check both localStorage and chrome storage for Twitter status
-        const checkTwitterStatus = async () => {
-            // Check localStorage
-            const localStatus = localStorage.getItem('twitterConnected');
-            
-            // Check chrome storage
-            chrome.storage.local.get(['isTwitterAuthenticated', 'initialUsername'], (result) => {
-                console.log('🔍 Checking Twitter status:', result);
-                const isAuthenticated = result.isTwitterAuthenticated || localStatus === 'true';
-                
-                if (isAuthenticated && result.initialUsername) {
-                    console.log('✅ Twitter is connected for user:', result.initialUsername);
-                    setIsTwitterConnected(true);
-                    localStorage.setItem('twitterConnected', 'true');
-                }
-            });
-        };
-
-        checkTwitterStatus();
+      
 
         // Listen for Twitter auth updates from background script
         const authListener = (message) => {
@@ -621,7 +706,7 @@ const RelicDAODashboard = ({onLogout}) => {
                     <Sheet.Container>
                         <Sheet.Header />
                         <Sheet.Content>
-                            <SettingsSheet onClose={() => setSettingsSheetOpen(false)} onLogout={onLogout} />
+                            <SettingsSheet onClose={() => setSettingsSheetOpen(false)} />
                         </Sheet.Content>
                     </Sheet.Container>
                     <Sheet.Backdrop />

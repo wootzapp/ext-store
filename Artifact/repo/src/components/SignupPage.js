@@ -4,7 +4,7 @@ import logo from '../images/artifact.png';
 
 function SignUpPage() {
     const handleSignUpClick = () => {
-        const signupUrl = "https://dev.relicdao.com/offer-landing?offer_id=eclipse-relicdao&utm_term=test_test_test_test";
+        const signupUrl = "https://dev.relicdao.com";
         window.location.href = signupUrl;
         console.log("trying to connect");
     };

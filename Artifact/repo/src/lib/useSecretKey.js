@@ -31,7 +31,8 @@ export function useSecretKey({ userIdentity, account, userAddress, omniKeyStore,
     method: resolveMethod("getKey"),
     params: keyReq ? [keyReq] : null,
   });
-
+    console.log('Aaditesh was here');
+    
   // Handle key generation
   const handleGetKey = async () => {
     try {
