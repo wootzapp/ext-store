@@ -41,6 +41,10 @@ const TwitterControl = () => {
     setIsBackgroundTweetScrapingEnabled,
   ] = useState(false);
   const [isRepliesScraping, setIsRepliesScraping] = useState(false);
+  const [likedTweets, setLikedTweets] = useState([]);
+  const [postedTweets, setPostedTweets] = useState([]);
+  const [userReplies, setUserReplies] = useState([]);
+  const [retweetedTweets, setRetweetedTweets] = useState([]);
 
   useEffect(() => {
     // Get initial states
@@ -57,6 +61,10 @@ const TwitterControl = () => {
         "isRepliesScrapingEnabled",
         "isProfileScrapingEnabled",
         "isLikedTweetsScrapingEnabled",
+        "likedTweets",
+        "postedTweets",
+        "userReplies",
+        "retweetedTweets"
       ],
       (result) => {
         console.log("📊 Loading initial states:", result);
@@ -70,6 +78,10 @@ const TwitterControl = () => {
         setIsLikedTweetsScrapingEnabled(
           result.isLikedTweetsScrapingEnabled ?? false
         );
+        setLikedTweets(result.likedTweets || []);
+        setPostedTweets(result.postedTweets || []);
+        setUserReplies(result.userReplies || []);
+        setRetweetedTweets(result.retweetedTweets || []);
 
         setScrapingStatus({
           hasScrapedProfile: result.hasScrapedProfile || false,
@@ -105,6 +117,18 @@ const TwitterControl = () => {
         setIsLikedTweetsScrapingEnabled(
           changes.isLikedTweetsScrapingEnabled.newValue
         );
+      }
+      if (changes.likedTweets) {
+        setLikedTweets(changes.likedTweets.newValue || []);
+      }
+      if (changes.postedTweets) {
+        setPostedTweets(changes.postedTweets.newValue || []);
+      }
+      if (changes.userReplies) {
+        setUserReplies(changes.userReplies.newValue || []);
+      }
+      if (changes.retweetedTweets) {
+        setRetweetedTweets(changes.retweetedTweets.newValue || []);
       }
       if (
         changes.hasScrapedProfile ||
@@ -385,30 +409,75 @@ const TwitterControl = () => {
   };
 
   return (
-    <div className="min-h-screen w-full p-4" style={{ backgroundImage: `url('/wood.jpg')`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
-      <div className="max-w-3xl mx-auto h-[calc(100vh-2rem)] flex items-center justify-center">
-        <div className="bg-white/65 backdrop-blur-sm rounded-2xl shadow-lg p-5 border border-black w-full">
+    <div className="fixed inset-0 px-4 w-full" style={{ backgroundImage: `url('/wood.jpg')`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', backgroundAttachment: 'fixed' }}>
+      <div className="max-w-3xl mb-4 mx-auto h-screen py-4 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div className="bg-white/65 backdrop-blur-sm rounded-2xl shadow-lg px-5 pb-5 border border-black w-full mx-auto">
           {/* Header Section */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between relative mb-2 mt-2">
             <button
               onClick={() => navigate("/")}
-              className="flex items-center py-2 text-gray-700 hover:text-gray-900 transition-all duration-300"
+              className="flex items-center py-2 text-gray-700 hover:text-gray-900 transition-all duration-300 z-10"
             >
               <span className="text-2xl font-bold mr-1 text-orange-500" style={{ transform: 'rotate(-45deg)' }}>⇱</span>
             </button>
-            <h2 className="text-2xl px-1 font-bold text-center text-gray-800">
-              Scraping Controls
+            <h2 className="absolute left-1/2 -translate-x-1/2 text-2xl font-bold text-gray-800 w-full text-center">
+              Twitter Scraping
             </h2>
-            <button
-              onClick={() => navigate("/scraped-data")}
-              className="px-1 py-2 bg-[#3AADA8] text-white rounded-lg font-medium hover:bg-[#2A9D98] transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 border border-orange-500"
-            >
-              View Data
-            </button>
+            <div className="w-8 z-10"></div> {/* Spacer div with z-index to ensure clickability */}
           </div>
 
+          {/* Profile Data Section */}
+          {profileData ? (
+            <div className="mb-4 p-3 border border-black rounded-xl bg-white/25 backdrop-blur-sm shadow">
+              <div className="flex items-center gap-4 mb-4">
+                {/* Profile Picture */}
+                <div className="w-16 h-16 bg-gray-200 rounded-full overflow-hidden flex-shrink-0">
+                  {profileData.profileImageUrl ? (
+                    <img
+                      src={profileData.profileImageUrl}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = "/default-avatar.png";
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-200">@</div>
+                  )}
+                </div>
+
+                {/* Name and Username */}
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    {profileData.userhandle}
+                  </h1>
+                  <p className="text-gray-600">@{profileData.username}</p>
+                </div>
+              </div>
+
+              {/* Joined Date */}
+              <div className="flex items-center justify-start text-gray-600 mb-1">
+                <svg
+                  className="w-5 h-5 mr-2"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" />
+                </svg>
+                <span>Joined {profileData.joinedDate}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 bg-white/25 backdrop-blur-sm rounded-lg shadow border border-black mb-4">
+              <p className="text-gray-500">
+                No profile data collected yet!
+              </p>
+            </div>
+          )}
+
           {/* Toggles Section */}
-          <div className="bg-white/25 backdrop-blur-sm rounded-2xl shadow-lg px-1 py-2 border border-black w-full">
+          <div className="bg-white/25 backdrop-blur-sm rounded-2xl shadow-lg px-1 pt-4 pb-1.5 border border-black w-full mb-4">
             <div className="flex flex-col items-center space-y-2 mb-4 w-full">
               {/* Main Scraping Toggle */}
               <SyncToggleButton
@@ -480,6 +549,72 @@ const TwitterControl = () => {
                   toggle: 'bg-[#00B59AFF]'
                 }}
               />
+            </div>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="px-3 pt-4 border border-black rounded-xl bg-white/25 backdrop-blur-sm shadow">
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="px-4 py-2 bg-gray-50/90 backdrop-blur-sm rounded-lg border border-gray-300">
+                <p className="text-gray-500 text-sm mb-1">Followers</p>
+                <p className="text-xl font-bold text-gray-900">
+                  {profileData?.followers !== undefined || isProfileScrapingEnabled ? (
+                    profileData?.followers
+                  ) : (
+                    <span className="inline-block w-8 h-4 bg-gray-200 animate-pulse rounded"></span>
+                  )}
+                </p>
+              </div>
+              <div className="px-4 py-2 bg-gray-50/90 backdrop-blur-sm rounded-lg border border-gray-300">
+                <p className="text-gray-500 text-sm mb-1">Following</p>
+                <p className="text-xl font-bold text-gray-900">
+                  {profileData?.following !== undefined || isProfileScrapingEnabled ? (
+                    profileData?.following
+                  ) : (
+                    <span className="inline-block w-8 h-4 bg-gray-200 animate-pulse rounded"></span>
+                  )}
+                </p>
+              </div>
+              <div className="px-4 py-2 bg-gray-50/90 backdrop-blur-sm rounded-lg border border-gray-300">
+                <p className="text-gray-500 text-sm mb-1">Likes</p>
+                <p className="text-xl font-bold text-gray-900">
+                  {likedTweets.length !== 0 || isLikedTweetsScrapingEnabled ? (
+                    likedTweets.length
+                  ) : (
+                    <span className="inline-block w-8 h-4 bg-gray-200 animate-pulse rounded"></span>
+                  )}
+                </p>
+              </div>
+              <div className="px-4 py-2 bg-gray-50/90 backdrop-blur-sm rounded-lg border border-gray-300">
+                <p className="text-gray-500 text-sm mb-1">Posts</p>
+                <p className="text-xl font-bold text-gray-900">
+                  {postedTweets.length !== 0 || isRepliesScraping ? (
+                    postedTweets.length
+                  ) : (
+                    <span className="inline-block w-8 h-4 bg-gray-200 animate-pulse rounded"></span>
+                  )}
+                </p>
+              </div>
+              <div className="px-4 py-2 bg-gray-50/90 backdrop-blur-sm rounded-lg border border-gray-300">
+                <p className="text-gray-500 text-sm mb-1">Replies</p>
+                <p className="text-xl font-bold text-gray-900">
+                  {userReplies.length !== 0 || isRepliesScraping ? (
+                    userReplies.length
+                  ) : (
+                    <span className="inline-block w-8 h-4 bg-gray-200 animate-pulse rounded"></span>
+                  )}
+                </p>
+              </div>
+              <div className="px-4 py-2 bg-gray-50/90 backdrop-blur-sm rounded-lg border border-gray-300">
+                <p className="text-gray-500 text-sm mb-1">Retweets</p>
+                <p className="text-xl font-bold text-gray-900">
+                  {retweetedTweets.length !== 0 || isRepliesScraping ? (
+                    retweetedTweets.length
+                  ) : (
+                    <span className="inline-block w-8 h-4 bg-gray-200 animate-pulse rounded"></span>
+                  )}
+                </p>
+              </div>
             </div>
           </div>
         </div>

@@ -656,6 +656,21 @@ chrome.runtime.onInstalled.addListener(() => {
     profileData: null,
     likesCount: null,
     userReplies: [],
+    postedTweets: [],
+    retweetedTweets: [],
+    likedTweets: [],
+    followingUsers: [],
+    visitedProfiles: [],
+    unfollowedUsers: [],
+    unlikedTweets: [],
+    deletedTweets: [],
+    removedRetweets: [],
+    sentPosts: [],
+    sentReplies: [],
+    sentRetweets: [],
+    sentLikedTweets: [],
+    lastPostsUpdate: null,
+    lastLikedTweetsUpdate: null
   });
 });
 

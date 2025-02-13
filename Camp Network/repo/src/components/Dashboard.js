@@ -307,12 +307,12 @@ const Dashboard = () => {
                     : "Scrape Twitter Control"}
                 </button>
 
-                <button
+                {/* <button
                   onClick={() => navigate("/scraped-data")}
                   className="w-full bg-[#3AADA8] text-white py-3 rounded-lg font-medium text-base hover:bg-[#2A9D98] transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                 >
                   View Scraped Data
-                </button>
+                </button> */}
 
                 <button
                   onClick={() => setShowConfirmDialog(true)}
