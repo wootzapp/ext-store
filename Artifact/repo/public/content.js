@@ -168,6 +168,10 @@ document.addEventListener('firebaseAuthTokens', async function(event) {
             walletToken: tokenData.idToken
         }, '*');
         
+        // Ensure both storage locations are in sync
+        localStorage.setItem('authToken', tokenData.idToken);
+        localStorage.setItem('refreshToken', tokenData.refreshToken);
+        
         await chrome.storage.local.set({
             refreshToken: tokenData.refreshToken,
             authToken: tokenData.idToken,

@@ -1,3 +1,4 @@
+/* global chrome */
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import backImage from '../images/back.svg'
@@ -73,8 +74,35 @@ const ProfilePage = () => {
   // const browserBridge = BrowserBridge.getInstance();
 
   useEffect(() => {
+
+  // Add new function to sync tokens
+  const syncAuthToken = async () => {
+    const localToken = localStorage.getItem('authToken');
+    
+    const chromeStorage = await chrome.storage.local.get(['authToken']);
+    
+    const chromeToken = chromeStorage.authToken;
+
+
+    const localrefreshToken = localStorage.getItem('refreshToken');
+    const chromerefreshToken = chromeStorage.refreshToken;
+    console.log('🔑 Syncing auth token on profile page', {chromeToken,localToken,chromeStorage,localrefreshToken,chromerefreshToken});
+    if (chromeToken && chromeToken !== localToken) {
+        console.log('🔄 Syncing auth token from chrome storage to local storage');
+        console.log('🔑 Chrome storage , local storage and chrome token:',{chromeToken,localToken,chromeStorage,localrefreshToken,chromerefreshToken});
+    
+        localStorage.setItem('authToken', chromeToken);
+        localStorage.setItem('refreshToken', chromerefreshToken);
+        console.log('✅ Auth token synced');
+        return chromeToken;
+    }
+    return localToken;
+};
+
     async function fetchProfile() {
         try {
+            await syncAuthToken();
+            console.log('🔑 Syncing auth token on profile page');
             const userProfile = await getUserProfile();
             setProfile(userProfile);
             setLoading(false);

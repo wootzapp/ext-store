@@ -90,23 +90,37 @@ const SettingsSheet = ({ onClose}) => {
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('dataStakingStatus');
         localStorage.removeItem('twitterConnected');
-        navigate('/home');
+        navigate('/logout');
     };
     
     const handleLogout = async () => {
-        // Check if current tab is chrome new tab
-        const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        const isNewTab = activeTab?.url === 'chrome-native://newtab/';
+        try {
+            // Check if current tab is chrome new tab
+            const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            const isNewTab = activeTab?.url === 'chrome-native://newtab/';
 
-        // Clear token using the hook
-        await clearToken();
+            // Clear token using the hook
+            await clearToken();
 
-        // Set isLoggedIn to false in chrome storage
-        chrome.storage.local.set({
-            isLoggedIn: false,
-            authToken: null,
-            refreshToken: null
-        }, async () => {
+            localStorage.setItem('authToken', null);
+            localStorage.setItem('refreshToken', null);
+            localStorage.setItem('secretKey', null);
+            localStorage.setItem('twitterConnected', false);
+            localStorage.setItem('dataStakingStatus', false);
+
+            // Clear ALL relevant storage
+            await chrome.storage.local.clear();
+            
+            // Set specific logout flags
+            await chrome.storage.local.set({
+                isLoggedIn: false,
+                authToken: null,
+                refreshToken: null,
+                secretKey: null,
+                twitterConnected: false,
+                dataStakingStatus: false
+            });
+
             console.log('Logged out, storage updated');
             
             // If we're on a new tab page, close it and open a new one
@@ -116,7 +130,11 @@ const SettingsSheet = ({ onClose}) => {
             }
             
             onLogout_clearStorage();
-        });
+        } catch (error) {
+            console.error('Error during logout:', error);
+            // Fallback logout - ensure user is still logged out even if there's an error
+            onLogout_clearStorage();
+        }
     };
 
     return (
@@ -164,6 +182,13 @@ const RelicDAODashboard = () => {
     const [profileData, setProfileData] = useState(null);
     const [hasInitiatedKeyGeneration, setHasInitiatedKeyGeneration] = useState(false);
     const [prf, setPrf] = useState(null);   
+    const [isRetrying, setIsRetrying] = useState(false);
+    const [retryTimeout, setRetryTimeout] = useState(null);
+    
+    // Add retry mechanism for profile fetching
+    const [retryCount, setRetryCount] = useState(0);
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 2000; // 2 seconds
     
     // Initialize the useSecretKey hook
     const { handleGetKey, secretKey, isLoading } = useSecretKey({
@@ -219,8 +244,8 @@ const RelicDAODashboard = () => {
 
     useEffect(() => {
         const fetchUserData = async () => {
-            const token = localStorage.getItem('authToken');
             await syncAuthToken();
+            const token = localStorage.getItem('authToken');
             if (token) {
                 try {
                     const response = await axios.get(`${process.env.REACT_APP_CORE_API_URL}/v2/xp/me`, {
@@ -353,33 +378,59 @@ const RelicDAODashboard = () => {
         };
     }, []);
 
-    // Secret key generation effect
+    // Modify the secret key generation effect
     useEffect(() => {
         const generateSecretKey = async () => {
+            try {
+                // If we don't have a profile yet, fetch it
+                if (!prf) {
+                    const profile = await getUserProfile();
+                    console.log('🔑 Profile fetched for secret key generation:', profile);
+                    
+                    // If profile doesn't have omnikey_id and we haven't exceeded retries
+                    if (!profile?.omnikey_id && retryCount < MAX_RETRIES) {
+                        console.log(`⏳ No omnikey_id found, retrying... (${retryCount + 1}/${MAX_RETRIES})`);
+                        setTimeout(() => {
+                            setRetryCount(prev => prev + 1);
+                        }, RETRY_DELAY);
+                        return;
+                    }
+                    
+                    setPrf(profile);
+                    
+                    // Early return if we still don't have what we need
+                    if (!profile?.omnikey_id) {
+                        console.error('❌ Failed to get omnikey_id after retries');
+                        return;
+                    }
+                }
 
-            if(!prf) {
-                const prf = await getUserProfile();
-                setPrf(prf);
-                console.log('🔑 Profile Aaditesh for secret key generation:', prf);
+                // Only proceed with key generation if we have both wallet and omnikey_id
+                if (!walletAddress || !prf?.omnikey_id || hasInitiatedKeyGeneration) {
+                    return;
+                }
+
+                console.log('🏗️ Triggering secret key generation...', {
+                    hasWallet: !!walletAddress,
+                    hasOmniKeyId: !!prf?.omnikey_id,
+                    hasInitiated: hasInitiatedKeyGeneration
+                });
+
+                setHasInitiatedKeyGeneration(true);
+                await handleGetKey();
+            } catch (error) {
+                console.error('Error in generateSecretKey:', error);
+                // Retry on error if we haven't exceeded max retries
+                if (retryCount < MAX_RETRIES) {
+                    setTimeout(() => {
+                        setRetryCount(prev => prev + 1);
+                    }, RETRY_DELAY);
+                }
             }
-
-            console.log('Secret key generation effect', {walletAddress, prf, hasInitiatedKeyGeneration, isLoading});
-            if (!walletAddress || !prf?.omnikey_id || hasInitiatedKeyGeneration || isLoading) {
-                return;
-            }
-
-            console.log('🏗️ Triggering secret key generation...', {
-                hasWallet: !!walletAddress,
-                hasOmniKeyId: !!prf?.omnikey_id,
-                hasInitiated: hasInitiatedKeyGeneration
-            });
-
-            setHasInitiatedKeyGeneration(true);
-            await handleGetKey();
         };
 
         generateSecretKey();
-    }, [walletAddress, profileData, handleGetKey, hasInitiatedKeyGeneration, isLoading]);
+    }, [walletAddress, prf, hasInitiatedKeyGeneration, retryCount]);
 
     useEffect(() => {
         // Check both localStorage and chrome storage for Twitter status

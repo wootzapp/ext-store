@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+/* global chrome */
+import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import Login from './components/LoginPage';
 import RewardsPage from './components/RewardsPage';
@@ -17,50 +18,37 @@ import LandingPage from './components/LandingPage';
 
 function App() {
   const { token, loading, error, saveToken, clearToken } = useAuthToken();
-  // const [token, setToken] = useState(localStorage.getItem('authToken'));
-  // const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      // Check chrome storage first
+      const storage = await chrome.storage.local.get(['authToken', 'isLoggedIn']);
+      const localToken = localStorage.getItem('authToken');
+      
+      // If chrome storage has token but localStorage doesn't, sync them
+      if (storage.authToken && !localToken) {
+        localStorage.setItem('authToken', storage.authToken);
+      }
+      
+      setIsAuthenticated(!!storage.authToken || !!localToken);
+    };
+
+    checkAuthStatus();
+  }, []);
+
   const handleLoginSuccess = async (newToken) => {
     const success = await saveToken(newToken);
-    // localStorage.setItem('authToken', newToken);
     if (!success) {
       console.error('Failed to save token');
     }
+    setIsAuthenticated(true);
     return success;
   };
 
-  // const handleLogout = async () => {
-  //   const success = await clearToken();
-  //   // localStorage.removeItem('authToken');
-  //   // navigate('/relicdao/dashboard');
-  //   // navigate('/relicdao/dashboard', { replace: true });
-  //   if (!success) {
-  //     console.error('Failed to clear token');
-  //   }
-  //   return success;
-  // };
-
-  // const ProtectedRoute = ({ children }) => {
-  //   if (loading) {
-  //     return <div>Loading...</div>; // Or a loading spinner
-  //   }
-  //   const token = localStorage.getItem('authToken');
-  //   if (token && isTokenExpired(token)) {
-  //     return <Navigate to="/login" replace />;
-  //   }
-  //   // setToken(localStorage.getItem('authToken'));
-  //   if (!token) {
-  //     return <Navigate to="/login" replace />;
-  //   }
-  //   return children;
-  // };
-
-  // if (loading) {
-  //   return <div>Loading...</div>; // Or a loading spinner
-  // }
-
-  // if (error) {
-  //   return <div>Error: {error}</div>; // Or a more user-friendly error message
-  // }
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <ThirdwebProvider>
@@ -70,30 +58,36 @@ function App() {
             <Route path="/signup" element={<NewSignup />} />
            
             <Route path="/relicdao/dashboard" element={
-              <RelicDAODashboard />
+              isAuthenticated ? <RelicDAODashboard /> : <Navigate to="/relicdao" />
             } />
             
             <Route path="/login" element={
-              <Login onLoginSuccess={handleLoginSuccess} />
+              isAuthenticated ? <Navigate to="/relicdao/dashboard" /> : <Login onLoginSuccess={handleLoginSuccess} />
             } />
+            
             <Route path="/rewards" element={
-              token ? <Navigate to="/relicdao/dashboard" /> : <RelicDAOHomePage />
+              isAuthenticated ? <Navigate to="/relicdao/dashboard" /> : <RelicDAOHomePage />
             } />
+            
             <Route path="/relicdao" element={
-              token ? <Navigate to="/relicdao/dashboard" /> : <RelicDAOHomePage />
+              isAuthenticated ? <Navigate to="/relicdao/dashboard" /> : <RelicDAOHomePage />
             } />
 
             <Route path="/home" element={
-              <RelicDAOHomePage />
+              isAuthenticated ? <Navigate to="/relicdao/dashboard" /> : <RelicDAOHomePage />
+            } />
+
+            <Route path="/logout" element={
+                   <RelicDAOHomePage />
             } />
             
             <Route path="/relicdao/dashboard/profile" element={
-                <ProfilePage />         
+              isAuthenticated ? <ProfilePage /> : <Navigate to="/relicdao" />
             } />
             
-            {/* Add a default route that redirects to /signup */}
             <Route path="*" element={
-              token ? <Navigate to="/relicdao/dashboard" /> : <Navigate to="/relicdao" />} />
+              isAuthenticated ? <Navigate to="/relicdao/dashboard" /> : <Navigate to="/relicdao" />
+            } />
           </Routes>
         </div>
       </Router>
