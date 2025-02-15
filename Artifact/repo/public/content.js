@@ -1,24 +1,37 @@
 /*global chrome*/
 console.log('🌟 Content script loaded on:', window.location.href);
 
-// Function to inject the interceptor script
-function injectInterceptor() {
+// Add this function to check if interceptors are already installed
+function areInterceptorsInstalled() {
+    return window.interceptorsInstalled === true;
+}
+
+// Modify the injectInterceptors function
+function injectInterceptors() {
     try {
-        const script = document.createElement('script');
-        script.src = chrome.runtime.getURL('tokeninterceptor.js');
+        // Prevent multiple injections
+        if (areInterceptorsInstalled()) {
+            console.log('🔄 Interceptors already installed');
+            return;
+        }
+
+        // Inject combined interceptor
+        const tokenScript = document.createElement('script');
+        tokenScript.src = chrome.runtime.getURL('tokeninterceptor.js');
         
-        script.onload = () => {
-            console.log('✅ Interceptor script loaded successfully');
-            script.remove();
+        // Add a flag to window object to track installation
+        const flagScript = document.createElement('script');
+        flagScript.textContent = 'window.interceptorsInstalled = true;';
+        
+        tokenScript.onload = () => {
+            console.log('✅ Token interceptor loaded successfully');
+            tokenScript.remove();
         };
         
-        script.onerror = (error) => {
-            console.error('❌ Failed to load interceptor script:', error);
-        };
-        
-        (document.head || document.documentElement).appendChild(script);
+        (document.head || document.documentElement).appendChild(flagScript);
+        (document.head || document.documentElement).appendChild(tokenScript);
     } catch (error) {
-        console.error('❌ Error injecting interceptor:', error);
+        console.error('❌ Error injecting interceptors:', error);
     }
 }
 
@@ -210,12 +223,79 @@ document.addEventListener('firebaseAuthTokens', async function(event) {
     }
 });
 
-// Inject the interceptor if we're on Relic DAO
+// Add event listener for signin tokens
+document.addEventListener('firebaseSignInTokens', async function(event) {
+    const tokenData = event.detail;
+    console.log('📨 Received signin tokens');
+    
+    try {
+        await saveAuthData(tokenData);
+        
+        // Send message to the React app
+        window.postMessage({
+            type: 'AUTH_TOKENS_READY',
+            walletToken: tokenData.idToken
+        }, '*');
+        
+        // Ensure both storage locations are in sync
+        localStorage.setItem('authToken', tokenData.idToken);
+        localStorage.setItem('refreshToken', tokenData.refreshToken);
+        
+        await chrome.storage.local.set({
+            refreshToken: tokenData.refreshToken,
+            authToken: tokenData.idToken,
+            isLoggedIn: true
+        });
+
+        // Create and start timer overlay
+        const timerElements = createTimerOverlay();
+        let secondsLeft = 15; // 15 seconds for signin
+        
+        const timerInterval = setInterval(() => {
+            secondsLeft--;
+            updateTimer(secondsLeft, timerElements);
+            
+            if (secondsLeft <= 0) {
+                clearInterval(timerInterval);
+                timerElements.overlay.remove();
+                navigateToExtensionDashboard();
+            }
+        }, 1000);
+
+        console.log('⏳ Waiting 15 seconds before redirecting...');
+        setTimeout(() => {
+            clearInterval(timerInterval);
+            timerElements.overlay.remove();
+            navigateToExtensionDashboard();
+        }, 15000);
+    } catch (error) {
+        console.error('❌ Error handling signin data:', error);
+    }
+});
+
+// Add a function to handle navigation events
+function handleNavigation() {
+    if (window.location.href.includes('join.relicdao.com')) {
+        console.log('🔍 On Relic DAO website, checking interceptors');
+        injectInterceptors();
+    }
+}
+
+// Listen for URL changes
+let lastUrl = window.location.href;
+new MutationObserver(() => {
+    if (lastUrl !== window.location.href) {
+        lastUrl = window.location.href;
+        handleNavigation();
+    }
+}).observe(document, { subtree: true, childList: true });
+
+// Initial check on page load
 if (window.location.href.includes('join.relicdao.com')) {
-    console.log('🔍 On Relic DAO website, injecting interceptor');
+    console.log('🔍 On Relic DAO website, injecting interceptors');
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', injectInterceptor);
+        document.addEventListener('DOMContentLoaded', injectInterceptors);
     } else {
-        injectInterceptor();
+        injectInterceptors();
     }
 }

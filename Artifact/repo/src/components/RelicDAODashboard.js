@@ -187,7 +187,7 @@ const RelicDAODashboard = () => {
     
     // Add retry mechanism for profile fetching
     const [retryCount, setRetryCount] = useState(0);
-    const MAX_RETRIES = 3;
+    const MAX_RETRIES = 10;
     const RETRY_DELAY = 2000; // 2 seconds
     
     // Initialize the useSecretKey hook
@@ -276,25 +276,25 @@ const RelicDAODashboard = () => {
                     }
 
                     // Only call the staking API if we don't have a stored status
-                    // const stakingResponse = await axios.post(
-                    //     `${process.env.REACT_APP_CORE_API_URL}/v2/externals/data-staking/verify`,
-                    //     {
-                    //         reward: "TELEGRAM_FEATURED_AD_REWARD",
-                    //     },
-                    //     {
-                    //         headers: {
-                    //             Authorization: `Bearer ${token}`,
-                    //         },
-                    //     }
-                    // );
+                    const stakingResponse = await axios.post(
+                        `${process.env.REACT_APP_CORE_API_URL}/v2/externals/data-staking/verify`,
+                        {
+                            reward: "TELEGRAM_FEATURED_AD_REWARD",
+                        },
+                        {
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                            },
+                        }
+                    );
                     
-                    // if (stakingResponse.data.success) {
-                    //     setIsDataStakingOn(stakingResponse.data.success);
-                    //     // Store the status in localStorage if verified
-                    //     if (stakingResponse.data.success) {
-                    //         localStorage.setItem('dataStakingStatus', 'true');
-                    //     }
-                    // }
+                    if (stakingResponse.data.success) {
+                        setIsDataStakingOn(stakingResponse.data.success);
+                        // Store the status in localStorage if verified
+                        if (stakingResponse.data.success) {
+                            localStorage.setItem('dataStakingStatus', 'true');
+                        }
+                    }
                 } catch (error) {
                     console.error('Error fetching data:', error);
                     // If there's an auth error, clear the storage
