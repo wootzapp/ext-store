@@ -74,46 +74,55 @@ const ProfilePage = () => {
   // const browserBridge = BrowserBridge.getInstance();
 
   useEffect(() => {
+    const syncAuthToken = async () => {
+      try {
+        const localToken = localStorage.getItem('authToken');
+        const chromeStorage = await chrome.storage.local.get(['authToken', 'refreshToken']);
+        const chromeToken = chromeStorage.authToken;
+        const chromeRefreshToken = chromeStorage.refreshToken;
 
-  // Add new function to sync tokens
-  const syncAuthToken = async () => {
-    const localToken = localStorage.getItem('authToken');
-    
-    const chromeStorage = await chrome.storage.local.get(['authToken']);
-    
-    const chromeToken = chromeStorage.authToken;
+        if (!chromeToken && !localToken) {
+          throw new Error('No authentication token found');
+        }
 
-
-    const localrefreshToken = localStorage.getItem('refreshToken');
-    const chromerefreshToken = chromeStorage.refreshToken;
-    console.log('🔑 Syncing auth token on profile page', {chromeToken,localToken,chromeStorage,localrefreshToken,chromerefreshToken});
-    if (chromeToken && chromeToken !== localToken) {
-        console.log('🔄 Syncing auth token from chrome storage to local storage');
-        console.log('🔑 Chrome storage , local storage and chrome token:',{chromeToken,localToken,chromeStorage,localrefreshToken,chromerefreshToken});
-    
-        localStorage.setItem('authToken', chromeToken);
-        localStorage.setItem('refreshToken', chromerefreshToken);
-        console.log('✅ Auth token synced');
-        return chromeToken;
-    }
-    return localToken;
-};
+        if (chromeToken && chromeToken !== localToken) {
+          localStorage.setItem('authToken', chromeToken);
+          localStorage.setItem('refreshToken', chromeRefreshToken);
+          return chromeToken;
+        }
+        return localToken;
+      } catch (error) {
+        console.error('Token sync error:', error);
+        throw new Error('Authentication failed - please log in again');
+      }
+    };
 
     async function fetchProfile() {
-        try {
-            await syncAuthToken();
-            console.log('🔑 Syncing auth token on profile page');
-            const userProfile = await getUserProfile();
-            setProfile(userProfile);
-            setLoading(false);
-        } catch (error) {
-            setError(error.message);
-            setLoading(false);
+      try {
+        const token = await syncAuthToken();
+        if (!token) {
+          throw new Error('No valid authentication token');
         }
+        const userProfile = await getUserProfile();
+        setProfile(userProfile);
+        setLoading(false);
+      } catch (error) {
+        console.error('Profile fetch error:', error);
+        setError(error.message);
+        setLoading(false);
+        
+        // If we get a 401 error, clear tokens and redirect to login
+        if (error.status === 401) {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('refreshToken');
+          chrome.storage.local.remove(['authToken', 'refreshToken']);
+          navigate('/login'); // Make sure you have this route configured
+        }
+      }
     }
 
     fetchProfile();
-}, []);
+  }, [navigate]); // Added navigate to dependencies
 
   console.log('Current state:', { loading, error, profile });
 
