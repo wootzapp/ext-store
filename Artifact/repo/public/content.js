@@ -247,27 +247,8 @@ document.addEventListener('firebaseSignInTokens', async function(event) {
             isLoggedIn: true
         });
 
-        // Create and start timer overlay
-        const timerElements = createTimerOverlay();
-        let secondsLeft = 15; // 15 seconds for signin
-        
-        const timerInterval = setInterval(() => {
-            secondsLeft--;
-            updateTimer(secondsLeft, timerElements);
-            
-            if (secondsLeft <= 0) {
-                clearInterval(timerInterval);
-                timerElements.overlay.remove();
-                navigateToExtensionDashboard();
-            }
-        }, 1000);
-
-        console.log('⏳ Waiting 15 seconds before redirecting...');
-        setTimeout(() => {
-            clearInterval(timerInterval);
-            timerElements.overlay.remove();
-            navigateToExtensionDashboard();
-        }, 15000);
+        // Navigate immediately for signin
+        navigateToExtensionDashboard();
     } catch (error) {
         console.error('❌ Error handling signin data:', error);
     }
