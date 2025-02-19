@@ -1,0 +1,21 @@
+{
+    "manifest_version": "v1.0",
+    "name": "Beacon",
+    "version": "1.0.0",
+    "description": "A beacon protocol extension for creating a beacon network",
+    "author": {
+      "company": "Wootzapp",
+      "name": "Kartik Kumar",
+      "email": "kumarkartik147359@gmail.com"
+    },
+    "permissions": [
+      "storage",
+      "cookies",
+      "webRequest",
+      "webRequestBlocking",
+      "tabs",
+      "activeTab",
+      "scripting"
+    ]
+  }
+  
