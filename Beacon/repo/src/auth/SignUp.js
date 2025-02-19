@@ -109,6 +109,74 @@ const styles = {
   linkGroup: {
     marginBottom: '10px',
     lineHeight: '1.6'
+  },
+  checkbox: {
+    marginRight: '10px',
+    height: '50px',
+    width: '50px',
+    accentColor: '#FF7A00',
+    display: 'flex',
+    alignItems: 'flex-start',
+  },
+  termsText: {
+    fontSize: '12px',
+    color: '#FFEBC8FF',
+    marginBottom: '20px',
+    display: 'flex',
+    alignItems: 'flex-start',
+    textAlign: 'justify',
+    lineHeight: '1.5'
+  },
+  termsLink: {
+    color: '#FF7A00',
+    textDecoration: 'none',
+    fontWeight: 500
+  },
+  modal: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000
+  },
+  modalContent: {
+    position: 'relative',
+    width: '90%',
+    maxWidth: '800px',
+    height: '80vh',
+    backgroundColor: '#141C2F',
+    borderRadius: '16px',
+    border: '1px solid #FFEBC8FF',
+    boxShadow: '0 12px 24px rgba(0, 0, 0, 0.3)',
+    overflow: 'hidden'
+  },
+  iframe: {
+    width: '100%',
+    height: '100%',
+    border: 'none'
+  },
+  closeButton: {
+    position: 'absolute',
+    top: '10px',
+    right: '10px',
+    background: 'linear-gradient(135deg, #FF7A00, #FF4B00)',
+    border: '1px solid #FFC35BFF',
+    borderRadius: '50%',
+    width: '30px',
+    height: '30px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'white',
+    cursor: 'pointer',
+    fontSize: '18px',
+    fontWeight: 'bold',
+    zIndex: 1001
   }
 };
 
@@ -116,11 +184,24 @@ const SignUp = () => {
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [modalContent, setModalContent] = useState(null);
   const navigate = useNavigate();
 
   const handleSubmit = (e) => {
     e.preventDefault();
     console.log('Sign up requested for:', email, firstName, lastName);
+  };
+
+  const openModal = (type) => {
+    const url = type === 'terms' 
+      ? 'https://waevdata.com/terms/'
+      : 'https://waevdata.com/privacy/';
+    setModalContent(url);
+  };
+
+  const closeModal = () => {
+    setModalContent(null);
   };
 
   return (
@@ -153,10 +234,32 @@ const SignUp = () => {
               onChange={(e) => setEmail(e.target.value)}
               style={styles.input}
             />
+            <div style={styles.termsText}>
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                style={styles.checkbox}
+              />
+              <span>
+                By checking this box and clicking "SIGN UP", I acknowledge that I read and understand the 
+                <a 
+                  onClick={() => openModal('terms')}
+                  style={{...styles.termsLink, cursor: 'pointer'}}
+                > Waev Terms of Use</a>, including the
+                <a 
+                  onClick={() => openModal('privacy')}
+                  style={{...styles.termsLink, cursor: 'pointer'}}
+                > Privacy Policy</a>, and agree to be bound by both.
+              </span>
+            </div>
             <button
               type="submit"
+              disabled={!acceptedTerms}
               style={{
                 ...styles.button,
+                opacity: acceptedTerms ? 1 : 0.5,
+                cursor: acceptedTerms ? 'pointer' : 'not-allowed'
               }}
             >
               Sign Up
@@ -175,6 +278,19 @@ const SignUp = () => {
           </div>
         </div>
       </div>
+
+      {modalContent && (
+        <div style={styles.modal} onClick={closeModal}>
+          <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
+            <button style={styles.closeButton} onClick={closeModal}>×</button>
+            <iframe
+              src={modalContent}
+              style={styles.iframe}
+              title="Terms and Conditions"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

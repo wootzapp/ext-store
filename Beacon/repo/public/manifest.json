@@ -20,9 +20,25 @@
   },
   "permissions": [
     "activeTab",
-    "storage"
+    "storage",
+    "cookies",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://api.waev.com/*",
+    "http://localhost:3000/*",
+    "*://*/*"
   ],
   "background": {
-    "service_worker": "background.js"
-  }
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://api.waev.com/* http://localhost:3000/*"
+  },
+  "web_accessible_resources": [{
+    "resources": ["index.html", "*.js", "*.css"],
+    "matches": ["<all_urls>"],
+    "use_dynamic_url": true
+  }]
 }

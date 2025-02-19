@@ -1,3 +1,4 @@
+/* global chrome */
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -109,17 +110,62 @@ const styles = {
   linkGroup: {
     marginBottom: '10px',
     lineHeight: '1.6'
+  },
+  errorMessage: {
+    color: '#FF4B4B',
+    fontSize: '14px',
+    marginTop: '-10px',
+    marginBottom: '15px',
+    textAlign: 'left'
   }
 };
 
 const SignIn = () => {
   const [email, setEmail] = useState('');
   const [totp, setTotp] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Sign in requested for:', email);
+    setError('');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('https://api.waev.com/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email,
+          totp
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Login successful:', data);
+
+      // Save authentication state
+      await chrome.storage.local.set({
+        userAuth: true,
+        authToken: data.token,
+        userEmail: email,
+        extensionContext: true
+      });
+
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Login error:', err);
+      setError(err.message || 'An error occurred during sign in. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -136,6 +182,8 @@ const SignIn = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               style={styles.input}
+              disabled={isLoading}
+              required
             />
             <input
               type="number"
@@ -143,14 +191,22 @@ const SignIn = () => {
               value={totp}
               onChange={(e) => setTotp(e.target.value)}
               style={styles.input}
+              disabled={isLoading}
+              required
+              maxLength="6"
+              pattern="[0-9]{6}"
             />
+            {error && <div style={styles.errorMessage}>{error}</div>}
             <button
               type="submit"
               style={{
                 ...styles.button,
+                opacity: isLoading ? 0.7 : 1,
+                cursor: isLoading ? 'not-allowed' : 'pointer'
               }}
+              disabled={isLoading}
             >
-              Sign In
+              {isLoading ? 'Signing In...' : 'Sign In'}
             </button>
           </form>
           <div style={styles.links}>
