@@ -9,7 +9,7 @@ const NewSignup = () => {
 
   useEffect(() => {
     // Send message to background script if token exists
-      window.location.href = 'https://join.relicdao.com';
+      window.location.href = 'https://join-dev.relicdao.com/';
 
   }, []);
 
