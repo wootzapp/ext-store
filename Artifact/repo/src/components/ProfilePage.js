@@ -5,8 +5,9 @@ import backImage from '../images/back.svg'
 import wootzImage from '../images/wootz.png';
 import userDefaultImage from '../images/user.png';
 import BrowserBridge from './BrowserBridge';
-import { getUserProfile } from '../lib/api'
+import { getUserProfile, refreshAuthToken} from '../lib/api'
 import { ColorRing } from 'react-loader-spinner';
+
 
 const ProfileField = ({ label, value }) => {
   if (!value) return null;
@@ -66,6 +67,60 @@ const LoadingScreen = () => {
   );
 };
 
+
+const onLogout_clearStorage = (navigate) => {
+  console.log("Logging out");
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('dataStakingStatus');
+  localStorage.removeItem('twitterConnected');
+  navigate('/logout');
+};
+
+const handleLogout = async (navigate) => {
+  try {
+      // Check if current tab is chrome new tab
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const isNewTab = activeTab?.url === 'chrome-native://newtab/';
+
+      // Clear token using the hook
+   
+
+      localStorage.setItem('authToken', null);
+      localStorage.setItem('refreshToken', null);
+      localStorage.setItem('secretKey', null);
+      localStorage.setItem('twitterConnected', false);
+      localStorage.setItem('dataStakingStatus', false);
+
+      // Clear ALL relevant storage
+      await chrome.storage.local.clear();
+      
+      // Set specific logout flags
+      await chrome.storage.local.set({
+          isLoggedIn: false,
+          authToken: null,
+          refreshToken: null,
+          secretKey: null,
+          twitterConnected: false,
+          dataStakingStatus: false
+      });
+
+      console.log('Logged out, storage updated');
+      
+      // If we're on a new tab page, close it and open a new one
+      if (isNewTab) {
+          await chrome.tabs.remove(activeTab.id);
+          await chrome.tabs.create({ url: 'chrome-native://newtab/' });
+      }
+      
+      onLogout_clearStorage(navigate);
+  } catch (error) {
+      console.error('Error during logout:', error);
+      // Fallback logout - ensure user is still logged out even if there's an error
+      onLogout_clearStorage(navigate);
+  }
+};
+
 const ProfilePage = () => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -74,55 +129,41 @@ const ProfilePage = () => {
   // const browserBridge = BrowserBridge.getInstance();
 
   useEffect(() => {
-    const syncAuthToken = async () => {
-      try {
-        const localToken = localStorage.getItem('authToken');
-        const chromeStorage = await chrome.storage.local.get(['authToken', 'refreshToken']);
-        const chromeToken = chromeStorage.authToken;
-        const chromeRefreshToken = chromeStorage.refreshToken;
-
-        if (!chromeToken && !localToken) {
-          throw new Error('No authentication token found');
-        }
-
-        if (chromeToken && chromeToken !== localToken) {
-          localStorage.setItem('authToken', chromeToken);
-          localStorage.setItem('refreshToken', chromeRefreshToken);
-          return chromeToken;
-        }
-        return localToken;
-      } catch (error) {
-        console.error('Token sync error:', error);
-        throw new Error('Authentication failed - please log in again');
-      }
-    };
-
     async function fetchProfile() {
       try {
-        const token = await syncAuthToken();
+        let token = localStorage.getItem('authToken');
+        
+        console.log('Aaditesh Debug Token:', token);
+        // // If no token exists, try to refresh using refresh token
         if (!token) {
-          throw new Error('No valid authentication token');
+          try {
+            const { authToken: newToken } = await refreshAuthToken();
+            token = newToken;
+            console.log('✅Aaditesh Refreshed Token:', token);
+          } catch (refreshError) {
+            console.error('❌ Failed to refresh token:', refreshError);
+            handleLogout(navigate);
+            return;
+          }
         }
+
+        console.log('Aaditesh Refreshed Token:', token);
+
         const userProfile = await getUserProfile();
         setProfile(userProfile);
         setLoading(false);
       } catch (error) {
         console.error('Profile fetch error:', error);
         setError(error.message);
-        setLoading(false);
         
-        // If we get a 401 error, clear tokens and redirect to login
-        if (error.status === 401) {
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('refreshToken');
-          chrome.storage.local.remove(['authToken', 'refreshToken']);
-          navigate('/login'); // Make sure you have this route configured
-        }
+        handleLogout(navigate);
+        
+        setLoading(false);
       }
     }
 
     fetchProfile();
-  }, [navigate]); // Added navigate to dependencies
+  }, [navigate]);
 
   console.log('Current state:', { loading, error, profile });
 

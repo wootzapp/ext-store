@@ -256,7 +256,7 @@ document.addEventListener('firebaseSignInTokens', async function(event) {
 
 // Add a function to handle navigation events
 function handleNavigation() {
-    if (window.location.href.includes('join-dev.relicdao.com')) {
+    if (window.location.href.includes('join.relicdao.com')) {
         console.log('🔍 On Relic DAO website, checking interceptors');
         injectInterceptors();
     }
@@ -272,7 +272,7 @@ new MutationObserver(() => {
 }).observe(document, { subtree: true, childList: true });
 
 // Initial check on page load
-if (window.location.href.includes('join-dev.relicdao.com')) {
+if (window.location.href.includes('join.relicdao.com')) {
     console.log('🔍 On Relic DAO website, injecting interceptors');
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', injectInterceptors);
