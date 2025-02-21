@@ -45,7 +45,7 @@ function WidgetDashboard() {
             <span className="text-2xl font-bold">500</span>
             <img src={starIcon} alt="Star" className="w-6 h-6" />
           </div>
-          <span className="text-gray-400 text-sm mt-1">WootzRelics</span>
+          <span className="text-gray-400 text-sm mt-1">Sparks</span>
         </div>
         <div className="bg-[#272a2f] rounded-xl pl-3 p-2 flex flex-col items-start flex-1 ml-2 relative">
           <div className="flex items-center">
