@@ -73,7 +73,7 @@ async function saveAuthData(tokenData) {
 function navigateToExtensionDashboard() {
     const extensionId = chrome.runtime.id;
     console.log('🚀 Redirecting to landing page');
-    window.location.href = `chrome-extension://${extensionId}/index.html#/relicdao/dashboard`;
+    window.location.href = `chrome-extension://${extensionId}/index.html#/relicdao/landing`;
 }
 
 // Function to create and update timer overlay

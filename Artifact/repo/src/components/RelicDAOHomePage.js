@@ -21,6 +21,7 @@ const RelicDAOHomePage = () => {
     const handleLogin = () => {
         const loginUrl = "https://join.relicdao.com/";
         window.location.href = loginUrl;
+        // navigate('/login');
     };
 
     return (
