@@ -1,6 +1,6 @@
 /* global chrome */
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import backImage from '../images/back.svg'
 import wootzImage from '../images/wootz.png';
 import userDefaultImage from '../images/user.png';
@@ -122,48 +122,58 @@ const handleLogout = async (navigate) => {
 };
 
 const ProfilePage = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [profile, setProfile] = useState(null);
+  const [displayName, setDisplayName] = useState('N/A');
+  const [username, setUsername] = useState('N/A');
+  const [email, setEmail] = useState('');
+  const [avatarUri, setAvatarUri] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const navigate = useNavigate();
-  // const browserBridge = BrowserBridge.getInstance();
 
   useEffect(() => {
-    async function fetchProfile() {
+    async function initializeProfile() {
       try {
-        let token = localStorage.getItem('authToken');
-        
-        console.log('Aaditesh Debug Token:', token);
-        // // If no token exists, try to refresh using refresh token
-        if (!token) {
-          try {
-            const { authToken: newToken } = await refreshAuthToken();
-            token = newToken;
-            console.log('✅Aaditesh Refreshed Token:', token);
-          } catch (refreshError) {
-            console.error('❌ Failed to refresh token:', refreshError);
-            handleLogout(navigate);
-            return;
-          }
+        // Use profile data from navigation state if available
+        if (location.state?.profileData) {
+          const profileData = location.state.profileData;
+          setProfile(profileData);
+          // Set individual field states
+          setDisplayName(profileData.display_name || 'N/A');
+          setUsername(profileData.username || 'N/A');
+          setEmail(profileData.email || '');
+          setAvatarUri(profileData.avatar_uri || '');
+          setLoading(false);
+          return;
         }
 
-        console.log('Aaditesh Refreshed Token:', token);
-
+        // Only make API call if we don't have profile data in state
+        console.log('No profile data in navigation state, falling back to API call');
+       
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          throw new Error('No auth token available');
+        }
+        
         const userProfile = await getUserProfile();
         setProfile(userProfile);
+        // Set individual field states
+        setDisplayName(userProfile.display_name || 'N/A');
+        setUsername(userProfile.username || 'N/A');
+        setEmail(userProfile.email || '');
+        setAvatarUri(userProfile.avatar_uri || '');
         setLoading(false);
       } catch (error) {
-        console.error('Profile fetch error:', error);
+        console.error('Profile initialization error:', error);
         setError(error.message);
-        
         handleLogout(navigate);
-        
         setLoading(false);
       }
     }
 
-    fetchProfile();
-  }, [navigate]);
+    initializeProfile();
+  }, [location.state, navigate]);
 
   console.log('Current state:', { loading, error, profile });
 
@@ -193,13 +203,13 @@ const ProfilePage = () => {
           <div className="px-4 py-5 sm:px-6 flex flex-col items-center profile-header">
             <div
               className="w-24 h-24 bg-gray-300 border-4 border-white rounded-full mb-4 profile-circle"
-              style={{ backgroundImage: `url(${profile.avatar_uri || userDefaultImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+              style={{ backgroundImage: `url(${avatarUri || userDefaultImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
             ></div>
-            <h2 id="profileName" className="text-xl font-bold">{profile.display_name || 'N/A'}</h2>
-            <p id="profileUsername" className="text-gray-500">@{profile.username || 'N/A'}</p>
+            <h2 id="profileName" className="text-xl font-bold">{displayName}</h2>
+            <p id="profileUsername" className="text-gray-500">@{username}</p>
           </div>
           <div className="border-t border-gray-600 px-4 py-5">
-            <ProfileField label="Email" value={profile.email} />
+            <ProfileField label="Email" value={email} />
             {/* <ProfileField label="Role" value={profile.role} />
             <ProfileField label="Location" value={profile.location} />
             <ProfileField label="Biography" value={profile.biography} />

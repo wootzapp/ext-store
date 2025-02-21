@@ -74,14 +74,13 @@ const InfoSheet = ({ onClose }) => {
 };
 
 
-const SettingsSheet = ({ onClose}) => {
+const SettingsSheet = ({ onClose, profileData }) => {
     const navigate = useNavigate();
     const { clearToken } = useAuthToken();
     
     const handleProfileButton = async () => {
         console.log("Profile button pressed");
-        const token = localStorage.getItem('authToken');
-        navigate('/relicdao/dashboard/profile');
+        navigate('/relicdao/dashboard/profile', { state: { profileData } });
     };
 
     const onLogout_clearStorage = () => {
@@ -714,7 +713,10 @@ const RelicDAODashboard = () => {
                     <Sheet.Container>
                         <Sheet.Header />
                         <Sheet.Content>
-                            <SettingsSheet onClose={() => setSettingsSheetOpen(false)} />
+                            <SettingsSheet 
+                                onClose={() => setSettingsSheetOpen(false)} 
+                                profileData={profileData}
+                            />
                         </Sheet.Content>
                     </Sheet.Container>
                     <Sheet.Backdrop />

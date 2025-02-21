@@ -68,6 +68,10 @@ function App() {
           <Routes>
             <Route path="/signup" element={<NewSignup />} />
            
+            <Route path="/relicdao/landing" element={
+    isAuthenticated ? <LandingPage onLoginSuccess={handleLoginSuccess} /> : <Navigate to="/relicdao" />
+} />
+            
             <Route path="/relicdao/dashboard" element={
               isAuthenticated ? <RelicDAODashboard /> : <Navigate to="/relicdao" />
             } />
