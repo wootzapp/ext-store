@@ -42,7 +42,7 @@ const InfoSheet = ({ onClose }) => {
             </div>
 
             <p className="text-gray-400 mb-2">
-                RelicDAO has 2 types of points for Wootz users: WootzRelics and RelicPoints.
+                RelicDAO has 2 types of points for Wootz users: Sparks and RelicPoints.
             </p>
 
             <h3 className="text-xl font-semibold mb-2">Native points</h3>
@@ -50,13 +50,13 @@ const InfoSheet = ({ onClose }) => {
             <div className="bg-[#191d21] rounded-lg p-4 mb-3">
                 <div className="flex items-center mb-2">
                     <img src={starIcon} alt="Star" className="w-6 h-6 mr-2 rounded-full" />
-                    <span className="text-lg font-semibold">WootzRelics</span>
+                    <span className="text-lg font-semibold">Sparks</span>
                 </div>
                 <p className="text-gray-400 mb-2">
-                    WootzRelics are points exclusive only to Wootz, and can be converted into USDT.
+                    Sparks are points exclusive only to Wootz, and can be converted into USDT.
                 </p>
                 <p className="text-gray-400">
-                    You can earn WootzRelics by watching featured ads on Wootz, and participating in other quests.
+                    You can earn Sparks by watching featured ads on Wootz, and participating in other quests.
                 </p>
             </div>
 
@@ -188,7 +188,7 @@ const RelicDAODashboard = () => {
     // Add retry mechanism for profile fetching
     const [retryCount, setRetryCount] = useState(0);
     const MAX_RETRIES = 10;
-    const RETRY_DELAY = 2000; // 2 seconds
+    const RETRY_DELAY = 10000; // 10 seconds
     
     // Initialize the useSecretKey hook
     const { handleGetKey, secretKey, isLoading } = useSecretKey({
@@ -258,15 +258,23 @@ const RelicDAODashboard = () => {
                         setLevel(response.data.level);
                     }
 
-                    const userResponse = await axios.get(`${process.env.REACT_APP_CORE_API_URL}/v2/users/me`, {
-                      headers: {
-                        Authorization: `Bearer ${token}`,
-                      },
-                    });
-        
-                    if (userResponse.data.success) {
-                        setReferralCode(userResponse.data.profile.referral_code);
-                    } 
+                    // Check if referral code is already in localStorage
+                    const storedReferralCode = localStorage.getItem('referralCode');
+                    if (!storedReferralCode) {
+                        const userResponse = await axios.get(`${process.env.REACT_APP_CORE_API_URL}/v2/users/me`, {
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                            },
+                        });
+                
+                        if (userResponse.data.success) {
+                            const newReferralCode = userResponse.data.profile.referral_code;
+                            setReferralCode(newReferralCode);
+                            localStorage.setItem('referralCode', newReferralCode);
+                        }
+                    } else {
+                        setReferralCode(storedReferralCode);
+                    }
 
                     // Check if we already have the staking status in localStorage
                     const storedStakingStatus = localStorage.getItem('dataStakingStatus');
@@ -600,7 +608,7 @@ const RelicDAODashboard = () => {
                                 <span className="text-2xl font-bold">500</span>
                                 <img src={starIcon} alt="Star" className="w-6 h-6" />
                             </div>
-                            <span className="text-gray-400 text-sm mt-1">WootzRelics</span>
+                            <span className="text-gray-400 text-sm mt-1">Sparks</span>
                         </div>
                         <div className="bg-[#272a2f] rounded-xl pl-3 p-2 flex flex-col items-start flex-1 ml-2 relative">
                             <div className="flex items-center">
@@ -638,7 +646,7 @@ const RelicDAODashboard = () => {
                         <img src={starIcon} alt="Star" className="w-6 h-6 rounded-full" />
                     </div>
                     <h1 className="text-2xl font-bold mb-2">Daily Ad</h1>
-                    <p className="text-sm mb-4">Watch today's ad to earn 25 WootzRelics</p>
+                    <p className="text-sm mb-4">Watch today's ad to earn 25 Sparks</p>
                     <div className="relative rounded-lg p-0 flex justify-between items-center">
                         <img src={starbucksLogo} alt="Starbucks" className="w-full h-full object-contain rounded-lg" />
                         <div

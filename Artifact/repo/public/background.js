@@ -44,7 +44,7 @@ async function encryptUrl(data, token, secretKey) {
     secretKey
   });
   try {
-    const response = await fetch('https://be-udp-stg-0-aocnhs7n5a-uc.a.run.app/v1/encrypt', {
+    const response = await fetch('https://be-udp-prd-0-aocnhs7n5a-uc.a.run.app//v1/encrypt', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -176,7 +176,7 @@ async function processUrlQueue() {
         const encryptedUrl = await encryptUrl(item.url, storedAuthToken, storedSecretKey);
         
         const response = await fetch(
-          'https://api-staging-0.gotartifact.com/v2/logs/url',
+          'https://api-prd-0.gotartifact.com//v2/logs/url',
           {
             method: 'POST',
             headers: {
@@ -340,7 +340,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 async function refreshAuthToken() {
   console.log('🔄 Attempting to refresh auth token');
   try {
-    const response = await fetch('https://api-staging-0.gotartifact.com/v2/users/authentication/refresh', {
+    const response = await fetch('https://api-prd-0.gotartifact.com//v2/users/authentication/refresh', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

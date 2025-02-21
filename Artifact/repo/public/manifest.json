@@ -5,7 +5,7 @@
   "description": "An extension for data earn rewards",
   "content_scripts": [
     {
-      "matches": ["https://join-dev.relicdao.com/*"],
+      "matches": ["https://join.relicdao.com/*"],
       "js": ["content.js"]
     }
   ],
@@ -46,6 +46,7 @@
   ],
   "host_permissions": [
     "https://api-staging-0.gotartifact.com/*",
+    "https://api-prd-0.gotartifact.com/*",
     "https://extension.free.beeceptor.com/*",
     "https://dev.relicdao.com/*",
     "https://join.relicdao.com/*"

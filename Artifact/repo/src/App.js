@@ -46,6 +46,17 @@ function App() {
     return success;
   };
 
+  const LogoutComponent = () => {
+    useEffect(() => {
+      setIsAuthenticated(false);
+      // Optionally clear storage
+      localStorage.removeItem('authToken');
+      chrome.storage.local.remove(['authToken', 'isLoggedIn']);
+    }, []);
+    
+    return <Navigate to="/relicdao" />;
+  };
+
   if (loading) {
     return <div>Loading...</div>;
   }
@@ -77,9 +88,7 @@ function App() {
               isAuthenticated ? <Navigate to="/relicdao/dashboard" /> : <RelicDAOHomePage />
             } />
 
-            <Route path="/logout" element={
-                   <RelicDAOHomePage />
-            } />
+            <Route path="/logout" element={<LogoutComponent />} />
             
             <Route path="/relicdao/dashboard/profile" element={
               isAuthenticated ? <ProfilePage /> : <Navigate to="/relicdao" />

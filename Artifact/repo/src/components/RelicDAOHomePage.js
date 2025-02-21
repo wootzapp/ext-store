@@ -19,7 +19,8 @@ const RelicDAOHomePage = () => {
         };
 
     const handleLogin = () => {
-        navigate('/login');
+        const loginUrl = "https://join.relicdao.com/";
+        window.location.href = loginUrl;
     };
 
     return (
