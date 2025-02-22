@@ -1,9 +1,7 @@
-/* global chrome */
 /* eslint-disable jsx-a11y/anchor-is-valid */
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginUser } from '../api/auth';
+import { requestPasswordRecovery } from '../api/auth';
 
 const styles = {
   container: {
@@ -52,7 +50,7 @@ const styles = {
     borderRadius: '16px',
     border: '1px solid #FFEBC8FF',
     padding: '32px 24px',
-    paddingTop: '60px',
+    paddingTop: '90px',
     marginTop: '0',
     boxShadow: '0 12px 24px rgba(0, 0, 0, 0.3)',
     position: 'relative',
@@ -115,45 +113,42 @@ const styles = {
     lineHeight: '1.6'
   },
   errorMessage: {
-    color: '#FF4B4B',
-    fontSize: '14px',
-    marginTop: '-10px',
-    marginBottom: '15px',
-    textAlign: 'left'
+    color: '#FF4500',
+    marginBottom: '10px',
+    textAlign: 'center'
+  },
+  successMessage: {
+    color: '#4CAF50',
+    marginBottom: '10px',
+    textAlign: 'center'
   }
 };
 
-const SignIn = () => {
+const RecoverAccount = () => {
   const [email, setEmail] = useState('');
-  const [totp, setTotp] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     setIsLoading(true);
 
     try {
-      const response = await loginUser(email, totp);
+      await requestPasswordRecovery(email);
+      setSuccess('If your email exists in our system, you will receive a new TOTP QR Code. Redirecting to login...');
+      setEmail('');
       
-      // Store authentication data in chrome storage
-      if (response.data?.id) {
-        await chrome.storage.local.set({
-          userAuth: true,
-          userId: response.data.id,
-          userEmail: response.data.attributes.email,
-          authToken: response.data.attributes.token
-        });
-        // Login successful - redirect to dashboard
-        navigate('/dashboard');
-      } else {
-        throw new Error('Invalid response from server');
-      }
+      // Wait for 3 seconds before redirecting to allow user to read the message
+      setTimeout(() => {
+        navigate('/SignIn');
+      }, 3000);
     } catch (err) {
-      console.error('Login error:', err);
-      setError(err.message || 'Invalid email or TOTP code. Please try again.');
+      console.error('Recovery request error:', err);
+      setError('An error occurred. Please try again later.');
     } finally {
       setIsLoading(false);
     }
@@ -163,10 +158,13 @@ const SignIn = () => {
     <div style={styles.container}>
       <div style={styles.wrapper}>
         <div style={styles.headerCard}>
-          <h1 style={styles.headerTitle}>Waev Dashboard</h1>
+          <h1 style={styles.headerTitle}>Forgot Password?</h1>
+          <p style={styles.headerText}>Have a new QR Code sent to your email.</p>
         </div>
         <div style={styles.mainCard}>
           <form onSubmit={handleSubmit} style={styles.formContainer}>
+            {error && <div style={styles.errorMessage}>{error}</div>}
+            {success && <div style={styles.successMessage}>{success}</div>}
             <input
               type="email"
               placeholder="Email"
@@ -176,22 +174,6 @@ const SignIn = () => {
               disabled={isLoading}
               required
             />
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength="6"
-              placeholder="Enter 6-digit TOTP"
-              value={totp}
-              onChange={(e) => {
-                const value = e.target.value.replace(/[^0-9]/g, '');
-                if (value.length <= 6) setTotp(value);
-              }}
-              style={styles.input}
-              disabled={isLoading}
-              required
-            />
-            {error && <div style={styles.errorMessage}>{error}</div>}
             <button
               type="submit"
               style={{
@@ -201,35 +183,17 @@ const SignIn = () => {
               }}
               disabled={isLoading}
             >
-              {isLoading ? 'Signing In...' : 'Sign In'}
+              {isLoading ? 'Sending...' : 'Send Request'}
             </button>
           </form>
           <div style={styles.links}>
             <div style={styles.linkGroup}>
-              Forgot Password? 
+              Did you find it?
               <a 
-                onClick={() => navigate('/Recover')}
+                onClick={() => navigate('/SignIn')}
                 style={styles.link}
               >
-                Recover Account
-              </a>
-            </div>
-            <div style={styles.linkGroup}>
-              Sign in with 
-              <a 
-                onClick={() => navigate('/')}
-                style={styles.link}
-              >
-                Magic Link
-              </a>
-            </div>
-            <div style={styles.linkGroup}>
-              Don't have an account?
-              <a 
-                onClick={() => navigate('/SignUp')}
-                style={styles.link}
-              >
-                Sign Up
+                Sign In
               </a>
             </div>
           </div>
@@ -239,4 +203,4 @@ const SignIn = () => {
   );
 };
 
-export default SignIn;
+export default RecoverAccount;

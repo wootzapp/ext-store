@@ -1,8 +1,3 @@
-/*global chrome*/
-// chrome.action.onClicked.addListener((tab) => {
-//   chrome.tabs.create({ url: 'https://beaconator.com' });
-// }); 
-
 /* global chrome */
 // Background script for handling API calls
 console.log('Background script loaded');

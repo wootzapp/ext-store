@@ -1,5 +1,7 @@
+/* eslint-disable jsx-a11y/anchor-is-valid */
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { requestMagicLink } from '../api/auth';
 
 const styles = {
   container: {
@@ -109,16 +111,44 @@ const styles = {
   linkGroup: {
     marginBottom: '10px',
     lineHeight: '1.6'
+  },
+  errorMessage: {
+    color: '#FF4500',
+    marginBottom: '10px',
+    textAlign: 'center'
+  },
+  successMessage: {
+    color: '#4CAF50',
+    marginBottom: '10px',
+    textAlign: 'center'
   }
 };
 
 const MagicLinkSignIn = () => {
   const [email, setEmail] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Magic link requested for:', email);
+    setError('');
+    setSuccess('');
+    setIsLoading(true);
+
+    try {
+      const response = await requestMagicLink(email);
+      setSuccess(response.data.attributes.message || 'Magic link sent! Check your email to complete sign in.');
+      
+      // Clear the form
+      setEmail('');
+    } catch (err) {
+      console.error('Magic link request error:', err);
+      setError(err.message || 'Failed to send magic link. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -130,20 +160,27 @@ const MagicLinkSignIn = () => {
         </div>
         <div style={styles.mainCard}>
           <form onSubmit={handleSubmit} style={styles.formContainer}>
+            {error && <div style={styles.errorMessage}>{error}</div>}
+            {success && <div style={styles.successMessage}>{success}</div>}
             <input
               type="email"
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               style={styles.input}
+              disabled={isLoading}
+              required
             />
             <button
               type="submit"
               style={{
                 ...styles.button,
+                opacity: isLoading ? 0.7 : 1,
+                cursor: isLoading ? 'not-allowed' : 'pointer'
               }}
+              disabled={isLoading}
             >
-              Send Request
+              {isLoading ? 'Sending...' : 'Send Request'}
             </button>
           </form>
           <div style={styles.links}>

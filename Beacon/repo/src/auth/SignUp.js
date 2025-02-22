@@ -1,5 +1,7 @@
+/* eslint-disable jsx-a11y/anchor-is-valid */
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { registerUser } from '../api/auth';
 
 const styles = {
   container: {
@@ -177,6 +179,10 @@ const styles = {
     fontSize: '18px',
     fontWeight: 'bold',
     zIndex: 1001
+  },
+  errorMessage: {
+    color: '#FF4500',
+    marginBottom: '10px'
   }
 };
 
@@ -186,11 +192,34 @@ const SignUp = () => {
   const [lastName, setLastName] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [modalContent, setModalContent] = useState(null);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Sign up requested for:', email, firstName, lastName);
+    if (!acceptedTerms) return;
+
+    setError('');
+    setSuccess('');
+    setIsLoading(true);
+
+    try {
+      const response = await registerUser(email, firstName, lastName);
+      setSuccess('Registration successful! Check your email for the TOTP QR Code. Redirecting to login...');
+      // Wait for 3 seconds before redirecting to allow user to read the message
+      if(response){
+        setTimeout(() => {
+          navigate('/SignIn');
+        }, 3000);
+      }
+    } catch (err) {
+      console.error('Registration error:', err);
+      setError(err.message || 'An error occurred during registration. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const openModal = (type) => {
@@ -213,6 +242,8 @@ const SignUp = () => {
         </div>
         <div style={styles.mainCard}>
           <form onSubmit={handleSubmit} style={styles.formContainer}>
+            {error && <div style={styles.errorMessage}>{error}</div>}
+            {success && <div style={{...styles.errorMessage, color: '#4CAF50'}}>{success}</div>}
             <input
               type="text"
               placeholder="First Name"
@@ -262,7 +293,7 @@ const SignUp = () => {
                 cursor: acceptedTerms ? 'pointer' : 'not-allowed'
               }}
             >
-              Sign Up
+              {isLoading ? 'Signing Up...' : 'Sign Up'}
             </button>
           </form>
           <div style={styles.links}>

@@ -20,21 +20,17 @@
   },
   "permissions": [
     "activeTab",
-    "storage",
-    "cookies",
-    "scripting"
+    "storage"
   ],
   "host_permissions": [
-    "https://api.waev.com/*",
-    "http://localhost:3000/*",
-    "*://*/*"
+    "https://api.beaconator.com/*"
   ],
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://api.waev.com/* http://localhost:3000/*"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.beaconator.com"
   },
   "web_accessible_resources": [{
     "resources": ["index.html", "*.js", "*.css"],
