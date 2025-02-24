@@ -135,34 +135,17 @@ const ProfilePage = () => {
   useEffect(() => {
     async function initializeProfile() {
       try {
-        // Use profile data from navigation state if available
-        if (location.state?.profileData) {
-          const profileData = location.state.profileData;
-          setProfile(profileData);
-          // Set individual field states
-          setDisplayName(profileData.display_name || 'N/A');
-          setUsername(profileData.username || 'N/A');
-          setEmail(profileData.email || '');
-          setAvatarUri(profileData.avatar_uri || '');
-          setLoading(false);
-          return;
+        if (!location.state?.profileData) {
+          throw new Error('No profile data available');
         }
 
-        // Only make API call if we don't have profile data in state
-        console.log('No profile data in navigation state, falling back to API call');
-       
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-          throw new Error('No auth token available');
-        }
-        
-        const userProfile = await getUserProfile();
-        setProfile(userProfile);
-        // Set individual field states
-        setDisplayName(userProfile.display_name || 'N/A');
-        setUsername(userProfile.username || 'N/A');
-        setEmail(userProfile.email || '');
-        setAvatarUri(userProfile.avatar_uri || '');
+        const profileData = location.state.profileData;
+        console.log('🔑 Profile data received:', profileData);
+        setProfile(profileData);
+        setDisplayName(profileData.display_name || 'N/A');
+        setUsername(profileData.username || 'N/A');
+        setEmail(profileData.email || '');
+        setAvatarUri(profileData.avatar_uri || '');
         setLoading(false);
       } catch (error) {
         console.error('Profile initialization error:', error);

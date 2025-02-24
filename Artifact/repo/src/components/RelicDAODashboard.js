@@ -79,8 +79,10 @@ const SettingsSheet = ({ onClose, profileData }) => {
     const { clearToken } = useAuthToken();
     
     const handleProfileButton = async () => {
-        console.log("Profile button pressed");
-        navigate('/relicdao/dashboard/profile', { state: { profileData } });
+        console.log("Profile button pressed", { profileData });
+        navigate('/relicdao/dashboard/profile', { 
+            state: { profileData } 
+        });
     };
 
     const onLogout_clearStorage = () => {
@@ -339,27 +341,29 @@ const RelicDAODashboard = () => {
                 const token = await chrome.storage.local.get('authToken');
                 localStorage.setItem('authToken', token.authToken);
                 console.log('🔑 Token Aaditesh:', token);
-                const profile = await getUserProfile();
-                console.log('🔑 Profile Aaditesh for wallet initialization:', profile);
+                
+                // Store getUserProfile response in a local variable
+                const userProfileResponse = await getUserProfile();
+                console.log('🔑 Profile Aaditesh for wallet initialization:', userProfileResponse);
                 if (!isSubscribed) return;
 
-                if (!token || !profile) {
+                if (!token || !userProfileResponse) {
                     console.warn('⚠️ Missing required data:', {
                         hasToken: !!token,
-                        hasProfile: !!profile
+                        hasProfile: !!userProfileResponse
                     });
                     return;
                 }
 
-                setProfileData(profile);
+                setProfileData(userProfileResponse);
 
                 console.log('🔑 Initializing ThirdWeb with:', {
-                    hasUid: !!profile.uid,
+                    hasUid: !!userProfileResponse.uid,
                     hasToken: !!token
                 });
 
                 console.log('🔑 Token:', token);
-                console.log('🔑 Profile UID:', profile.user_uid);
+                console.log('🔑 Profile UID:', userProfileResponse.user_uid);
                 const wallet = await loadWallets();
                 if (!isSubscribed) return;
 
@@ -472,8 +476,8 @@ const RelicDAODashboard = () => {
     }, []);
 
     const handleDataStakingToggle = () => {
-        const signupUrl = "https://dev.relicdao.com/offer-landing?offer_id=eclipse-relicdao&utm_term=test_test_test_test";
-        window.location.href = signupUrl;
+            const signupUrl = "https://app.relicdao.com/staking";
+            window.location.href = signupUrl;
     };
 
     const handleBackClick = () => {
@@ -481,7 +485,7 @@ const RelicDAODashboard = () => {
     };
 
     const handleCopyReferralCode = () => {
-        const referralUrl = `https://app.relicdao.com/web3-landing?offer_id=artifact-relicdao-launch&utm_term=test_test_test_test?referral=${referralCode}`;
+        const referralUrl = `https://app.relicdao.com/chain/landing?referral=${referralCode}`;
         navigator.clipboard.writeText(referralUrl)
             .then(() => {
                 alert('Referral code copied to clipboard!');
