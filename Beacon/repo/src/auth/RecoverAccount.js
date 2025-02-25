@@ -5,7 +5,7 @@ import { requestPasswordRecovery } from '../api/auth';
 
 const styles = {
   container: {
-    background: 'linear-gradient(to bottom, #000044, #000022)',
+    // background: 'linear-gradient(to bottom, #000044, #000022)',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',

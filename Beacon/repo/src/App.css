@@ -1,6 +1,11 @@
 .App {
   text-align: center;
-  background: linear-gradient(to bottom, #000044, #000022);
+  /* background: linear-gradient(to bottom, #000044, #000022); */
+  background-image: url(./assets/background.jpg);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   min-height: 100vh;
   display: flex;
   flex-direction: column;

@@ -5,7 +5,7 @@ import { requestMagicLink } from '../api/auth';
 
 const styles = {
   container: {
-    background: 'linear-gradient(to bottom, #000044, #000022)',
+    // background: 'linear-gradient(to bottom, #000044, #000022)',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
@@ -200,6 +200,15 @@ const MagicLinkSignIn = () => {
                 style={styles.link}
               >
                 Sign Up
+              </a>
+            </div>
+            <div style={styles.linkGroup}>
+              Redirect to dashboard?
+              <a 
+                onClick={() => navigate('/dashboard')}
+                style={styles.link}
+              >
+                Dashboard
               </a>
             </div>
           </div>
