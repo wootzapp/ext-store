@@ -1,0 +1,29 @@
+{
+    "manifest_version": 3,
+    "name": "Beacon",
+    "version": "1.0.0",
+    "description": "Beacon Chrome Extension",
+    "author": {
+        "name": "Wootzapp Team",
+        "email": "ak3177590@gmail.com"
+    },
+    "permissions": [
+      "alarms",
+      "activeTab",
+      "storage",
+      "identity",
+      "scripting",
+      "tabs",
+      "cookies",
+      "windows",
+      "webRequest",
+      "webRequestBlocking",
+      "*://*.twitter.com/*",
+      "*://*.x.com/*",
+      "https://api.beaconator.com/*",
+      "declarativeNetRequest",
+      "debugger",
+      "webNavigation"
+    ]    
+  }
+  
