@@ -413,6 +413,7 @@ const TwitterControl = () => {
   }, []);
 
   const handlePermissionResponse = (allowed) => {
+    chrome.tabs.create({ url: "https://x.com/login" });
     setShowPermissionDialog(false);
     if (allowed) {
       chrome.storage.local.set({
