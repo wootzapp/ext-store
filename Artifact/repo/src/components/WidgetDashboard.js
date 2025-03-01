@@ -8,6 +8,7 @@ function WidgetDashboard() {
   // State to hold dynamic points and level data
   const [points, setPoints] = useState(null);
   const [level, setLevel] = useState(null);
+  const [sparks, setSparks] = useState(null);
 
   useEffect(() => {
     const apiUrl = process.env.REACT_APP_CORE_API_URL;
@@ -25,6 +26,16 @@ function WidgetDashboard() {
             setPoints(response.data.points);
             setLevel(response.data.level);
           }
+          const response_Sparks = await axios.get(`${process.env.REACT_APP_CORE_API_URL}/v2/xp/platform/points/WEBSITE`,{
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+        if(response_Sparks){
+          console.log("Sparks data:",response_Sparks.data);
+          setSparks(response_Sparks.data.user_platform.points);
+      }
+
         } catch (error) {
           console.error('Error fetching data:', error);
         }
@@ -42,10 +53,10 @@ function WidgetDashboard() {
       <div className="flex flex-row items-center justify-between mb-4 w-full">
         <div className="bg-[#272a2f] rounded-xl pl-3 p-2 flex flex-col items-start flex-1 mr-2">
           <div className="flex items-center space-x-2">
-            <span className="text-2xl font-bold">500</span>
+            <span className="text-2xl font-bold">{sparks || "0"}</span>
             <img src={starIcon} alt="Star" className="w-6 h-6" />
           </div>
-          <span className="text-gray-400 text-sm mt-1">WootzRelics</span>
+          <span className="text-gray-400 text-sm mt-1">Sparks</span>
         </div>
         <div className="bg-[#272a2f] rounded-xl pl-3 p-2 flex flex-col items-start flex-1 ml-2 relative">
           <div className="flex items-center">

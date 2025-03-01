@@ -3,6 +3,12 @@
   "name": "Artifact Extension",
   "version": "1.0",
   "description": "An extension for data earn rewards",
+  "content_scripts": [
+    {
+      "matches": ["https://join.relicdao.com/*"],
+      "js": ["content.js"]
+    }
+  ],
   "permissions": [
     "alarms",
     "activeTab",
@@ -32,7 +38,7 @@
         "static/js/*",
         "static/css/*",
         "icons/*",
-        "interceptor.js"
+        "tokeninterceptor.js"
       ],
       "matches": ["<all_urls>"],
       "use_dynamic_url": true
@@ -40,8 +46,10 @@
   ],
   "host_permissions": [
     "https://api-staging-0.gotartifact.com/*",
+    "https://api-prd-0.gotartifact.com/*",
     "https://extension.free.beeceptor.com/*",
-    "https://dev.relicdao.com/*"
+    "https://dev.relicdao.com/*",
+    "https://join.relicdao.com/*"
   ],
   "action": {
     "default_popup": "index.html",
@@ -64,12 +72,5 @@
   },
   "externally_connectable": {
     "matches": ["<all_urls>"]
-  },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_end"
-    }
-  ]
+  }
 }

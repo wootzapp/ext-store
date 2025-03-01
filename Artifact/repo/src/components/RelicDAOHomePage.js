@@ -12,27 +12,22 @@ const RelicDAOHomePage = () => {
     const { token } = useAuthToken();
     
     const handleSignUp = () => {
-        const signupUrl = "https://dev.relicdao.com";
-        window.location.href = signupUrl;
-        console.log("trying to connect");
-    };
+        // const signupUrl = "https://dev.relicdao.com";
+        // window.location.href = signupUrl;
+        // console.log("trying to connect");
+        navigate('/signup');
+        };
 
     const handleLogin = () => {
-        navigate('/login');
-    };
-
-    const handleBackButton = () => {
-        console.log("Back button pressed");
-        navigate(-1);
+        const loginUrl = "https://join.relicdao.com/";
+        window.location.href = loginUrl;
+        // navigate('/login');
     };
 
     return (
         <div className="bg-black text-white min-h-screen p-6">
             <header className="flex items-center mb-6 justify-between">
                 <div className="flex items-center">
-                    <button className="text-2xl mr-4" onClick={handleBackButton}>
-                        <IoArrowBack/>
-                    </button>
                     <img src={relicDAOLogo} alt="RelicDAO Logo" className="w-8 h-8" />
                     <span className="ml-2 text-xl font-bold">RelicDAO</span>
                 </div>
@@ -61,32 +56,23 @@ const RelicDAOHomePage = () => {
                     />
                 </div>
 
-                {token ? (
+                <div className="space-y-4">
                     <button 
-                        className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold" 
-                        onClick={() => navigate('/relicdao/dashboard')}
+                        className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold hover:bg-purple-700 transition-colors duration-300" 
+                        onClick={handleSignUp}
                     >
-                        Continue to RelicDAO Dashboard
+                        Sign up
                     </button>
-                ) : (
-                    <div className="space-y-4">
+                    <div className="text-center text-gray-400">
+                        Already have an account? 
                         <button 
-                            className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold hover:bg-purple-700 transition-colors duration-300" 
-                            onClick={handleSignUp}
+                            className="text-purple-500 hover:text-purple-400 ml-1 font-medium"
+                            onClick={handleLogin}
                         >
-                            Sign up
+                            Log in
                         </button>
-                        <div className="text-center text-gray-400">
-                            Already have an account? 
-                            <button 
-                                className="text-purple-500 hover:text-purple-400 ml-1 font-medium"
-                                onClick={handleLogin}
-                            >
-                                Log in
-                            </button>
-                        </div>
                     </div>
-                )}
+                </div>
             </main>
         </div>
     );

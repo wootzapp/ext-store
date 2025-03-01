@@ -1,11 +1,13 @@
+/* global chrome */
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import backImage from '../images/back.svg'
 import wootzImage from '../images/wootz.png';
 import userDefaultImage from '../images/user.png';
 import BrowserBridge from './BrowserBridge';
-import { getUserProfile } from '../lib/api'
+import { getUserProfile, refreshAuthToken} from '../lib/api'
 import { ColorRing } from 'react-loader-spinner';
+
 
 const ProfileField = ({ label, value }) => {
   if (!value) return null;
@@ -65,27 +67,96 @@ const LoadingScreen = () => {
   );
 };
 
+
+const onLogout_clearStorage = (navigate) => {
+  console.log("Logging out");
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('dataStakingStatus');
+  localStorage.removeItem('twitterConnected');
+  navigate('/logout');
+};
+
+const handleLogout = async (navigate) => {
+  try {
+      // Check if current tab is chrome new tab
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const isNewTab = activeTab?.url === 'chrome-native://newtab/';
+
+      // Clear token using the hook
+   
+
+      localStorage.setItem('authToken', null);
+      localStorage.setItem('refreshToken', null);
+      localStorage.setItem('secretKey', null);
+      localStorage.setItem('twitterConnected', false);
+      localStorage.setItem('dataStakingStatus', false);
+
+      // Clear ALL relevant storage
+      await chrome.storage.local.clear();
+      
+      // Set specific logout flags
+      await chrome.storage.local.set({
+          isLoggedIn: false,
+          authToken: null,
+          refreshToken: null,
+          secretKey: null,
+          twitterConnected: false,
+          dataStakingStatus: false
+      });
+
+      console.log('Logged out, storage updated');
+      
+      // If we're on a new tab page, close it and open a new one
+      if (isNewTab) {
+          await chrome.tabs.remove(activeTab.id);
+          await chrome.tabs.create({ url: 'chrome-native://newtab/' });
+      }
+      
+      onLogout_clearStorage(navigate);
+  } catch (error) {
+      console.error('Error during logout:', error);
+      // Fallback logout - ensure user is still logged out even if there's an error
+      onLogout_clearStorage(navigate);
+  }
+};
+
 const ProfilePage = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [profile, setProfile] = useState(null);
+  const [displayName, setDisplayName] = useState('N/A');
+  const [username, setUsername] = useState('N/A');
+  const [email, setEmail] = useState('');
+  const [avatarUri, setAvatarUri] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const navigate = useNavigate();
-  // const browserBridge = BrowserBridge.getInstance();
 
   useEffect(() => {
-    async function fetchProfile() {
-        try {
-            const userProfile = await getUserProfile();
-            setProfile(userProfile);
-            setLoading(false);
-        } catch (error) {
-            setError(error.message);
-            setLoading(false);
+    async function initializeProfile() {
+      try {
+        if (!location.state?.profileData) {
+          throw new Error('No profile data available');
         }
+
+        const profileData = location.state.profileData;
+        console.log('🔑 Profile data received:', profileData);
+        setProfile(profileData);
+        setDisplayName(profileData.display_name || 'N/A');
+        setUsername(profileData.username || 'N/A');
+        setEmail(profileData.email || '');
+        setAvatarUri(profileData.avatar_uri || '');
+        setLoading(false);
+      } catch (error) {
+        console.error('Profile initialization error:', error);
+        setError(error.message);
+        handleLogout(navigate);
+        setLoading(false);
+      }
     }
 
-    fetchProfile();
-}, []);
+    initializeProfile();
+  }, [location.state, navigate]);
 
   console.log('Current state:', { loading, error, profile });
 
@@ -115,13 +186,13 @@ const ProfilePage = () => {
           <div className="px-4 py-5 sm:px-6 flex flex-col items-center profile-header">
             <div
               className="w-24 h-24 bg-gray-300 border-4 border-white rounded-full mb-4 profile-circle"
-              style={{ backgroundImage: `url(${profile.avatar_uri || userDefaultImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+              style={{ backgroundImage: `url(${avatarUri || userDefaultImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
             ></div>
-            <h2 id="profileName" className="text-xl font-bold">{profile.display_name || 'N/A'}</h2>
-            <p id="profileUsername" className="text-gray-500">@{profile.username || 'N/A'}</p>
+            <h2 id="profileName" className="text-xl font-bold">{displayName}</h2>
+            <p id="profileUsername" className="text-gray-500">@{username}</p>
           </div>
           <div className="border-t border-gray-600 px-4 py-5">
-            <ProfileField label="Email" value={profile.email} />
+            <ProfileField label="Email" value={email} />
             {/* <ProfileField label="Role" value={profile.role} />
             <ProfileField label="Location" value={profile.location} />
             <ProfileField label="Biography" value={profile.biography} />

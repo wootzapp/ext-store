@@ -1,3 +1,4 @@
+/* global chrome */
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import art1 from '../images/art1.png'
@@ -44,25 +45,38 @@ const LoginPage = ({ onLoginSuccess }) => {
     try {
       const response = await loginWallet(email, password);
       console.log('Login successful:', response);
-      // if (response && response.success) {
-      //   const token = response.data.id_token;
-      //   console.log('Token:', token);
-      //   localStorage.setItem('authToken', token);
-
-      //   // Set a small delay before navigation to ensure smooth transition
-      //   setTimeout(() => {
-      //     navigate('/relicdao/dashboard', { replace: true });
-      //   }, 100);
-      // } else {
-      //   throw new Error(response.error || 'Login failed');
-      // }
+      
       if (response && response.success) {
         const token = response.data.id_token;
-        // console.log('Token:', token);
+        const refreshToken = response.data.refresh_token;
+        
+        localStorage.setItem('refreshToken', refreshToken);
+        localStorage.setItem('authToken', token);
+
+        await chrome.storage.local.set({
+          refreshToken: refreshToken,
+          authToken: token,
+          isLoggedIn: true
+        });
+        // Send refresh token to background script
+        chrome.runtime.sendMessage({ 
+          type: 'REFRESH_TOKEN_UPDATE',
+          refreshToken: refreshToken
+        });
+        
         const saveSuccess = await onLoginSuccess(token);
+        
         if (saveSuccess) {
-          // Redirect to the intended page or dashboard if no intended page
-          // const from = location.state?.from?.pathname || '/relicdao/dashboard';
+          // Check if current tab is chrome new tab
+          const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          const isNewTab = activeTab?.url === 'chrome-native://newtab/';
+
+          // If we're on a new tab page, close it and open a new one
+          if (isNewTab) {
+            await chrome.tabs.remove(activeTab.id);
+            await chrome.tabs.create({ url: 'chrome-native://newtab/' });
+          }
+
           navigate('/relicdao/dashboard', { replace: true });
         } else {
           throw new Error('Failed to save token');

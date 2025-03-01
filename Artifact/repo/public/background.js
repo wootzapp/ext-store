@@ -1,355 +1,403 @@
-// Keep service worker active
-const PING_INTERVAL = 6000;
-const TWEET_SCRAPE_IDENTIFIER = '?q=wootzapp-tweets';
-const FOLLOWING_SCRAPE_IDENTIFIER = '?q=wootzapp-following';
+// Add these variables at the top level
+let storedAuthToken = null;
+let storedSecretKey = null;
+let storedIsLoggedIn = false;
+let storedRefreshToken = null;
+let refreshTokenTimer = null;
 
-console.log('⚙️ Background service worker starting with ping interval:', PING_INTERVAL);
-
-// Create alarm for keeping alive
-chrome.alarms.create('keepAlive', { periodInMinutes: 0.1 });
-console.log('⏰ Created keepAlive alarm');
-
-// Handle alarms
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'keepAlive') {
-    console.log('🟢 Service Worker Active:', new Date().toISOString());
-  }
-});
-
-// Handle messages from content script
-console.log('📡 Setting up message listeners...');
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('📨 Received message:', message.type, 'from tab:', sender.tab?.id);
-  
-  if (message.type === 'INITIAL_AUTH_USERNAME') {
-    console.log('🔑 Received initial auth username:', message.data.username);
+// Update storage change listener to store values in variables
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (namespace === 'local') {
+    console.log('🔄 Storage changes detected:', changes);
     
-    // Store the username
-    chrome.storage.local.set({ 
-      initialUsername: message.data.username,
-      hasInitialAuth: true 
-    }, () => {
-      console.log('✅ Stored initial username:', message.data.username);
-    });
-  } else if (message.type === 'SCRAPED_DATA') {
-    console.log('🔍 Processing scraped data...');
-    handleScrapedData(message.data);
-    sendResponse({ status: 'received' });
-  } else if (message.type === 'CLOSE_TAB') {
-    console.log('🔒 Closing tab:', sender.tab?.id);
-    chrome.tabs.remove(sender.tab.id);
-  } else if (message.type === 'GET_PROFILE_DATA') {
-    chrome.storage.local.get(['profileData'], (result) => {
-      sendResponse({ profileData: result.profileData });
-    });
-    return true;
-  } else if (message.type === 'TOGGLE_SCRAPING') {
-    handleScrapingToggle(message.enabled, sender.tab?.id);
-  } else if (message.type === 'FOLLOWING_USERS_UPDATED') {
-    console.log('👥 Following users update received:', message.data);
-    
-    // Store in chrome.storage.local, replacing existing data
-    chrome.storage.local.set({ 
-      followingUsers: message.data,
-      hasScrapedFollowing: true  // Set this after successful scrape
-    }, () => {
-      console.log('💾 Following users stored:', message.data.length);
-      
-      // Broadcast to UI
-      chrome.runtime.sendMessage({
-        type: 'FOLLOWING_USERS_UPDATED',
-        data: message.data
-      }, () => {
-        console.log('📢 Following users broadcast sent');
-      });
-    });
-  } else if (message.type === 'START_FOLLOWING_SCRAPE') {
-    handleFollowingScrape(message.username);
-  } else if (message.type === 'TWITTER_AUTH_STATUS') {
-    console.log('🔐 Received Twitter auth status:', message.data);
-    
-    // Store auth status
-    chrome.storage.local.set({ 
-      isTwitterAuthenticated: message.data.isAuthenticated 
-    }, () => {
-      // Broadcast to UI
-      chrome.runtime.sendMessage({
-        type: 'TWITTER_AUTH_UPDATED',
-        data: message.data
-      });
-    });
-  } else if (message.type === 'TOGGLE_BACKGROUND_TWEET_SCRAPING') {
-    console.log('🔄 Background tweet scraping toggle:', message.enabled);
-    handleBackgroundTweetScraping(message.username);
-  } else if (message.type === 'STOP_ALL_SCRAPING') {
-    console.log('🛑 Stopping all scraping processes');
-    
-    // Clear any pending timeout
-    chrome.storage.local.get(['backgroundScrapeTimeoutId'], (result) => {
-      if (result.backgroundScrapeTimeoutId) {
-        clearTimeout(result.backgroundScrapeTimeoutId);
-        chrome.storage.local.remove('backgroundScrapeTimeoutId');
-      }
-    });
-
-    // Notify all tabs to stop background scraping
-    chrome.tabs.query({ url: '*://*.x.com/*' }, (tabs) => {
-      tabs.forEach(tab => {
-        chrome.tabs.sendMessage(tab.id, {
-          type: 'STOP_BACKGROUND_SCRAPING'
-        });
-      });
-    });
-    
-    // Reset all scraping states
-    chrome.storage.local.set({
-      isScrapingEnabled: false,
-      isTweetScrapingEnabled: false,
-      isBackgroundTweetScrapingEnabled: false,
-      isFollowingEnabled: false
-    });
-  } else if (message.type === 'SCHEDULE_NEXT_SCRAPING') {
-    console.log('📅 Scheduling next scraping session...');
-    
-    // First close the current tab
-    if (sender.tab?.id) {
-      chrome.tabs.remove(sender.tab.id);
+    if (changes.authToken) {
+      storedAuthToken = changes.authToken.newValue;
     }
-    
-    // Store the timeout ID so we can cancel it if needed
-    const timeoutId = setTimeout(() => {
-      console.log('⏰ Starting next scraping session');
-      handleBackgroundTweetScraping(message.data.username);
-    }, 30000);
-
-    // Store the timeout ID
-    chrome.storage.local.set({ backgroundScrapeTimeoutId: timeoutId });
+    if (changes.secretKey) {
+      storedSecretKey = changes.secretKey.newValue;
+    }
+    if (changes.isLoggedIn) {
+      storedIsLoggedIn = changes.isLoggedIn.newValue;
+    }
+    if (changes.refreshToken) {
+      storedRefreshToken = changes.refreshToken.newValue;
+    }
+   
+    // Process queue if all conditions are met
+    if (storedAuthToken && storedIsLoggedIn && storedSecretKey) {
+      console.log('🔑 All auth conditions met, processing queue');
+      processUrlQueue();
+    } else {
+      console.log('⏳ Waiting for all auth conditions');
+    }
   }
-  return true;
 });
 
-// Handle scraping toggle
-async function handleScrapingToggle(enabled, tabId) {
-  console.log('🔄 Handling scraping toggle:', enabled);
+// Create a queue to store URLs that need to be logged
+let urlQueue = [];
 
-  if (!enabled) {
-    chrome.storage.local.set({ isScrapingEnabled: false });
-    return;
-  }
-
-  try {
-    console.log('🔄 Starting profile and likes scraping...');
-    await chrome.tabs.create({
-      url: 'https://x.com',
-      active: false
-    });
-
-    chrome.storage.local.set({ 
-      isScrapingEnabled: true,
-      hasScrapedProfile: false,
-      hasScrapedLikes: false
-    });
-  } catch (error) {
-    console.error('❌ Error in scraping toggle:', error);
-  }
-}
-
-// Handle scraped data
-function handleScrapedData(data) {
-  console.log('📊 Processing data type:', data.type);
-  
-  if (data.type === 'TWEETS') {
-    // Check if tweet scraping is still enabled before processing
-    chrome.storage.local.get(['isBackgroundTweetScrapingEnabled'], (result) => {
-      if (!result.isBackgroundTweetScrapingEnabled) {
-        console.log('🛑 Tweet scraping disabled, skipping data processing');
-        return;
-      }
-      console.log('🐦 Received tweets:', data.content.length);
-      
-      chrome.storage.local.get(['tweets'], (result) => {
-        const existingTweets = result.tweets || [];
-        console.log('📊 Existing tweets:', existingTweets.length);
-
-        const newTweets = data.content.filter(newTweet => 
-          !existingTweets.some(existing => existing.id === newTweet.id)
-        );
-        
-        console.log('📝 New unique tweets:', newTweets.length);
-        
-        const updatedTweets = [...existingTweets, ...newTweets];
-        
-        chrome.storage.local.set({ tweets: updatedTweets }, () => {
-          console.log('💾 Total tweets stored:', updatedTweets.length);
-          
-          chrome.runtime.sendMessage({
-            type: 'TWEETS_UPDATED',
-            data: updatedTweets
-          }, () => {
-            console.log('📢 Tweet update broadcast sent');
-          });
-        });
-      });
-    });
-    return;
-  }
-
-  if (data.type === 'PROFILE') {
-    const profileData = data.content;
-    chrome.storage.local.get(['likesCount'], (result) => {
-      const mergedData = {
-        ...profileData,
-        likes: result.likesCount?.likes || undefined
-      };
-      
-      chrome.storage.local.set({ 
-        profileData: mergedData,
-        hasScrapedProfile: true 
-      }, () => {
-        console.log('💾 Profile data stored:', mergedData);
-        
-        chrome.runtime.sendMessage({
-          type: 'PROFILE_DATA_UPDATED',
-          data: mergedData
-        }, () => {
-          console.log('📢 Profile data broadcast sent');
-        });
-      });
-    });
-  } else if (data.type === 'LIKES_COUNT') {
-    console.log('❤️ Processing likes count:', data.content);
-    const likesData = data.content;
-    
-    chrome.storage.local.get(['profileData'], (result) => {
-      const mergedProfileData = {
-        ...result.profileData,
-        likes: likesData.likes
-      };
-      
-      chrome.storage.local.set({ 
-        likesCount: likesData,
-        profileData: mergedProfileData,
-        hasScrapedLikes: true 
-      }, () => {
-        console.log('💾 Likes count stored:', likesData);
-        console.log('💾 Updated profile data:', mergedProfileData);
-        
-        chrome.runtime.sendMessage({
-          type: 'PROFILE_DATA_UPDATED',
-          data: mergedProfileData
-        });
-        
-        chrome.runtime.sendMessage({
-          type: 'LIKES_COUNT_UPDATED',
-          data: likesData
-        }, () => {
-          console.log('📢 Data broadcasts sent');
-        });
-      });
-    });
-  }
-}
-
-// Keep alive interval backup
-setInterval(() => {
-  console.log('⏰ Service Worker Interval:', new Date().toISOString());
-}, PING_INTERVAL);
-
-// Initialize extension - no auto-opening of x.com
-chrome.runtime.onInstalled.addListener(() => {
-  console.log('🎉 Extension installed');
-  chrome.storage.local.set({ 
-    isScrapingEnabled: false,
-    hasScrapedProfile: false,
-    hasScrapedLikes: false,
-    hasScrapedFollowing: false,
-    hasInitialAuth: false,
-    initialUsername: null,
-    tweets: [],
-    profileData: null,
-    likesCount: null
+// Update encryption function with detailed debugging
+async function encryptUrl(data, token, secretKey) {
+  console.log('🔐 Encrypting URL with:', {
+    data,
+    token,
+    secretKey
   });
-});
-
-console.log('🚀 Background Service Worker Initialized');
-
-// Add this new function to handle following scraping
-async function handleFollowingScrape(username) {
-  console.log('🔄 Starting following scrape process for:', username);
-
   try {
-    // Clear existing following data before starting new scrape
-    await chrome.storage.local.set({ 
-      followingUsers: [],
-      hasScrapedFollowing: false 
-    });
-    console.log('🧹 Cleared existing following data');
-
-    // Use the following-specific identifier
-    const scrapeUrl = `https://x.com/${username}${FOLLOWING_SCRAPE_IDENTIFIER}`;
-    
-    // Create a new tab with the following URL
-    const tab = await chrome.tabs.create({ 
-      url: scrapeUrl,
-      active: false
-    });
-
-    console.log('📄 Created new tab for following scrape:', tab.id);
-
-    // Wait for page load then execute scraping
-    chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
-      if (tabId === tab.id && info.status === 'complete') {
-        chrome.tabs.onUpdated.removeListener(listener);
-        
-        // Give extra time for the page to fully load
-        setTimeout(() => {
-          console.log('🔄 Sending execute following scrape message to tab:', tab.id);
-          chrome.tabs.sendMessage(tab.id, {
-            type: 'EXECUTE_FOLLOWING_SCRAPE',
-            username: username
-          });
-        }, 3000);
-      }
+    const response = await fetch('https://be-udp-prd-0-aocnhs7n5a-uc.a.run.app//v1/encrypt', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Accept': '*/*',
+        'Cache-Control':'no-cache',
+        'Pragma':'no-cache',  // Add explicit Accept header
+      },
+      body: JSON.stringify({
+        rawData: data,
+        secretKey: secretKey
+      })
     });
 
+    if(!response.ok){
+      console.error('❌ Request failed with status',
+      response.status, response.statusText);
+      return null;
+    }
+    console.log('🔐 Encryption response:', response);
+    const data1 = await response.json();
+    console.log('🔐 Encryption data:', data1);
+    // if (!data.base64EncryptedEncodedData) {
+    //   throw new Error('No encrypted data received from server');
+    // }
+
+    return data1.base64EncryptedEncodedData;
   } catch (error) {
-    console.error('Error in following scrape process:', error);
-    chrome.storage.local.set({ 
-      isFollowingScrapeMode: false,
-      hasScrapedFollowing: false
-    });
+    console.error('Encryption error:', error);
+    throw error;
   }
 }
 
-// Add new function to handle background tweet scraping
-async function handleBackgroundTweetScraping(username) {
-  console.log('🔄 Starting background tweet scraping process for:', username);
+// Add debug logging to handleUrlLogging
+async function handleUrlLogging(url) {
+  console.log('🚀 Starting URL logging process:', {
+    url,
+    hasAuthToken: !!storedAuthToken,
+    hasSecretKey: !!storedSecretKey,
+    queueLength: urlQueue.length
+  });
+
+  if (!url) {
+    console.log('⚠️ Empty URL provided, skipping');
+    return;
+  }
 
   try {
-    await chrome.storage.local.set({ isBackgroundTweetScrapingEnabled: true });
+    if (!storedAuthToken || !storedSecretKey) {
+      console.log('⏳ Missing credentials, queueing URL for later');
+      urlQueue.push({
+        url: url,
+        timestamp: new Date().toISOString(),
+        encrypted: false
+      });
 
-    // Use the tweet-specific identifier
-    const tab = await chrome.tabs.create({
-      url: `https://x.com/${username}${TWEET_SCRAPE_IDENTIFIER}`,
-      active: false
+      await chrome.storage.local.set({ pendingUrls: urlQueue });
+      return;
+    }
+
+    // console.log('🔐 Attempting encryption...');
+    // const encryptedUrl = await encryptUrl(url, storedAuthToken, storedSecretKey);
+    // console.log('🔐 Encrypted URL:', encryptedUrl);
+    // if (!encryptedUrl) {
+    //   throw new Error('Encryption returned empty result');
+    // }
+
+    console.log('🔐 URL encrypted successfully');
+
+    urlQueue.push({
+      url: url,
+      timestamp: new Date().toISOString(),
+      encrypted: true
     });
 
-    // Wait for page load and send message to content script
-    chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
-      if (tabId === tab.id && info.status === 'complete') {
-        chrome.tabs.onUpdated.removeListener(listener);
-        
-        // Send message to content script to start tweet scraping
-        setTimeout(() => {
-          chrome.tabs.sendMessage(tab.id, {
-            type: 'EXECUTE_TWEET_SCRAPING'
-          });
-        }, 3000);
-      }
-    });
-    
+    await chrome.storage.local.set({ pendingUrls: urlQueue });
+    console.log('📝 Encrypted URL added to queue');
+
+    await processUrlQueue();
   } catch (error) {
-    console.error('Error in background tweet scraping:', error);
-    chrome.storage.local.set({ isBackgroundTweetScrapingEnabled: false });
+    console.error('❌ URL logging error:', {
+      message: error.message,
+      url: url,
+      queueLength: urlQueue.length
+    });
+    // Queue the original URL for retry
+    urlQueue.push({
+      url: url,
+      timestamp: new Date().toISOString(),
+      encrypted: false,
+      retryCount: 0
+    });
+    await chrome.storage.local.set({ pendingUrls: urlQueue });
+  }
+}
+
+// Update processUrlQueue to use stored variables
+async function processUrlQueue() {
+  try {
+    console.log('🔍 Processing queue with:', {
+      hasAuthToken: !!storedAuthToken,
+      isLoggedIn: storedIsLoggedIn,
+      hasSecretKey: !!storedSecretKey,
+      queueLength: urlQueue.length
+    });
+
+    if (!storedAuthToken || !storedIsLoggedIn || !storedSecretKey) {
+      console.log('⚠️ Cannot process queue:', {
+        reason: !storedAuthToken ? 'No auth token' : !storedSecretKey ? 'No secret key' : 'User not logged in'
+      });
+      return;
+    }
+
+    console.log('🔄 Processing URL queue:', urlQueue.length, 'items');
+
+    // Process each URL in the queue
+    for (let i = urlQueue.length - 1; i >= 0; i--) {
+      const item = urlQueue[i];
+      
+      try {
+        // Ensure we have a URL to encrypt
+        if (!item.url) {
+          console.error('Missing URL in queue item:', item);
+          urlQueue.splice(i, 1);
+          continue;
+        }
+
+        // Encrypt the URL
+        const encryptedUrl = await encryptUrl(item.url, storedAuthToken, storedSecretKey);
+        
+        const response = await fetch(
+          'https://api-prd-0.gotartifact.com//v2/logs/url',
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${storedAuthToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ encrypted_url: encryptedUrl }),
+          }
+        );
+
+        if (response.ok) {
+          urlQueue.splice(i, 1);
+          console.log('✅ Successfully logged encrypted URL');
+        } else {
+          console.error('❌ Failed to log encrypted URL:', await response.text());
+        }
+      } catch (error) {
+        console.error('❌ Error processing URL:', error);
+      }
+    }
+
+    // Update stored queue
+    await chrome.storage.local.set({ pendingUrls: urlQueue });
+    console.log('💾 Updated stored queue, remaining items:', urlQueue.length);
+
+  } catch (error) {
+    console.error('❌ Error processing URL queue:', error);
+  }
+}
+
+// Update initialization to remove token refresh setup
+chrome.storage.local.get(['authToken', 'secretKey', 'isLoggedIn', 'refreshToken'], (result) => {
+  storedAuthToken = result.authToken || null;
+  storedSecretKey = result.secretKey || null;
+  storedIsLoggedIn = result.isLoggedIn || false;
+  storedRefreshToken = result.refreshToken || null;
+  console.log('🔄 Initialized stored values');
+});
+
+// Store the current tab count
+let previousTabCount = 0;
+
+// Add a flag to track if initial URLs have been queued
+let initialUrlsQueued = false;
+
+// Update monitorTabs function
+async function monitorTabs() {
+  try {
+    const tabs = await chrome.tabs.query({});
+    const currentTabCount = tabs.length;
+
+    // Get auth status
+    const { authToken } = await chrome.storage.local.get(['authToken']);
+
+    // Handle initial URL queueing when extension first loads
+    if (!initialUrlsQueued) {
+      console.log('📋 Queueing initial URLs from all tabs');
+      tabs.forEach(tab => {
+        if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-native://') && 
+            !urlQueue.some(item => item.url === tab.url)) {
+          handleUrlLogging(tab.url);
+        }
+      });
+      initialUrlsQueued = true;
+      previousTabCount = currentTabCount;
+      return;
+    }
+
+    // Log tab count changes
+    if (currentTabCount !== previousTabCount) {
+      console.log(`📊 Tab count increased: ${previousTabCount} -> ${currentTabCount}`);
+    }
+
+    // If authenticated, only monitor new tabs
+    if (authToken && currentTabCount > previousTabCount) {
+      console.log('🔑 Authenticated: Only checking new tabs');
+      const newTabs = tabs.slice(previousTabCount);
+      newTabs.forEach(tab => {
+        if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-native://') && 
+            !urlQueue.some(item => item.url === tab.url)) {
+          console.log('🆕 New authenticated tab URL:', tab.url);
+          handleUrlLogging(tab.url);
+        }
+      });
+    }
+    // If not authenticated, queue all URLs for later processing
+    else if (!authToken && currentTabCount > previousTabCount) {
+      console.log('🔒 Not authenticated: Queueing all URLs');
+      tabs.forEach(tab => {
+        if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-native://') && 
+            !urlQueue.some(item => item.url === tab.url)) {
+          handleUrlLogging(tab.url);
+        }
+      });
+    }
+
+    previousTabCount = currentTabCount;
+  } catch (error) {
+    console.error('❌ Error monitoring tabs:', error);
+  }
+}
+
+// Initialize previousTabCount when extension starts
+chrome.tabs.query({}, (tabs) => {
+  previousTabCount = tabs.length;
+  console.log(`📊 Initial tab count: ${previousTabCount}`);
+});
+
+// Update the initialization listener
+chrome.runtime.onInstalled.addListener(() => {
+  console.log('🎉 URL Logger installed');
+  initialUrlsQueued = false; // Reset the flag
+  monitorTabs(); // Queue all initial URLs
+});
+
+// Store the current active tab URL
+let currentActiveTabUrl = null;
+
+// Function to check active tab URL
+async function checkActiveTabUrl() {
+  try {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (activeTab?.url && 
+        !activeTab.url.startsWith('chrome://') && 
+        !activeTab.url.startsWith('chrome-native://') && 
+        activeTab.url !== currentActiveTabUrl) {
+      // URL has changed
+      console.log('📍 URL changed:', activeTab.url);
+      currentActiveTabUrl = activeTab.url;
+      handleUrlLogging(activeTab.url);
+    }
+  } catch (error) {
+    console.error('❌ Error checking active tab URL:', error);
+  }
+}
+
+// Set up interval to check URL changes (every 1 second)
+setInterval(checkActiveTabUrl, 1000);
+
+// Also check when tabs are switched
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  console.log('🔄 Tab activated:', activeInfo.tabId);
+  checkActiveTabUrl();
+});
+
+// Add message listener for refresh token updates
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'REFRESH_TOKEN_UPDATE') {
+    storedRefreshToken = message.refreshToken;
+    console.log('🔑 Refresh token updated:', storedRefreshToken);
+    
+    // Store refresh token in local storage
+    chrome.storage.local.set({ refreshToken: storedRefreshToken });
+    
+    // Setup refresh token timer
+    setupRefreshTokenTimer();
+  }
+});
+
+// Function to refresh authentication token
+async function refreshAuthToken() {
+  console.log('🔄 Attempting to refresh auth token');
+  try {
+    const response = await fetch('https://api-prd-0.gotartifact.com//v2/users/authentication/refresh', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        refresh_token: storedRefreshToken
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Refresh failed: ${response.status}`);
+    }
+
+    const { data } = await response.json();
+    // Update stored auth token with new value from the correct path
+    console.log('🔑 Refresh token response:', data);
+    
+    // Update both local storage and memory variables
+    storedAuthToken = data.id_token;
+    storedRefreshToken = data.refresh_token;
+    
+    await chrome.storage.local.set({ 
+      authToken: data.id_token,
+      refreshToken: data.refresh_token 
+    });
+
+    console.log('✅ Auth token refreshed successfully:', {
+      newAuthToken: storedAuthToken,
+      newRefreshToken: storedRefreshToken
+    });
+
+    const authtoken= await chrome.storage.local.get(['authToken']);
+    const refreshtoken= await chrome.storage.local.get(['refreshToken']);
+    console.log('🔑 Refreshed data',{authtoken,refreshtoken});
+
+
+  } catch (error) {
+    console.error('❌ Failed to refresh auth token:', error);
+  }
+}
+
+// Function to setup refresh token timer
+function setupRefreshTokenTimer() {
+  // Clear existing timer if any
+  if (refreshTokenTimer) {
+    clearInterval(refreshTokenTimer);
+  }
+
+  // Only set up timer if we have a refresh token
+  if (storedRefreshToken) {
+    console.log('⏰ Setting up refresh token timer');
+    // Run every 55 minutes (3300000 milliseconds)
+    refreshTokenTimer = setInterval(refreshAuthToken, 3300000);
+    
+    // Trigger initial refresh
+    refreshAuthToken();
+  } else {
+    console.log('⚠️ No refresh token available, timer not set');
   }
 }

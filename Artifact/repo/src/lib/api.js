@@ -27,7 +27,7 @@ let authToken = null;
 export async function loginWallet(email, password) {
     console.log("HELLLOO : login");
 
-    const url = "https://api-staging-0.gotartifact.com/v2/users/authentication/signin";
+    const url = "https://api-prd-0.gotartifact.com/v2/users/authentication/signin";
 
     const requestBody = JSON.stringify({
         email: email,
@@ -57,7 +57,9 @@ export async function loginWallet(email, password) {
 
         authToken = responseData.data.id_token;
         localStorage.setItem('authToken', responseData.data.id_token);
-        console.log("Authentication token stored successfully");
+        console.log("Authentication token stored successfully", responseData.data.id_token);
+        localStorage.setItem('refreshToken', responseData.data.refresh_token);
+        console.log("Refresh token stored successfully", responseData.data.refresh_token);
 
         return responseData;
     } catch (error) {
@@ -79,9 +81,14 @@ export function getAuthToken() {
 
 // Function to use the auth token in other API calls
 export async function makeAuthenticatedRequest(url, options = {}) {
-    const token = getAuthToken();
+    let token = localStorage.getItem('authToken');
+    console.log('🔑 Token Aaditesh getuserprofile:', token);
+    
     if (!token) {
-        throw new Error("No authentication token found");
+        console.log('No token found, attempting to refresh...');
+        const refreshResult = await refreshAuthToken();
+        token = refreshResult.authToken;
+        console.log('New tokens after refresh:', refreshResult);
     }
 
     const headers = {
@@ -108,13 +115,55 @@ async function checkLoginStatus() {
     // Implement the actual check here
 }
 
+export async function refreshAuthToken() {
+    console.log('🔄 Attempting to refresh auth token');
+    let storedRefreshToken = localStorage.getItem('refreshToken');
+  
+    try {
+      const response = await fetch('https://api-prd-0.gotartifact.com/v2/users/authentication/refresh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          refresh_token: storedRefreshToken
+        })
+      });
+  
+      if (!response.ok) {
+        throw new Error(`Refresh failed: ${response.status}`);
+      }
+  
+      const { data } = await response.json();
+      // Update stored auth token with new value from the correct path
+      console.log('🔑 Refresh token response:', data);
+      
+      // Update both local storage and memory variables
+      localStorage.setItem('authToken', data.id_token);
+      localStorage.setItem('refreshToken', data.refresh_token);
+  
+      console.log('🔑 Refreshed data:', {
+        authToken: data.id_token,
+        refreshToken: data.refresh_token
+      });
+  
+      return {
+        authToken: data.id_token,
+        refreshToken: data.refresh_token
+      };
+  
+    } catch (error) {
+      console.error('❌ Failed to refresh auth token:', error);
+    }
+  }
+
 export async function logUrl(url) {
     authToken = getAuthToken();
     if (!authToken) {
         throw new Error('Not authenticated. Please login first.');
     }
     const response = await fetch(
-        'https://api-staging-0.gotartifact.com/v2/logs/url',
+        'https://api-prd-0.gotartifact.com/v2/logs/url',
         {
             method: 'POST',
             headers: {
@@ -135,7 +184,7 @@ export async function encrypt(secret, data) {
         throw new Error('Not authenticated. Please login first.');
     }
     const response = await fetch(
-        'https://api-staging-0.gotartifact.com/v2/encrypt',
+        'https://api-prd-0.gotartifact.com/v2/encrypt',
         {
             method: 'POST',
             headers: {
@@ -154,7 +203,7 @@ export async function encrypt(secret, data) {
 
 export async function getUserProfile() {
     try {
-        const data = await makeAuthenticatedRequest('https://api-staging-0.gotartifact.com/v2/users/me', {
+        const data = await makeAuthenticatedRequest('https://api-prd-0.gotartifact.com/v2/users/me', {
             method: 'GET'
         });
 
