@@ -1,0 +1,19 @@
+{
+    "manifest_version": "v1.0",
+    "name": "Beacon",
+    "version": "1.0.0",
+    "description": "A beacon protocol extension for creating a beacon network",
+    "author": {
+      "name": "Wootzapp"
+    },
+    "permissions": [
+      "storage",
+      "cookies",
+      "webRequest",
+      "webRequestBlocking",
+      "tabs",
+      "activeTab",
+      "scripting"
+    ]
+  }
+  
