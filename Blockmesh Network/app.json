@@ -1,0 +1,26 @@
+{
+  "manifest_version": "v1.0",
+  "name": "Blockmesh Network",
+  "version": "1.0.0",
+  "description": "Data scraping",
+  "author": {
+    "name": "Wootzapp Team"
+  },
+  "permissions": [
+    "alarms",
+    "activeTab",
+    "storage",
+    "identity",
+    "scripting",
+    "tabs",
+    "cookies",
+    "windows",
+    "webRequest",
+    "webRequestBlocking",
+    "*://*.twitter.com/*",
+    "*://*.x.com/*",
+    "declarativeNetRequest",
+    "debugger",
+    "webNavigation"
+  ]
+}
