@@ -1,0 +1,69 @@
+[package]
+name = "block-mesh-common"
+version = { workspace = true }
+edition = "2021"
+authors.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dash-with-expiry = { path = "../dash-with-expiry" }
+dashmap = { workspace = true }
+secret = { path = "../secret" }
+rand = { workspace = true }
+dotenv = { workspace = true, optional = true }
+enum-iterator = { workspace = true }
+borsh = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "time", "json"] }
+tracing-serde = { workspace = true }
+http-body-util = { workspace = true, optional = true }
+bytes = { workspace = true, optional = true }
+thiserror = { workspace = true }
+bs58 = { workspace = true }
+hyper = { workspace = true, features = ["full"], optional = true }
+typeshare = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+clap = { workspace = true, features = ["derive"], optional = true }
+solana-sdk = { workspace = true, optional = true }
+chrono = { workspace = true, features = ["clock", "serde"] }
+anyhow = { workspace = true }
+once_cell = { workspace = true }
+lettre = { workspace = true, optional = true }
+aws-config = { workspace = true, optional = true }
+aws-sdk-sesv2 = { workspace = true, optional = true }
+
+reqwest = { workspace = true, optional = true, default-features = false, features = [
+  "json",
+  "rustls-tls",
+  "cookies"
+] }
+ipgeolocate = { workspace = true, optional = true }
+
+[dependencies.uuid]
+workspace = true
+features = [
+  "v4", # Lets you generate random UUIDs
+  "fast-rng", # Use a faster (but still sufficiently random) RNG
+  "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
+  "serde", # Enable serialization/deserialization of UUIDs
+  "js"
+]
+
+[features]
+http = ["dep:http-body-util", "dep:bytes", "dep:hyper"]
+clap = ["dep:clap"]
+cli = ["dep:clap", "dep:solana-sdk"]
+app-config = ["dep:clap", "dep:solana-sdk"]
+ip-data = ["dep:ipgeolocate", "dep:reqwest"]
+reqwest = ["dep:reqwest"]
+feature-flag = ["dep:reqwest"]
+env = ["dep:dotenv"]
+email-client = ["dep:lettre", "dep:aws-config", "aws-sdk-sesv2"]
+ssr = ["email-client", "reqwest", "env", "feature-flag", "ip-data"]
+hydrate = ["reqwest", "env", "feature-flag"]
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
+tracing-test = { workspace = true }
