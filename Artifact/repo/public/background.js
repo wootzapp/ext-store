@@ -401,3 +401,10 @@ function setupRefreshTokenTimer() {
     console.log('⚠️ No refresh token available, timer not set');
   }
 }
+
+chrome.alarms.create('tokenRefresh', { periodInMinutes: 55 });
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'tokenRefresh') {
+    refreshAuthToken();
+  }
+});
