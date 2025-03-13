@@ -8,7 +8,8 @@ const getAuthToken = () => {
   // This is a placeholder - replace with your actual token retrieval logic
   const token = localStorage.getItem('authToken');
   console.log('[AUTH] Getting token from localStorage:', token ? 'Token found' : 'No token found');
-  return token;
+  return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjQ4OTM4YjM3LTJlMTUtNGZmYi04NDNhLWU1MTBjYzNjNzMzZCIsImlhdCI6MTc0MTc3NDc3MH0.y42znc9BAdz7iavvOYxrmWlk0JKQFZ-j0OJTDEcBqD4";
+//   return token;
 };
 
 /**
@@ -54,7 +55,7 @@ export const getOrganizations = async () => {
   console.log('[API] Fetching organizations');
   try {
     const response = await axios.get(
-      `${API_URL}/organizations`,
+      `${API_URL}/organizations?`,
       {
         headers: {
           'accept': '*/*',
@@ -71,6 +72,7 @@ export const getOrganizations = async () => {
     throw error;
   }
 };
+
 
 /**
  * Get organization users
