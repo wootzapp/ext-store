@@ -23,7 +23,7 @@ function App() {
           <Route path="/SignUp" element={<SignUp />} />
           <Route path="/SignIn" element={<SignIn />} />
           <Route path="/Recover" element={<RecoverAccount />} />
-          
+
           {/* Dashboard routes */}
           <Route path="/dashboard" element={<Main />}>
             <Route index element={<HomePage />} />

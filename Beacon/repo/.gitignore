@@ -11,6 +11,7 @@ Twitter.js
 src/api/users_test.js
 src/api/org_test.js
 src/api/permissions_test.js
+src/api/Rough.js
 # production
 /build
 

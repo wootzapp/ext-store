@@ -138,14 +138,14 @@ const SignIn = () => {
     try {
       const response = await loginUser(email, totp);
       
-      // Store authentication data in chrome storage
+      // Store authentication data in localStorage instead of chrome storage
       if (response.data?.id) {
-        await chrome.storage.local.set({
-          userAuth: true,
-          userId: response.data.id,
-          userEmail: response.data.attributes.email,
-          authToken: response.data.attributes.token
-        });
+        // Use regular localStorage instead of Chrome storage
+        localStorage.setItem('userAuth', 'true');
+        localStorage.setItem('userId', response.data.id);
+        localStorage.setItem('userEmail', response.data.attributes.email);
+        localStorage.setItem('authToken', response.data.attributes.token);
+        
         // Login successful - redirect to dashboard
         navigate('/dashboard');
       } else {
