@@ -24,7 +24,7 @@ function App() {
 
   const checkWalletStatus = useCallback(() => {
     // First check if wallet is created using the Chrome API
-    chrome.wootz.isWalletCreated((result) => {
+    chrome.wootzapp.isWalletCreated((result) => {
       if (chrome.runtime.lastError) {
         console.error('Error checking wallet creation status:', chrome.runtime.lastError);
         setWalletCreated(false);
@@ -58,7 +58,7 @@ function App() {
         });
 
         // Then check lock status
-        chrome.wootz.isLocked((lockResult) => {
+        chrome.wootzapp.isLocked((lockResult) => {
           if (chrome.runtime.lastError) {
             console.error('Error checking lock status:', chrome.runtime.lastError);
             setIsLocked(true);

@@ -39,7 +39,7 @@ const ChainSelection = ({ setWalletCreated }) => {
     try {
       // First set selected chains
       const chainResult = await new Promise((resolve, reject) => {
-        chrome.wootz.setSelectedChains(selectedChains, (response) => {
+        chrome.wootzapp.setSelectedChains(selectedChains, (response) => {
           if (chrome.runtime.lastError) {
             reject(chrome.runtime.lastError);
           } else {
@@ -54,7 +54,7 @@ const ChainSelection = ({ setWalletCreated }) => {
 
       // Then create wallet
       const createResult = await new Promise((resolve, reject) => {
-        chrome.wootz.createWallet(password, (response) => {
+        chrome.wootzapp.createWallet(password, (response) => {
           if (chrome.runtime.lastError) {
             reject(chrome.runtime.lastError);
           } else {

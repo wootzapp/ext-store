@@ -19,7 +19,7 @@ const Accounts = () => {
 
   useEffect(() => {
     const fetchAccounts = () => {
-      chrome.wootz.getAllAccounts((result) => {
+      chrome.wootzapp.getAllAccounts((result) => {
         if (result.success) {
           setAccounts(result.accounts);
           
