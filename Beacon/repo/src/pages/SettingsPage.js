@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Settings, ChevronDown, MoreVertical, User, Eye, Edit, Trash, Plus } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Settings, ChevronDown, MoreVertical, User, Eye, Edit, Trash, Plus, Check, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getOrganizations } from '../api/OrganizationAPI';
+import { getOrganizations, getOrganizationDetails, updateOrganization } from '../api/OrganizationAPI';
 import CreateOrganization from '../components/CreateOrganization';
 import styles from '../styles/SettingsPage.styles';
 
@@ -27,6 +27,35 @@ const SettingsPage = () => {
   const [enrolledUsers, setEnrolledUsers] = useState([]);
   const [apiResponse, setApiResponse] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // State for managing dropdown visibility
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // State for managing inline editing
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editError, setEditError] = useState('');
+  const editInputRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Focus input when editing starts
+  useEffect(() => {
+    if (isEditing && editInputRef.current) {
+      editInputRef.current.focus();
+    }
+  }, [isEditing]);
 
   // Fetch organizations on component mount
   useEffect(() => {
@@ -47,18 +76,11 @@ const SettingsPage = () => {
         setOrganizations(response.data);
         setApiResponse(response);
         
-        // Set first organization as selected by default
+        // Set first organization as selected by default and fetch its details
         if (response.data.length > 0) {
           const firstOrg = response.data[0];
           setSelectedOrg(firstOrg);
-          
-          // Get enrolled users for the selected organization from included data
-          const orgPermissions = response.included?.filter(item => 
-            item.type === 'organization_permissions' && 
-            item.attributes.organization_id === firstOrg.id
-          ) || [];
-          
-          setEnrolledUsers(orgPermissions);
+          await fetchOrganizationDetails(firstOrg.id);
         }
       }
     } catch (error) {
@@ -69,19 +91,35 @@ const SettingsPage = () => {
   };
 
   /**
-   * Handles organization selection change
-   * Updates selected organization and fetches its enrolled users
+   * Fetches detailed information for a specific organization
+   * Updates the enrolled users based on the response
    */
-  const handleOrgChange = (orgId) => {
+  const fetchOrganizationDetails = async (orgId) => {
+    try {
+      const response = await getOrganizationDetails(orgId);
+      console.log('Organization Details Response:', response);
+      
+      if (response && response.included) {
+        // Update enrolled users from the detailed response
+        setEnrolledUsers(response.included.filter(item => 
+          item.type === 'organization_permissions'
+        ));
+      }
+    } catch (error) {
+      console.error('Error fetching organization details:', error);
+    }
+  };
+
+  /**
+   * Handles organization selection change
+   * Updates selected organization and fetches its details
+   */
+  const handleOrgChange = async (orgId) => {
     const selected = organizations.find(org => org.id === orgId);
     setSelectedOrg(selected);
     
-    if (selected && apiResponse) {
-      const orgPermissions = apiResponse.included?.filter(item => 
-        item.type === 'organization_permissions' && 
-        item.attributes.organization_id === selected.id
-      ) || [];
-      setEnrolledUsers(orgPermissions);
+    if (selected) {
+      await fetchOrganizationDetails(selected.id);
     }
   };
 
@@ -123,6 +161,63 @@ const SettingsPage = () => {
       default:
         return <Eye size={12} />;
     }
+  };
+
+  // Handle edit organization
+  const handleEdit = () => {
+    setShowDropdown(false);
+    setEditName(organization.name);
+    setIsEditing(true);
+    setEditError('');
+  };
+
+  // Handle save edit
+  const handleSaveEdit = async () => {
+    if (!editName.trim()) {
+      setEditError('Name cannot be empty');
+      return;
+    }
+
+    try {
+      // Optimistically update the UI
+      const oldName = organization.name;
+      
+      // Update local state immediately
+      setOrganizations(orgs => orgs.map(org => 
+        org.id === selectedOrg.id 
+          ? { ...org, attributes: { ...org.attributes, name: editName }} 
+          : org
+      ));
+      
+      setSelectedOrg(org => ({
+        ...org,
+        attributes: { ...org.attributes, name: editName }
+      }));
+
+      // Make API call
+      await updateOrganization(organization.id, editName);
+      
+      // Clear editing state
+      setIsEditing(false);
+      setEditError('');
+    } catch (error) {
+      // Revert optimistic update on error
+      await fetchOrganizations();
+      setEditError('Failed to update organization name');
+    }
+  };
+
+  // Handle cancel edit
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditError('');
+  };
+
+  // Handle delete organization
+  const handleDelete = () => {
+    setShowDropdown(false);
+    // Add delete logic here
+    console.log('Delete organization:', selectedOrg?.id);
   };
 
   // Loading state display
@@ -178,8 +273,10 @@ const SettingsPage = () => {
             organizationName={organizationName}
             setOrganizationName={setOrganizationName}
             onClose={() => setShowCreateOrg(false)}
-            onSubmit={() => {
-              // Handle create logic here
+            onSubmit={async () => {
+              // Refresh the organizations list after creating new org
+              await fetchOrganizations();
+              setShowCreateOrg(false);
             }}
           />
         )}
@@ -197,10 +294,183 @@ const SettingsPage = () => {
                   <path d="M2 12L7 22L12 12L17 22L22 12" stroke="#FF7A00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
-              <span style={styles.orgName}>{organization.name}</span>
+              {!isEditing && (
+                <span style={styles.orgName}>{organization.name}</span>
+              )}
             </div>
-            <MoreVertical size={20} color="#FFEBC8FF" />
+            {!isEditing && (
+              <div style={{ position: 'relative' }} ref={dropdownRef}>
+                <div 
+                  onClick={() => setShowDropdown(!showDropdown)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <MoreVertical size={20} color="#FFEBC8FF" />
+                </div>
+                {showDropdown && (
+                  <div style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: '100%',
+                    marginTop: '4px',
+                    background: '#1A2337',
+                    border: '1px solid #FFC35BFF',
+                    borderRadius: '8px',
+                    padding: '8px 0',
+                    minWidth: '120px',
+                    zIndex: 10,
+                  }}>
+                    <div
+                      onClick={handleEdit}
+                      style={{
+                        padding: '8px 16px',
+                        color: '#FFEBC8FF',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        fontSize: '14px',
+                        ':hover': {
+                          background: 'rgba(255, 195, 91, 0.1)',
+                        },
+                      }}
+                    >
+                      <Edit size={14} />
+                      Edit
+                    </div>
+                    <div
+                      onClick={handleDelete}
+                      style={{
+                        padding: '8px 16px',
+                        color: '#ff4444',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        fontSize: '14px',
+                        ':hover': {
+                          background: 'rgba(255, 68, 68, 0.1)',
+                        },
+                      }}
+                    >
+                      <Trash size={14} />
+                      Delete
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
+
+          {/* Edit Input Field - Shown below header when editing */}
+          {isEditing && (
+            <div style={{
+              padding: '16px 0 8px 0',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              width: '100%',
+            }}>
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                width: '100%',
+              }}>
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  width: '100%',
+                }}>
+                  <input
+                    ref={editInputRef}
+                    type="text"
+                    value={editName}
+                    onChange={(e) => {
+                      setEditName(e.target.value);
+                      setEditError('');
+                    }}
+                    style={{
+                      background: 'transparent',
+                      border: `1px solid ${editError ? '#ff4444' : '#FFC35BFF'}`,
+                      borderRadius: '4px',
+                      padding: '8px 12px',
+                      color: '#FFEBC8FF',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      width: '100%',
+                      maxWidth: '300px',
+                      boxSizing: 'border-box',
+                    }}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSaveEdit();
+                      }
+                    }}
+                    placeholder="Enter organization name"
+                  />
+                  <div style={{
+                    display: 'flex',
+                    gap: '8px',
+                    alignItems: 'center',
+                  }}>
+                    <button
+                      onClick={handleSaveEdit}
+                      style={{
+                        background: 'linear-gradient(135deg, #FF7A00, #FF4B00)',
+                        border: 'none',
+                        borderRadius: '4px',
+                        padding: '8px',
+                        color: '#FFFFFF',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '4px',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        boxShadow: '0 1px 3px rgba(255, 122, 0, 0.3)',
+                        width: '36px',
+                        height: '36px',
+                      }}
+                    >
+                      <Check size={16} />
+                    </button>
+                    <button
+                      onClick={handleCancelEdit}
+                      style={{
+                        background: '#1A2337',
+                        border: '1px solid #FFC35BFF',
+                        borderRadius: '4px',
+                        padding: '8px',
+                        color: '#FFEBC8FF',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '4px',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        width: '36px',
+                        height: '36px',
+                      }}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                </div>
+                {editError && (
+                  <div style={{
+                    color: '#ff4444',
+                    fontSize: '12px',
+                    marginTop: '4px',
+                  }}>
+                    {editError}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           <div style={styles.separator} />
 

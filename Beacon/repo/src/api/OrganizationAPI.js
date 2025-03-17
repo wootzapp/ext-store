@@ -153,4 +153,68 @@ export const getOrganizationPermissions = async (orgId) => {
   }
 };
 
+/**
+ * Get details for a specific organization
+ * @param {string} organizationId - ID of the organization to fetch
+ * @returns {Promise} - Promise that resolves to the API response
+ */
+export const getOrganizationDetails = async (organizationId) => {
+  console.log('[API] Fetching organization details for:', organizationId);
+  try {
+    const response = await axios.get(
+      `${API_URL}/organizations/${organizationId}`,
+      {
+        headers: {
+          'accept': '*/*',
+          'content-type': 'application/json',
+          'authorization': `Bearer ${getAuthToken()}`
+        }
+      }
+    );
+    
+    console.log('[API] Organization details response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('[API] Error fetching organization details:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update organization name
+ * @param {string} organizationId - ID of the organization to update
+ * @param {string} newName - New name for the organization
+ * @returns {Promise} - Promise that resolves to the API response
+ */
+export const updateOrganization = async (organizationId, newName) => {
+  console.log('[API] Updating organization:', organizationId, 'with name:', newName);
+  try {
+    const response = await axios.patch(
+      `${API_URL}/organizations/${organizationId}`,
+      {
+        data: {
+          type: 'organizations',
+          id: organizationId,
+          attributes: {
+            name: newName
+          }
+        }
+      },
+      {
+        headers: {
+          'accept': '*/*',
+          'content-type': 'application/json',
+          'authorization': `Bearer ${getAuthToken()}`
+        }
+      }
+    );
+    
+    console.log('[API] Update organization response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('[API] Error updating organization:', error);
+    throw error;
+  }
+};
+
 // You can export additional deployment-related API functions here
