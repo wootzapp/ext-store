@@ -217,4 +217,142 @@ export const updateOrganization = async (organizationId, newName) => {
   }
 };
 
+/**
+ * Delete an organization
+ * @param {string} organizationId - ID of the organization to delete
+ * @returns {Promise} - Promise that resolves to the API response
+ */
+export const deleteOrganization = async (organizationId) => {
+  console.log('[API] Deleting organization:', organizationId);
+  try {
+    const response = await axios.delete(
+      `${API_URL}/organizations/${organizationId}`,
+      {
+        headers: {
+          'accept': '*/*',
+          'content-type': 'application/json',
+          'authorization': `Bearer ${getAuthToken()}`
+        }
+      }
+    );
+    
+    console.log('[API] Delete organization response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('[API] Error deleting organization:', error);
+    throw error;
+  }
+};
+
+/**
+ * Enroll a user in an organization with specified permissions
+ * @param {string} organizationId - ID of the organization
+ * @param {string} email - Email of the user to enroll
+ * @param {Object} permissions - Object containing permission flags
+ * @returns {Promise} - Promise that resolves to the API response
+ */
+export const enrollUser = async (organizationId, email, permissions) => {
+  console.log('[API] Enrolling user:', email, 'with permissions:', permissions);
+  try {
+    const response = await axios.post(
+      `${API_URL}/organizations/${organizationId}/permissions?included=user,organization`,
+      {
+        data: {
+          type: 'organization_permissions',
+          attributes: {
+            user_id: email,
+            permissions: {
+              admin: permissions.admin || false,
+              read: permissions.read || false,
+              write: permissions.write || false
+            }
+          }
+        }
+      },
+      {
+        headers: {
+          'accept': '*/*',
+          'content-type': 'application/json',
+          'authorization': `Bearer ${getAuthToken()}`
+        }
+      }
+    );
+    
+    console.log('[API] Enroll user response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('[API] Error enrolling user:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get current user information
+ * @returns {Promise} - Promise that resolves to the API response with user details
+ */
+export const getCurrentUser = async () => {
+  console.log('[API] Fetching current user information');
+  try {
+    const response = await axios.get(
+      `${API_URL}/users/me?`,
+      {
+        headers: {
+          'accept': '*/*',
+          'content-type': 'application/json',
+          'authorization': `Bearer ${getAuthToken()}`
+        }
+      }
+    );
+    
+    console.log('[API] Get current user response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('[API] Error fetching current user:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update user permissions in an organization
+ * @param {string} organizationId - ID of the organization
+ * @param {string} permissionId - ID of the permission to update
+ * @param {Object} permissions - Object containing permission flags
+ * @returns {Promise} - Promise that resolves to the API response
+ */
+export const updateUserPermissions = async (organizationId, permissionId, permissions) => {
+  console.log('[API] Updating user permissions:', permissions);
+  try {
+    const response = await axios.patch(
+      `${API_URL}/organizations/${organizationId}/permissions/${permissionId}`,
+      {
+        data: {
+          type: 'organization_permissions',
+          id: permissionId,
+          attributes: {
+            permissions: {
+              admin: permissions.admin || false,
+              read: permissions.read || false,
+              write: permissions.write || false,
+              delete: false
+            }
+          }
+        }
+      },
+      {
+        headers: {
+          'accept': '*/*',
+          'content-type': 'application/json',
+          'authorization': `Bearer ${getAuthToken()}`
+        }
+      }
+    );
+    
+    console.log('[API] Update permissions response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('[API] Error updating user permissions:', error);
+    throw error;
+  }
+};
+
 // You can export additional deployment-related API functions here

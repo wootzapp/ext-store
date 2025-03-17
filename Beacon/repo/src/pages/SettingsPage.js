@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Settings, ChevronDown, MoreVertical, User, Eye, Edit, Trash, Plus, Check, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getOrganizations, getOrganizationDetails, updateOrganization } from '../api/OrganizationAPI';
-import CreateOrganization from '../components/CreateOrganization';
+import { getOrganizations, getOrganizationDetails, updateOrganization, deleteOrganization, getCurrentUser, updateUserPermissions } from '../api/OrganizationAPI';
+import CreateOrganization, { EnrollUser } from '../components/CreateOrganization';
 import styles from '../styles/SettingsPage.styles';
 
 /**
@@ -38,6 +38,29 @@ const SettingsPage = () => {
   const [editError, setEditError] = useState('');
   const editInputRef = useRef(null);
 
+  // State for managing delete confirmation
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // State for managing user enrollment modal
+  const [showEnrollUser, setShowEnrollUser] = useState(false);
+
+  // Add new state variables
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showUserDropdown, setShowUserDropdown] = useState(null);
+  const [showUpdatePermissions, setShowUpdatePermissions] = useState(false);
+  const userDropdownRef = useRef(null);
+
+  // State for managing current user
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // State for managing permission updates
+  const [updatingPermissions, setUpdatingPermissions] = useState(false);
+  const [selectedPermissions, setSelectedPermissions] = useState({
+    admin: false,
+    read: false,
+    write: false
+  });
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -57,10 +80,46 @@ const SettingsPage = () => {
     }
   }, [isEditing]);
 
+  // Add useEffect for handling clicks outside user dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target)) {
+        setShowUserDropdown(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // Fetch organizations on component mount
   useEffect(() => {
     fetchOrganizations();
   }, []);
+
+  // Add useEffect to fetch current user
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await getCurrentUser();
+        setCurrentUser(response.data);
+      } catch (error) {
+        console.error('Error fetching current user:', error);
+      }
+    };
+    fetchCurrentUser();
+  }, []);
+
+  // Add useEffect to set initial permissions when selectedUser changes
+  useEffect(() => {
+    if (selectedUser) {
+      setSelectedPermissions({
+        admin: selectedUser.roles.includes('admin'),
+        read: selectedUser.roles.includes('read'),
+        write: selectedUser.roles.includes('write')
+      });
+    }
+  }, [selectedUser]);
 
   /**
    * Fetches organizations from the API and sets up initial state
@@ -216,8 +275,65 @@ const SettingsPage = () => {
   // Handle delete organization
   const handleDelete = () => {
     setShowDropdown(false);
-    // Add delete logic here
-    console.log('Delete organization:', selectedOrg?.id);
+    setShowDeleteConfirm(true);
+  };
+
+  // Handle delete confirmation
+  const handleDeleteConfirm = async () => {
+    if (!selectedOrg) return;
+    
+    try {
+      // Delete the organization
+      await deleteOrganization(selectedOrg.id);
+      
+      // Remove the deleted organization from local state
+      const updatedOrgs = organizations.filter(org => org.id !== selectedOrg.id);
+      setOrganizations(updatedOrgs);
+      
+      // Select the next available organization
+      if (updatedOrgs.length > 0) {
+        const nextOrg = updatedOrgs[0];
+        setSelectedOrg(nextOrg);
+        await fetchOrganizationDetails(nextOrg.id);
+      } else {
+        setSelectedOrg(null);
+        setEnrolledUsers([]);
+      }
+    } catch (error) {
+      console.error('Error deleting organization:', error);
+    } finally {
+      setShowDeleteConfirm(false);
+    }
+  };
+
+  // Handle permission toggle
+  const handlePermissionToggle = (permission) => {
+    setSelectedPermissions(prev => ({
+      ...prev,
+      [permission.toLowerCase()]: !prev[permission.toLowerCase()]
+    }));
+  };
+
+  // Handle permission update confirmation
+  const handleUpdatePermissions = async () => {
+    if (!selectedUser || !selectedOrg) return;
+    
+    setUpdatingPermissions(true);
+    try {
+      await updateUserPermissions(
+        selectedOrg.id,
+        selectedUser.id,
+        selectedPermissions
+      );
+      
+      // Refresh organization details to get updated permissions
+      await fetchOrganizationDetails(selectedOrg.id);
+      setShowUpdatePermissions(false);
+    } catch (error) {
+      console.error('Error updating permissions:', error);
+    } finally {
+      setUpdatingPermissions(false);
+    }
   };
 
   // Loading state display
@@ -526,19 +642,55 @@ const SettingsPage = () => {
                 Enrolled Users ({organization.enrolledUsers})
               </div>
             </div>
-            <Plus size={16} color="#FF7A00" />
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowEnrollUser(true);
+              }}
+              style={{ cursor: 'pointer' }}
+            >
+              <Plus size={16} color="#FF7A00" />
+            </div>
           </div>
+
+          {/* Enroll User Modal */}
+          {showEnrollUser && (
+            <EnrollUser
+              onClose={() => setShowEnrollUser(false)}
+              organizationId={selectedOrg.id}
+              onUserEnrolled={async () => {
+                // Refresh organization details to get updated user list
+                await fetchOrganizationDetails(selectedOrg.id);
+              }}
+            />
+          )}
 
           {/* Users List */}
           {usersExpanded && organization.users && organization.users.length > 0 && (
             <>
               {organization.users.map((user, index) => (
-                <div key={user.id || `user-${index}`} style={styles.userRow}>
+                <div key={user.id || `user-${index}`} style={{
+                  ...styles.userRow,
+                  minWidth: 0,
+                  position: 'relative',
+                }}>
                   <div style={styles.userAvatar}>
                     {user.avatar}
                   </div>
-                  <div style={styles.userName}>
-                    <span style={styles.userEmail}>{user.email}</span>
+                  <div style={{
+                    ...styles.userName,
+                    minWidth: 0,
+                    flex: 1,
+                    overflow: 'hidden',
+                  }}>
+                    <span style={{
+                      ...styles.userEmail,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}>
+                      {user.email}
+                    </span>
                     <div style={styles.userRoles}>
                       {user.roles.map((role, idx) => (
                         <div key={`${user.id}-role-${idx}`} style={styles.roleItem}>
@@ -548,13 +700,331 @@ const SettingsPage = () => {
                       ))}
                     </div>
                   </div>
-                  <div style={styles.userActions}>
-                    <MoreVertical size={16} color="rgba(255, 235, 200, 0.6)" />
+                  <div 
+                    style={{ 
+                      position: 'relative',
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                      marginLeft: '8px',
+                    }}
+                  >
+                    <div 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowUserDropdown(showUserDropdown === user.id ? null : user.id);
+                        setSelectedUser(user);
+                      }}
+                    >
+                      <MoreVertical size={16} color="rgba(255, 235, 200, 0.6)" />
+                    </div>
+                    {showUserDropdown === user.id && (
+                      <div 
+                        ref={userDropdownRef}
+                        style={{
+                          position: 'absolute',
+                          right: 0,
+                          top: '100%',
+                          marginTop: '4px',
+                          background: '#1A2337',
+                          border: '1px solid #FFC35BFF',
+                          borderRadius: '8px',
+                          padding: '8px 0',
+                          minWidth: '160px',
+                          zIndex: 10,
+                          maxWidth: 'calc(100vw - 48px)',
+                          '@media (max-width: 480px)': {
+                            right: 'auto',
+                            left: 'auto',
+                            transform: 'translateX(-50%)',
+                          },
+                        }}
+                      >
+                        <div
+                          onClick={() => {
+                            setShowUpdatePermissions(true);
+                            setShowUserDropdown(null);
+                          }}
+                          style={{
+                            padding: '8px 16px',
+                            color: '#FFEBC8FF',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            fontSize: '14px',
+                            textAlign: 'left',
+                            width: '100%',
+                            boxSizing: 'border-box',
+                          }}
+                        >
+                          <Edit size={14} style={{ flexShrink: 0 }} />
+                          <span style={{ flex: 1 }}>Update Permissions</span>
+                        </div>
+                        {currentUser && user.email === currentUser.attributes.email && (
+                          <div
+                            style={{
+                              padding: '8px 16px',
+                              color: '#FFEBC8FF',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              fontSize: '14px',
+                              textAlign: 'left',
+                              width: '100%',
+                              boxSizing: 'border-box',
+                            }}
+                          >
+                            <Edit size={14} style={{ flexShrink: 0 }} />
+                            <span style={{ flex: 1 }}>Update Name</span>
+                          </div>
+                        )}
+                        <div
+                          style={{
+                            padding: '8px 16px',
+                            color: '#ff4444',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            fontSize: '14px',
+                            textAlign: 'left',
+                            width: '100%',
+                            boxSizing: 'border-box',
+                          }}
+                        >
+                          <Trash size={14} style={{ flexShrink: 0 }} />
+                          <span style={{ flex: 1 }}>Unenroll User</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
             </>
           )}
+
+          {/* Update Permissions Modal */}
+          {showUpdatePermissions && selectedUser && (
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              zIndex: 1000,
+            }}>
+              <div style={{
+                background: '#1A2337',
+                border: '1px solid #FFC35BFF',
+                borderRadius: '8px',
+                padding: '24px',
+                width: '100%',
+                maxWidth: '320px',
+                margin: '0 20px',
+              }}>
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '24px',
+                }}>
+                  {/* Header */}
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                  }}>
+                    <h2 style={{
+                      color: '#FFEBC8FF',
+                      margin: 0,
+                      fontSize: '24px',
+                      fontWeight: 'bold',
+                    }}>
+                      Updating Permissions for
+                    </h2>
+                    <p style={{
+                      color: '#FFEBC8FF',
+                      margin: 0,
+                      fontSize: '16px',
+                    }}>
+                      {selectedUser.email}
+                    </p>
+                  </div>
+
+                  {/* Permissions */}
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                  }}>
+                    {['Admin', 'Read', 'Write'].map((permission) => (
+                      <div
+                        key={permission}
+                        onClick={() => handlePermissionToggle(permission)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          padding: '8px',
+                          background: '#141C2F',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <div style={{
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '4px',
+                          border: '1px solid #FFC35BFF',
+                          background: selectedPermissions[permission.toLowerCase()] ? '#FF7A00' : 'transparent',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#FFFFFF',
+                        }}>
+                          {selectedPermissions[permission.toLowerCase()] && '✓'}
+                        </div>
+                        <span style={{
+                          color: '#FFEBC8FF',
+                          fontSize: '14px',
+                        }}>
+                          {permission}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Buttons */}
+                  <div style={{
+                    display: 'flex',
+                    gap: '12px',
+                    marginTop: '16px',
+                  }}>
+                    <button
+                      onClick={() => setShowUpdatePermissions(false)}
+                      disabled={updatingPermissions}
+                      style={{
+                        background: '#1A2337',
+                        border: '1px solid #FFC35BFF',
+                        borderRadius: '4px',
+                        padding: '8px 16px',
+                        color: '#FFEBC8FF',
+                        cursor: updatingPermissions ? 'not-allowed' : 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        flex: 1,
+                        opacity: updatingPermissions ? 0.7 : 1,
+                      }}
+                    >
+                      CANCEL
+                    </button>
+                    <button
+                      onClick={handleUpdatePermissions}
+                      disabled={updatingPermissions}
+                      style={{
+                        background: 'linear-gradient(135deg, #FF7A00, #FF4B00)',
+                        border: 'none',
+                        borderRadius: '4px',
+                        padding: '8px 16px',
+                        color: '#FFFFFF',
+                        cursor: updatingPermissions ? 'not-allowed' : 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        boxShadow: '0 1px 3px rgba(255, 122, 0, 0.3)',
+                        flex: 1,
+                        opacity: updatingPermissions ? 0.7 : 1,
+                      }}
+                    >
+                      {updatingPermissions ? 'UPDATING...' : 'CONFIRM'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000,
+        }}>
+          <div style={{
+            background: '#1A2337',
+            border: '1px solid #FFC35BFF',
+            borderRadius: '8px',
+            padding: '24px',
+            width: '100%',
+            maxWidth: '320px',
+            margin: '0 20px',
+          }}>
+            <h3 style={{
+              color: '#FFEBC8FF',
+              marginTop: 0,
+              marginBottom: '16px',
+              fontSize: '18px',
+              fontWeight: 'bold',
+            }}>
+              Delete Organization?
+            </h3>
+            <p style={{
+              color: '#FFEBC8FF',
+              marginBottom: '24px',
+              fontSize: '14px',
+            }}>
+              Are you sure you want to delete {organization?.name}?
+            </p>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              width: '100%',
+            }}>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                style={{
+                  background: '#1A2337',
+                  border: '1px solid #FFC35BFF',
+                  borderRadius: '4px',
+                  padding: '8px 16px',
+                  color: '#FFEBC8FF',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                }}
+              >
+                CANCEL
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                style={{
+                  background: '#ff4444',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '8px 16px',
+                  color: '#FFFFFF',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                }}
+              >
+                YES
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
