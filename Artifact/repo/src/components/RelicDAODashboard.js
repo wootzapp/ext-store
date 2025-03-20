@@ -359,12 +359,6 @@ const RelicDAODashboard = () => {
                 } catch (error) {
                     console.error('Error fetching data:', error);
                     // If there's an auth error, clear the storage
-                    if (error.response?.status === 401) {
-                        chrome.storage.local.set({
-                            authToken: null,
-                            isLoggedIn: false
-                        });
-                    }
                 }
             }
         };
