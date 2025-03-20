@@ -2,9 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { FaPlus, FaWallet, FaBolt, FaUserCircle, FaCompass, FaCopy, FaEthereum, FaChevronDown, FaChevronUp } from 'react-icons/fa';
-import { fetchAllSolanaAssets, fetchSepoliaEthereumBalance } from '../utils/tokenUtils';
+import { fetchAllSolanaAssets, fetchSepoliaEthereumBalance, fetchEclipseBalance } from '../utils/tokenUtils';
 import btcIcon from '../assets/btc.svg';
 import solIcon from '../assets/sol.svg';
+import eclipseIcon from '../assets/eclipse.png';
+import ethereumIcon from '../assets/ethereum.png';
 
 const Accounts = () => {
   const location = useLocation();
@@ -13,6 +15,7 @@ const Accounts = () => {
   const [loadingBalances, setLoadingBalances] = useState({});
   const [error, setError] = useState(null);
   const [selectedAccount, setSelectedAccount] = useState(null);
+  const [eclipseBalances, setEclipseBalances] = useState({});
 
   useEffect(() => {
     const fetchAccounts = () => {
@@ -43,9 +46,26 @@ const Accounts = () => {
       try {
         let balance;
         if (account.coin === 501) {
-          balance = await fetchAllSolanaAssets(account.address);
+          balance = 0.0000; // Solana balance placeholder
+          
+          // Additionally fetch Eclipse balance for Solana accounts
+          try {
+            const eclipseBalance = await fetchEclipseBalance(account.address);
+            setEclipseBalances(prev => ({
+              ...prev,
+              [account.address]: eclipseBalance
+            }));
+          } catch (eclipseError) {
+            console.error(`Error fetching Eclipse balance for ${account.address}:`, eclipseError);
+            setEclipseBalances(prev => ({
+              ...prev,
+              [account.address]: 0
+            }));
+          }
         } else if (account.coin === 60) {
           balance = await fetchSepoliaEthereumBalance(account.address);
+          console.log(`Fetched ETH balances for ${account.address}:`, balance);
+          // No need to convert here as balance is now an object
         }
         
         setBalances(prev => ({
@@ -80,6 +100,14 @@ const Accounts = () => {
     }
   };
 
+  const getChainTag = (coinType) => {
+    switch (coinType) {
+      case 60: return "Ethereum + EVM Chains";
+      case 501: return "Solana + SVM Chains";
+      default: return "Other";
+    }
+  };
+
   const renderCollapsedBalance = (account) => {
     if (loadingBalances[account.address]) {
       return (
@@ -92,20 +120,24 @@ const Accounts = () => {
 
     if (account.coin === 501) {
       const balance = balances[account.address]?.solBalance || {};
-      const total = Object.values(balance).reduce((sum, val) => sum + val, 0);
+      const total = Object.values(balance).reduce((sum, val) => sum + (Number(val) || 0), 0);
       return (
         <div className="flex flex-col items-end">
-          <span className="text-lg font-semibold">{total.toFixed(4)}</span>
+          <span className="text-lg font-semibold">{Number(total).toFixed(4)}</span>
           <span className="text-sm text-gray-500">SOL</span>
         </div>
       );
     }
 
     if (account.coin === 60) {
-      const balance = balances[account.address] || 0;
+      // For ETH accounts, show the combined balance
+      const ethBalances = balances[account.address] || { sepolia: 0, mainnet: 0 };
+      const total = (ethBalances.sepolia || 0) + (ethBalances.mainnet || 0);
       return (
         <div className="flex flex-col items-end">
-          <span className="text-lg font-semibold">{balance.toFixed(4)}</span>
+          <span className="text-lg font-semibold">
+            {typeof total === 'number' ? total.toFixed(4) : '0.0000'}
+          </span>
           <span className="text-sm text-gray-500">ETH</span>
         </div>
       );
@@ -132,26 +164,55 @@ const Accounts = () => {
 
     if (account.coin === 501) {
       const balance = balances[account.address]?.solBalance || {};
+      const eclipseBalance = eclipseBalances[account.address] || 0;
+      
       return (
         <div className="mt-4 space-y-2">
           {Object.entries(balance).map(([network, amount]) => (
             <div key={network} className="flex justify-between items-center bg-white rounded-lg p-3 shadow-sm border border-gray-100">
-              <span className="text-gray-500">{network}</span>
-              <span className={amount > 0 ? 'font-medium' : 'text-gray-400'}>
-                {`${amount.toFixed(4)} SOL`}
+              <span className="text-gray-500 capitalize">{network}</span>
+              <span className={Number(amount) > 0 ? 'font-medium' : 'text-gray-400'}>
+                {`${Number(amount).toFixed(4)} SOL`}
               </span>
             </div>
           ))}
+          
+          {/* Add Eclipse balance display */}
+          <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-100 flex justify-between items-center">
+            <span className="text-gray-500 flex items-center">
+              <img src={eclipseIcon} alt="Eclipse" className="h-4 w-4 mr-1" /> 
+              Eclipse
+            </span>
+            <span className={Number(eclipseBalance) > 0 ? 'font-medium' : 'text-gray-400'}>
+              {`${Number(eclipseBalance).toFixed(4)} ETH`}
+            </span>
+          </div>
         </div>
       );
     }
     
     if (account.coin === 60) {
-      const balance = balances[account.address] || 0;
+      const ethBalances = balances[account.address] || { sepolia: 0, mainnet: 0 };
       return (
-        <div className="mt-4 bg-white rounded-lg p-3 shadow-sm border border-gray-100 flex justify-between items-center">
-          <span className="text-gray-500">sepolia</span>
-          <span>{`${balance.toFixed(4)} ETH`}</span>
+        <div className="mt-4 space-y-2">
+          {/* <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-100 flex justify-between items-center">
+            <span className="text-gray-500 flex items-center">
+              <img src={ethereumIcon} alt="Ethereum" className="h-4 w-4 mr-1" /> 
+              Sepolia
+            </span>
+            <span className={Number(ethBalances.sepolia) > 0 ? 'font-medium' : 'text-gray-400'}>
+              {`${Number(ethBalances.sepolia || 0).toFixed(4)} ETH`}
+            </span>
+          </div> */}
+          <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-100 flex justify-between items-center">
+            <span className="text-gray-500 flex items-center">
+              <FaEthereum className="text-[#627EEA] h-4 w-4 mr-1" />
+              Mainnet
+            </span>
+            <span className={Number(ethBalances.mainnet) > 0 ? 'font-medium' : 'text-gray-400'}>
+              {`${Number(ethBalances.mainnet || 0).toFixed(4)} ETH`}
+            </span>
+          </div>
         </div>
       );
     }
@@ -178,19 +239,24 @@ const Accounts = () => {
         {accounts.map((account, index) => (
           <div 
             key={index} 
-            className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-200 cursor-pointer hover:border-[#FF8C00] transition-colors"
-            // onClick={() => handleAccountClick(account)}
+            className="bg-gray-50 rounded-xl p-4 mb-4 border border-[#FF8C00] cursor-pointer shadow-md"
+            onClick={() => handleAccountClick(account)}
           >
             <div className="flex justify-between items-center mb-2">
               <div className="flex items-center space-x-2">
                 <div className="text-lg">
                   {getCoinIcon(account.coin)}
                 </div>
-                <h2 className="font-semibold text-lg">{account.name}</h2>
+                <div className="flex flex-col w-full">
+                  <h2 className="font-semibold text-base">{account.name}</h2>
+                  <span className="text-xs text-black bg-gray-200 px-2 py-0.5 mt-1 rounded-full inline-block self-center">
+                    {getChainTag(account.coin)}
+                  </span>
+                </div>
               </div>
-              {/* <div className="text-gray-400">
+              <div className="text-gray-400">
                 {selectedAccount?.address === account.address ? <FaChevronUp size={12} /> : <FaChevronDown size={12} />}
-              </div> */}
+              </div>
             </div>
             
             <div className="flex justify-between items-center">
@@ -209,20 +275,16 @@ const Accounts = () => {
                   <FaCopy />
                 </button>
               </div>
-              <div className="text-right">
-              {/* {renderCollapsedBalance(account)} */}
-                <div className="flex flex-col items-end">
-                  <span className="text-lg font-semibold">0.0000</span>
-                  <span className="text-sm text-gray-500">{account.coin === 501 ? 'SOL' : 'ETH'}</span>
-                </div>
-              </div>
+              {/* <div className="text-right">
+                {renderCollapsedBalance(account)}
+              </div> */}
             </div>
 
-            {/* {selectedAccount?.address === account.address && (
+            {selectedAccount?.address === account.address && (
               <div className="mt-4 border-t pt-4">
                 {renderBalance(account)}
               </div>
-            )} */}
+            )}
           </div>
         ))}
       </div>
@@ -236,10 +298,11 @@ const Accounts = () => {
       {/* <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2">
         <div className="flex justify-between max-w-sm mx-auto">
           {[
-            { icon: <FaWallet size={16} />, label: 'Portfolio', path: '/portfolio' },
-            { icon: <FaBolt size={16} />, label: 'Activity', path: '/activity' },
+            // { icon: <FaWallet size={16} />, label: 'Portfolio', path: '/portfolio' },
+            // { icon: <FaBolt size={16} />, label: 'Activity', path: '/activity' },
             { icon: <FaUserCircle size={16} />, label: 'Accounts', path: '/accounts' },
-            { icon: <FaCompass size={16} />, label: 'Explore', path: '/explore' },
+            // { icon: <FaCompass size={16} />, label: 'Explore', path: '/explore' },
+            // { icon: <FaCompass size={16} />, label: 'Send', path: '/send' },
           ].map((item, index) => (
             <Link
               key={index}

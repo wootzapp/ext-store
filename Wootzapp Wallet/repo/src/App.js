@@ -10,7 +10,7 @@ import Loading from './components/Loading';
 import Activity from './components/Activity';
 import Explore from './components/Explore';
 import Buy from './components/Buy';
-import SendWallet from './components/SendWallet';
+// import SendWallet from './components/SendWallet';
 import Accounts from './components/Accounts';
 
 function App() {
@@ -19,6 +19,8 @@ function App() {
   const [isLocked, setIsLocked] = useState(true);
   const [showLoading, setShowLoading] = useState(true);
   const [hasSignRequest, setHasSignRequest] = useState(false);
+  const [hasPendingTransaction, setHasPendingTransaction] = useState(false);
+  const [hasSolanaTransaction, setHasSolanaTransaction] = useState(false);
 
   const checkWalletStatus = useCallback(() => {
     // First check if wallet is created using the Chrome API
@@ -33,11 +35,25 @@ function App() {
       setWalletCreated(result.isCreated);
 
       if (result.isCreated) {
-        // Check for sign request first
+        // Check for sign request and pending transactions
         chrome.runtime.sendMessage({ type: 'getSignRequest' }, (response) => {
           console.log('Sign request check response:', response);
           if (response && response.type === 'signMessageRequest') {
             setHasSignRequest(true);
+          }
+        });
+
+        chrome.runtime.sendMessage({ type: 'getPendingTransaction' }, (response) => {
+          if (response && response.type === 'newTransactionRequest') {
+            setHasPendingTransaction(true);
+          }
+        });
+
+        // Add check for pending Solana transactions
+        chrome.runtime.sendMessage({ type: 'getPendingSolanaTransaction' }, (response) => {
+          console.log('Solana transaction check response:', response);
+          if (response && response.type === 'solanaSignTransactionRequest') {
+            setHasSolanaTransaction(true);
           }
         });
 
@@ -60,12 +76,24 @@ function App() {
   useEffect(() => {
     checkWalletStatus();
 
-    // Listen for new sign requests
     const handleBackgroundMessage = (message) => {
       console.log('Received message:', message);
-      if (message.type === 'signMessageRequest') {
-        console.log('Setting hasSignRequest to true');
-        setHasSignRequest(true);
+      switch (message.type) {
+        case 'signMessageRequest':
+          setHasSignRequest(true);
+          break;
+        case 'newTransactionRequest':
+          setHasPendingTransaction(true);
+          break;
+        case 'solanaSignTransactionRequest':
+          console.log('Solana transaction request received in App');
+          setHasSolanaTransaction(true);
+          break;
+        case 'transactionStatusChanged':
+          if (message.data.status === 'signed' || message.data.status === 'failed') {
+            setHasPendingTransaction(false);
+          }
+          break;
       }
     };
 
@@ -97,16 +125,17 @@ function App() {
           <Route 
             path="/" 
             element={(() => {
-              // Debug logs
               console.log("Route decision:", {
                 walletCreated,
                 isLocked,
-                hasSignRequest
+                hasSignRequest,
+                hasPendingTransaction,
+                hasSolanaTransaction
               });
 
-              // If there's a sign request and wallet is unlocked, go to portfolio
-              if (hasSignRequest && !isLocked) {
-                console.log("Redirecting to portfolio due to sign request");
+              // If there's any pending request and wallet is unlocked
+              if ((hasSignRequest || hasPendingTransaction || hasSolanaTransaction) && !isLocked) {
+                console.log("Redirecting to portfolio due to pending request");
                 return <Navigate to="/portfolio" replace />;
               }
 
@@ -134,8 +163,8 @@ function App() {
           <Route path="/portfolio" element={<Portfolio setIsLocked={setIsLocked} />} />
           {/* <Route path="/activity" element={<Activity />} />
           <Route path="/explore" element={<Explore />} />
-          <Route path="/buy" element={<Buy />} />
-          <Route path="/send" element={<SendWallet />} /> */}
+          <Route path="/buy" element={<Buy />} /> */}
+          {/* <Route path="/send" element={<SendWallet />} /> */}
           <Route path="/accounts" element={<Accounts />} />
         </Routes>
       </div>

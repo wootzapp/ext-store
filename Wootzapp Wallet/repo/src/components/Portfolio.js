@@ -13,42 +13,85 @@ const Portfolio = ({ setIsLocked }) => {
   const [accounts, setAccounts] = useState([]);
   const [error, setError] = useState(null);
   const [signRequest, setSignRequest] = useState(null);
+  const [transactionRequest, setTransactionRequest] = useState(null);
+  const [solanaTransactionRequest, setSolanaTransactionRequest] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    console.log('Setting up Portfolio listeners');
+
     const handleBackgroundMessage = (message) => {
+      console.log('🎯 Portfolio received message:', message);
+      
       if (message.type === 'signMessageRequest') {
-        console.log('Sign message request received from background:', message.data);
+        console.log('Sign message request received:', message.data);
         setSignRequest(message.data);
+      } 
+      else if (message.type === 'solanaSignTransactionRequest') {
+        console.log('🌟 Solana transaction request received in Portfolio:', message.data);
+        if (message.data && message.data.id) {
+          setSolanaTransactionRequest(message.data);
+        } else {
+          console.error('Invalid Solana transaction data:', message.data);
+        }
+      }
+      else if (message.type === 'newTransactionRequest') {
+        console.log('New transaction request received:', message.data);
+        setTransactionRequest(message.data);
+      }
+      else if (message.type === 'transactionStatusChanged') {
+        console.log('Transaction status changed:', message.data);
+        if (message.data.status === 'signed' || message.data.status === 'failed') {
+          setTransactionRequest(null);
+          if (message.data.status === 'failed') {
+            setError(`Transaction failed: ${message.data.error || 'Unknown error'}`);
+          }
+        }
       }
     };
 
+    // Add message listener
     chrome.runtime.onMessage.addListener(handleBackgroundMessage);
 
-    // Check for any pending sign requests
+    // Check for pending requests
     chrome.runtime.sendMessage({ type: 'getSignRequest' }, (response) => {
       if (response && response.type === 'signMessageRequest') {
-        console.log('Pending sign request received:', response.data);
+        console.log('Pending sign request found:', response.data);
         setSignRequest(response.data);
       }
     });
 
-    const fetchAccounts = () => {
-      console.log('Fetching accounts...');
-      chrome.wootz.getAllAccounts((result) => {
-        if (result.success) {
-          console.log('Accounts fetched successfully:', result.accounts);
-          setAccounts(result.accounts);
-        } else {
-          console.error('Failed to fetch accounts:', result.error);
-          setError(result.error || "Failed to fetch accounts");
-        }
-      });
-    };
+    chrome.runtime.sendMessage({ type: 'getPendingTransaction' }, (response) => {
+      if (response && response.type === 'newTransactionRequest') {
+        console.log('Pending transaction request found:', response.data);
+        setTransactionRequest(response.data);
+      }
+    });
 
-    fetchAccounts();
+    // Check for pending Solana transactions on mount
+    console.log('Checking for pending Solana transactions...');
+    chrome.runtime.sendMessage({ type: 'getPendingSolanaTransaction' }, (response) => {
+      console.log('Pending Solana transaction response:', response);
+      if (response && response.type === 'solanaSignTransactionRequest' && response.data) {
+        console.log('Found pending Solana transaction:', response.data);
+        setSolanaTransactionRequest(response.data);
+      }
+    });
 
+    // Fetch accounts
+    chrome.wootz.getAllAccounts((result) => {
+      if (result.success) {
+        console.log('Accounts fetched:', result.accounts);
+        setAccounts(result.accounts);
+      } else {
+        console.error('Failed to fetch accounts:', result.error);
+        setError(result.error || "Failed to fetch accounts");
+      }
+    });
+
+    // Cleanup
     return () => {
+      console.log('Cleaning up Portfolio listeners');
       chrome.runtime.onMessage.removeListener(handleBackgroundMessage);
     };
   }, []);
@@ -98,6 +141,65 @@ const Portfolio = ({ setIsLocked }) => {
     }
   };
 
+  const handleSignTransaction = (approved) => {
+    if (!transactionRequest) {
+      console.error('No transaction request available');
+      return;
+    }
+
+    setIsLoading(true);
+    console.log(`Signing transaction (Approved: ${approved}, TxMetaId: ${transactionRequest.txMetaId})...`);
+
+    chrome.runtime.sendMessage({
+      type: 'signTransaction',
+      txMetaId: transactionRequest.txMetaId,
+      chainId: transactionRequest.chainId,
+      coinType: transactionRequest.coinType,
+      approved: approved
+    }, (response) => {
+      setIsLoading(false);
+      
+      if (chrome.runtime.lastError) {
+        console.error('Chrome runtime error:', chrome.runtime.lastError);
+        setError('Failed to sign transaction: ' + chrome.runtime.lastError.message);
+      } else if (response && response.hash) {
+        console.log('Transaction signed successfully:', response.hash);
+      } else {
+        console.error('Failed to sign transaction:', response ? response.error : 'Unknown error');
+        setError('Failed to sign transaction: ' + (response ? response.error : 'Unknown error'));
+      }
+    });
+  };
+
+  const handleSignSolanaTransaction = (approved) => {
+    if (!solanaTransactionRequest) {
+      console.error('No Solana transaction request available');
+      return;
+    }
+
+    setIsLoading(true);
+    console.log(`Signing Solana transaction (Approved: ${approved}, Request ID: ${solanaTransactionRequest.id})...`);
+
+    chrome.runtime.sendMessage({
+      type: 'signSolanaTransaction',
+      requestId: solanaTransactionRequest.id,
+      approved: approved
+    }, (response) => {
+      setIsLoading(false);
+      
+      if (chrome.runtime.lastError) {
+        console.error('Chrome runtime error:', chrome.runtime.lastError);
+        setError('Failed to sign transaction: ' + chrome.runtime.lastError.message);
+      } else if (response && response.success) {
+        console.log('Solana transaction signed successfully');
+        setSolanaTransactionRequest(null);
+      } else {
+        console.error('Failed to sign Solana transaction:', response ? response.error : 'Unknown error');
+        setError('Failed to sign transaction: ' + (response ? response.error : 'Unknown error'));
+      }
+    });
+  };
+
   const getCoinIcon = (coinType) => {
     switch (coinType) {
       case 60: return <FaEthereum className="text-[#627EEA] h-6 w-6" />;
@@ -106,6 +208,9 @@ const Portfolio = ({ setIsLocked }) => {
       default: return <span className="text-gray-400">?</span>;
     }
   };
+
+  // Add debug logging for render
+  console.log('Current Solana transaction request:', solanaTransactionRequest);
 
   if (isLoading) {
     return <Loading />;
@@ -146,6 +251,118 @@ const Portfolio = ({ setIsLocked }) => {
                 <FaSignature className="mr-2" /> Sign
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (transactionRequest) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">
+                Sign <span className="bg-gradient-to-r from-[#FF3B30] to-[#FF8C00] text-transparent bg-clip-text">Transaction</span>
+              </h2>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <p className="text-gray-700 font-medium">From:</p>
+                <p className="text-gray-600 break-all text-sm">{transactionRequest.from}</p>
+              </div>
+              
+
+              <div className="space-y-2">
+                <p className="text-gray-700 font-medium">Transaction ID:</p>
+                <p className="text-gray-600 break-all text-sm">{transactionRequest.txMetaId}</p>
+              </div>
+            </div>
+
+            <div className="flex space-x-4 pt-4">
+              <button
+                onClick={() => handleSignTransaction(false)}
+                className="flex-1 px-6 py-3 border-0 text-sm font-medium rounded-xl text-white bg-gradient-to-r from-[#FF3B30] to-[#FF4B4B] hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF3B30] flex items-center justify-center shadow-lg transition-all duration-200"
+              >
+                <FaTimes className="mr-2" /> Reject
+              </button>
+              <button
+                onClick={() => handleSignTransaction(true)}
+                className="flex-1 px-6 py-3 border-0 text-sm font-medium rounded-xl text-white bg-gradient-to-r from-[#34C759] to-[#32D74B] hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#32D74B] flex items-center justify-center shadow-lg transition-all duration-200"
+              >
+                <FaSignature className="mr-2" /> Sign
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (solanaTransactionRequest) {
+    console.log('Rendering Solana transaction UI:', solanaTransactionRequest);
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">
+                Sign <span className="bg-gradient-to-r from-[#FF3B30] to-[#FF8C00] text-transparent bg-clip-text">Solana Transaction</span>
+              </h2>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <p className="text-gray-700 font-medium">Address:</p>
+                <p className="text-gray-600 break-all text-sm">
+                  {`${solanaTransactionRequest.address.slice(0, 6)}...${solanaTransactionRequest.address.slice(-4)}`}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-gray-700 font-medium">Origin:</p>
+                <p className="text-gray-600 break-all text-sm">
+                  {solanaTransactionRequest.origin}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-gray-700 font-medium">Chain ID:</p>
+                <p className="text-gray-600 text-sm">
+                  {solanaTransactionRequest.chainId}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-gray-700 font-medium">Request ID:</p>
+                <p className="text-gray-600 text-sm">
+                  {solanaTransactionRequest.id}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex space-x-4 pt-4">
+              <button
+                onClick={() => handleSignSolanaTransaction(false)}
+                className="flex-1 px-6 py-3 border-0 text-sm font-medium rounded-xl text-white bg-gradient-to-r from-[#FF3B30] to-[#FF4B4B] hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF3B30] flex items-center justify-center shadow-lg transition-all duration-200"
+              >
+                <FaTimes className="mr-2" /> Reject
+              </button>
+              <button
+                onClick={() => handleSignSolanaTransaction(true)}
+                className="flex-1 px-6 py-3 border-0 text-sm font-medium rounded-xl text-white bg-gradient-to-r from-[#34C759] to-[#32D74B] hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#32D74B] flex items-center justify-center shadow-lg transition-all duration-200"
+              >
+                <FaSignature className="mr-2" /> Sign
+              </button>
+            </div>
+
+            {error && (
+              <div className="mt-4 p-3 bg-red-100 border border-red-500 rounded-lg text-red-700">
+                {error}
+              </div>
+            )}
           </div>
         </div>
       </div>

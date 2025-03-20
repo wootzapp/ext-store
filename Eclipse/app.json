@@ -1,0 +1,19 @@
+
+{
+    "manifest_version": "v1.0",
+    "name": "tap.eclipse",
+    "version": "1.0.0",
+    "description": "Tap Eclipse website integration with wootzapp wallet.",
+    "author": {
+      "name": "Wootzapp Team",
+      "email": "dev.jangid@wootzapp.com"
+    },
+    "permissions": [
+        "tabs", 
+        "scripting", 
+        "activeTab",
+        "wootz",
+        "cors"
+    ]
+  }
+  
