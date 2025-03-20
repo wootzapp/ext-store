@@ -1,0 +1,62 @@
+{
+  "manifest_version": 3,
+  "name": "Beacon",
+  "version": "1.0.0",
+  "description": "Beacon Chrome Extension",
+  "action": {
+    "default_popup": "index.html",
+    "default_icon": {
+      "16": "logo.png",
+      "32": "logo.png",
+      "48": "logo.png",
+      "128": "logo.png"
+    }
+  },
+  "icons": {
+    "16": "logo.png",
+    "32": "logo.png",
+    "48": "logo.png",
+    "128": "logo.png"
+  },
+  "permissions": [
+    "activeTab",
+    "storage",
+    "alarms",
+    "tabs",
+    "scripting",
+    "webNavigation"
+  ],
+  "host_permissions": [
+    "https://*.x.com/*",
+    "https://twitter.com/*",
+    "https://api.beaconator.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [{
+    "matches": ["*://*.x.com/*", "*://twitter.com/*"],
+    "js": ["content.js"]
+  }],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.beaconator.com https://*.x.com https://twitter.com"
+  },
+  "web_accessible_resources": [{
+    "resources": [
+      "index.html",
+      "*.js",
+      "*.css",
+      "interceptors/unfollowinterceptor.js",
+      "interceptors/unliketweetinterceptor.js",
+      "interceptors/deletetweetinterceptor.js",
+      "interceptors/removeretweetinterceptor.js",
+      "interceptors/postsandrepliesinterceptor.js",
+      "interceptors/likedtweetinterceptor.js",
+      "interceptors/interceptor.js",
+      "interceptors/tweetinterceptor.js"
+    ],
+    "matches": ["<all_urls>"],
+    "use_dynamic_url": true
+  }]
+}
