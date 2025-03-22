@@ -26,17 +26,18 @@
     "scripting", 
     "activeTab",
     "wootz",
-    "cors"
+    "cors",
+    "storage"
   ],
   "host_permissions": [
     "https://app.dynamicauth.com/*",
     "https://tap.eclipse.xyz/*",
-    "http://*/*",
-    "https://*/*"
+    "https://*.firebaseio.com/*",
+    "https://*.gstatic.com/*"
   ],
 
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://app.dynamicauth.com"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://www.gstatic.com/ https://*.firebaseio.com https://*.firebase.com"
   },
   "web_accessible_resources": [
     {
@@ -44,6 +45,15 @@
         "icons/icon128.png"
       ],
       "matches": ["<all_urls>"]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://tap.eclipse.xyz/*"],
+      "js": ["contentScript.js"]
     }
   ]
 }
