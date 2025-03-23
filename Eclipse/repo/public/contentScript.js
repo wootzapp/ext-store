@@ -143,6 +143,21 @@ if (window.location.href.includes('tap.eclipse.xyz')) {
         }
     }
 
+    // Helper function to get formatted IST time
+    function getISTDateTime() {
+        const options = {
+            timeZone: 'Asia/Kolkata',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        };
+        return new Date().toLocaleString('en-IN', options);
+    }
+
     // Function to get current data from Firebase
     async function getCurrentFirebaseData(walletAddress) {
         try {
@@ -185,7 +200,9 @@ if (window.location.href.includes('tap.eclipse.xyz')) {
                 currentData['connect-discord'] !== newStatuses['connect-discord'] ||
                 currentData['connect-wallet'] !== newStatuses['connect-wallet'] ||
                 currentData['domain-setup'] !== newStatuses['domain-setup'] ||
-                currentData['bridge'] !== newStatuses['bridge'];
+                currentData['bridge'] !== newStatuses['bridge'] ||
+                currentData.lastUpdateTime !== getISTDateTime() ||
+                currentData.creationTime !== currentData.creationTime;
             
             if (!isDifferent) {
                 console.log('Data unchanged, skipping update');
@@ -201,7 +218,9 @@ if (window.location.href.includes('tap.eclipse.xyz')) {
             'connect-wallet': newStatuses['connect-wallet'],
             'domain-setup': newStatuses['domain-setup'],
             'bridge': newStatuses['bridge'],
-            inviteCode: data.inviteCode
+            inviteCode: data.inviteCode,
+            lastUpdateTime: getISTDateTime(),
+            creationTime: currentData?.creationTime || getISTDateTime()
         };
 
         console.log('Sending new data to Firebase:', cleanData);
