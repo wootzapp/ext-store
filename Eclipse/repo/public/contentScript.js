@@ -79,6 +79,10 @@ if (window.location.href.includes('tap.eclipse.xyz')) {
     function getOnboardingInviteCode(){
         console.log("getting onboarding invite code");
         const onboardingInviteCode = localStorage.getItem('onboarding-invite-code');
+        if (!onboardingInviteCode) {
+            console.log('No onboarding invite code found');
+            return null;
+        }
         const onboardingInviteCodeValue = onboardingInviteCode.replace(/['"]+/g, '');
         console.log("onboarding invite code", onboardingInviteCodeValue);
         return onboardingInviteCodeValue;
@@ -192,9 +196,26 @@ if (window.location.href.includes('tap.eclipse.xyz')) {
         }
 
         // Check if data is different
-        if (currentData) {
+        if (currentData && data.inviteCode != null) {
             const isDifferent = 
                 currentData.inviteCode !== data.inviteCode || 
+                currentData.walletAddress !== data.walletAddress ||
+                currentData['connect-twitter'] !== newStatuses['connect-twitter'] ||
+                currentData['connect-discord'] !== newStatuses['connect-discord'] ||
+                currentData['connect-wallet'] !== newStatuses['connect-wallet'] ||
+                currentData['domain-setup'] !== newStatuses['domain-setup'] ||
+                currentData['bridge'] !== newStatuses['bridge'] ||
+                currentData.lastUpdateTime !== getISTDateTime() ||
+                currentData.creationTime !== currentData.creationTime;
+            
+            if (!isDifferent) {
+                console.log('Data unchanged, skipping update');
+                return;
+            }
+        }
+
+        if(currentData && data.inviteCode == null){   
+            const isDifferent = 
                 currentData.walletAddress !== data.walletAddress ||
                 currentData['connect-twitter'] !== newStatuses['connect-twitter'] ||
                 currentData['connect-discord'] !== newStatuses['connect-discord'] ||
@@ -218,7 +239,7 @@ if (window.location.href.includes('tap.eclipse.xyz')) {
             'connect-wallet': newStatuses['connect-wallet'],
             'domain-setup': newStatuses['domain-setup'],
             'bridge': newStatuses['bridge'],
-            inviteCode: data.inviteCode,
+            inviteCode: data.inviteCode ? data.inviteCode : currentData.inviteCode,
             lastUpdateTime: getISTDateTime(),
             creationTime: currentData?.creationTime || getISTDateTime()
         };
@@ -243,7 +264,7 @@ if (window.location.href.includes('tap.eclipse.xyz')) {
 
     // Initial check when script loads
     const initialData = getInitialData();
-    if (initialData.walletAddress && initialData.inviteCode) {
+    if (initialData.walletAddress) {
         console.log("sending data");
         sendToFirebase(initialData);
     }
