@@ -92,7 +92,7 @@ function JobsPage() {
     const fetchJobs = async () => {
         setIsLoading(true);
         try {
-            const jobs = await chrome.wootz.getJobs();
+            const jobs = await chrome.wootzapp.getJobs();
             if (jobs.length > 0) {
                 setFetchedJobs(prevJobs => {
                     const parsedJobs = jobs.map(job => {
