@@ -35,6 +35,40 @@
       "updated_at": "2025-02-26T15:00:00Z"
     },
     {
+      "id": "gpfellaldmjpgonllcjpjfpodfmgobnk",
+      "name": "Tap.Eclipse",
+      "description": "Tap Eclipse website integration with wootzapp wallet.",
+      "version": "1.0.0",
+      "author": "Wootzapp Team",
+      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Eclipse/tap.eclipse.crx",
+      "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Eclipse/repo/public/icons/icon128.png",
+      "github_url": "https://github.com/wootzapp/ext-store/tree/main/Eclipse/repo",
+      "tags": [
+        "Games",
+        "Web3",
+        "Crypto"
+      ],
+      "created_at": "2025-02-26T15:00:00Z",
+      "updated_at": "2025-02-26T15:00:00Z"
+    },
+    {
+      "id": "kpobgdhknoakgagflffeigaojlglkbhn",
+      "name": "Blockmesh Network",
+      "description": "BlockMesh Network allows you to generate passive income from your excessive bandwidth.",
+      "version": "0.0.519",
+      "author": "Wootzapp Team",
+      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Blockmesh%20Network/Blockmesh.crx",
+      "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Blockmesh%20Network/blockmesh-icon.png",
+      "github_url": "https://github.com/wootzapp/ext-store/tree/main/Blockmesh%20Network/repo",
+      "tags": [
+        "Earn",
+        "Rewards",
+        "Scraping"
+      ],
+      "created_at": "2025-02-26T15:00:00Z",
+      "updated_at": "2025-02-26T15:00:00Z"
+    },
+    {
       "id": "amjlbcejmaebkjfmeenkcijgpjpieepc",
       "name": "Camp Network",
       "description": "An extension to earn passive money by scrolling tweets on twitter(X).",
