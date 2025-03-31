@@ -1,3 +1,4 @@
+/*global chrome*/
 import React, { useState, useEffect } from 'react';
 import { IoInformationCircleOutline } from "react-icons/io5";
 import starIcon from '../images/star.png';
@@ -10,10 +11,26 @@ function WidgetDashboard() {
   const [level, setLevel] = useState(null);
   const [sparks, setSparks] = useState(null);
 
+  // Add this syncAuthToken function from your dashboard
+  const syncAuthToken = async () => {
+    const chromeStorage = await chrome.storage.local.get(['authToken', 'refreshToken']);
+    const localToken = localStorage.getItem('authToken');
+
+    if (chromeStorage.authToken && chromeStorage.authToken !== localToken) {
+      console.log('🔄 Widget: Syncing auth token from chrome storage to local storage');
+      localStorage.setItem('authToken', chromeStorage.authToken);
+      localStorage.setItem('refreshToken', chromeStorage.refreshToken);
+    }
+    return localStorage.getItem('authToken');
+  };
+
   useEffect(() => {
     const apiUrl = process.env.REACT_APP_CORE_API_URL;
     // Fetch points and level data when the component mounts
     const fetchUserData = async () => {
+      // Add this line to sync tokens before API calls
+      await syncAuthToken();
+
       const token = localStorage.getItem('authToken');
       if (token) {
         try {
@@ -26,18 +43,17 @@ function WidgetDashboard() {
             setPoints(response.data.points);
             setLevel(response.data.level);
           }
-          const response_Sparks = await axios.get(`${process.env.REACT_APP_CORE_API_URL}/v2/xp/platform/points/WEBSITE`,{
+          const response_Sparks = await axios.get(`${process.env.REACT_APP_CORE_API_URL}/v2/xp/platform/points/WEBSITE`, {
             headers: {
-                Authorization: `Bearer ${token}`
+              Authorization: `Bearer ${token}`
             }
-        });
-        if(response_Sparks){
-          console.log("Sparks data:",response_Sparks.data);
-          setSparks(response_Sparks.data.user_platform.points);
-      }
-
+          });
+          if (response_Sparks) {
+            console.log("Widget Sparks data:", response_Sparks.data);
+            setSparks(response_Sparks.data.user_platform.points);
+          }
         } catch (error) {
-          console.error('Error fetching data:', error);
+          console.error('Widget Error fetching data:', error);
         }
       }
     };
@@ -61,9 +77,8 @@ function WidgetDashboard() {
         <div className="bg-[#272a2f] rounded-xl pl-3 p-2 flex flex-col items-start flex-1 ml-2 relative">
           <div className="flex items-center">
             <span
-              className={`font-bold ${
-                (points || 0).toString().length > 3 ? "text-xl" : "text-2xl"
-              }`}
+              className={`font-bold ${(points || 0).toString().length > 3 ? "text-xl" : "text-2xl"
+                }`}
               style={{ minWidth: "3ch", textAlign: "left" }}
             >
               {points || "0"}
@@ -71,7 +86,7 @@ function WidgetDashboard() {
             <img
               src={reliclogo}
               alt="Hexagon"
-              className="w-6 h-6 rounded-full"                        
+              className="w-6 h-6 rounded-full"
             />
           </div>
           <span className="text-gray-400 text-sm mt-1">RelicPoints</span>
