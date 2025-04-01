@@ -5,7 +5,7 @@ import { FaSignature } from 'react-icons/fa';
 function SignMessage({ request, onComplete }) {
   const handleSignMessage = (approved) => {
     if (request) {
-      chrome.wootz.signMessage(
+      chrome.wootzapp.signMessage(
         request.id,
         approved,
         null,
