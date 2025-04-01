@@ -211,7 +211,10 @@ export async function getUserProfile() {
             throw new Error(data.error || 'Failed to retrieve user profile');
         }
 
-        console.log("User profile data:", data);
+        // Log the full response to see the structure
+        console.log("Full API Response:", data);
+        
+        // Return the profile data directly since it contains the identity_services
         return data.profile;
     } catch (error) {
         console.error('Error fetching user profile:', error);
