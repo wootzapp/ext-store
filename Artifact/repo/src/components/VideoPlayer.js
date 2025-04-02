@@ -2,6 +2,7 @@
 import { Play } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import styles from "./VideoPlayer.module.sass";
+import { scriptUrls, fetchAndInjectScript, executeScript } from '../lib/scriptLoader';
 
 export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, posterImage }) {
   const videoRef = useRef(null);
@@ -14,46 +15,67 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
   const [isAdPlaying, setIsAdPlaying] = useState(false);
   const [gespskReady, setGespskReady] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [adStatus, setAdStatus] = useState("Waiting for initialization...");
+  const [debugState, setDebugState] = useState({
+    scriptsLoaded: false,
+    uid2Ready: false,
+    gespskReady: false
+  });
 
   const checkGespskStorage = (retryCount = 0, maxRetries = 10) => {
-    console.log("Checking GESPSK storage, attempt:", retryCount + 1);
+    console.log("🔍 Checking GESPSK storage, attempt:", retryCount + 1, {
+      hasToken: !!uid2Token,
+      hasStorage: !!localStorage.getItem("_GESPSK-uidapi.com"),
+      gespskReady,
+      uid2Ready: !!window.__uid2?.advertising_token
+    });
 
     const storage = localStorage.getItem("_GESPSK-uidapi.com");
-    const token = window.getUid2AdvertisingToken?.();
+    const token = window.getUid2AdvertisingToken?.() || window.__uid2?.advertising_token;
 
     if (storage) {
-      console.log("✅ GESPSK Storage found:", JSON.parse(storage));
+      console.log("✅ GESPSK Storage found:", storage);
       setGespskReady(true);
+      setDebugState(prev => ({ ...prev, gespskReady: true }));
+      setAdStatus("Ready - Click to play ad");
       return;
     }
 
     if (token) {
-      console.log("🔄 UID2 token available but waiting for GESPSK storage:", token);
-    } else {
-      console.log("⚠️ No UID2 token available yet");
+      console.log("🔄 UID2 token available:", token);
+      const gespskData = {
+        advertising_token: token,
+        refresh_token: refreshToken
+      };
+      localStorage.setItem("_GESPSK-uidapi.com", JSON.stringify(gespskData));
+      console.log("💾 Created GESPSK storage with token");
+      setGespskReady(true);
+      setDebugState(prev => ({ ...prev, gespskReady: true }));
+      setAdStatus("Ready - Click to play ad");
+      return;
     }
 
+    console.log("⚠️ No UID2 token or GESPSK storage available yet");
+    setAdStatus("Waiting for UID2 initialization...");
+    
     if (retryCount < maxRetries) {
       const backoffDelay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+      console.log(`🔄 Retrying in ${backoffDelay}ms...`);
       setTimeout(() => checkGespskStorage(retryCount + 1, maxRetries), backoffDelay);
     } else {
       console.error("❌ Max retries reached waiting for GESPSK storage");
+      setAdStatus("Failed to initialize - Please refresh");
     }
   };
 
   useEffect(() => {
     if (!uid2Token) {
       console.log("⚠️ No uid2Token provided");
+      setAdStatus("Waiting for UID2 token...");
       return;
     }
 
-    console.log("🔄 Initializing with token:", uid2Token);
-
-    window.googletag = window.googletag || { cmd: [] };
-    window.getUid2AdvertisingToken = () => {
-      console.log("🔍 Getting UID2 token");
-      return uid2Token;
-    };
+    console.log("🔄 Setting up UID2 callbacks");
 
     window.__uid2 = window.__uid2 || { callbacks: [] };
     window.__uid2.callbacks.push((eventType, payload) => {
@@ -62,76 +84,83 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
       switch (eventType) {
         case "SdkLoaded":
           console.log("✅ SDK Loaded, initializing");
-          window.__uid2.init({
-            baseUrl: "https://prod.uidapi.com",
-          });
+          setDebugState(prev => ({ ...prev, uid2Ready: true }));
+          if (window.__uid2.init) {
+            window.__uid2.init({
+              baseUrl: "https://prod.uidapi.com",
+            });
+            console.log("✅ UID2 SDK initialized");
+          } else {
+            console.warn("⚠️ window.__uid2.init not available");
+          }
           break;
 
         case "InitCompleted":
-          console.log("✅ Init completed, checking login required:", window.__uid2.isLoginRequired());
-          if (window.__uid2.isLoginRequired()) {
+          console.log("✅ Init completed, checking login required");
+          if (window.__uid2.isLoginRequired?.()) {
+            console.log("🔑 Setting identity with token:", uid2Token);
             window.__uid2.setIdentity({
               advertising_token: uid2Token,
               refresh_token: refreshToken,
             });
-            checkGespskStorage();
           }
+          checkGespskStorage(0);
           break;
 
         case "IdentityUpdated":
           console.log("✅ Identity updated, checking GESPSK");
-          checkGespskStorage();
+          checkGespskStorage(0);
           break;
       }
     });
 
     const loadScripts = async () => {
-      const scripts = [
-        {
-          src: "https://cdn.integ.uidapi.com/uid2SecureSignal.js",
-          id: "uid2-secure-signal-script",
-        },
-        {
-          src: "https://cdn.integ.uidapi.com/uid2-sdk-3.9.0.js",
-          id: "uid2-sdk-script",
-        },
-        {
-          src: "https://securepubads.g.doubleclick.net/tag/js/gpt.js",
-          id: "gpt-script",
-        },
-        {
-          src: "https://imasdk.googleapis.com/js/sdkloader/ima3.js",
-          id: "ima-script",
-        },
-      ];
-
-      for (const script of scripts) {
-        await new Promise((resolve, reject) => {
-          if (document.getElementById(script.id)) {
-            resolve();
-            return;
+      try {
+        setAdStatus("Loading required scripts...");
+        console.log('🎬 Starting script loading sequence');
+        
+        for (const [key, url] of Object.entries(scriptUrls)) {
+          console.log(`📦 Loading script ${key} from ${url}`);
+          setAdStatus(`Loading ${key}...`);
+          
+          try {
+            const { content } = await fetchAndInjectScript(url);
+            console.log(`✅ Script ${key} content loaded`);
+            await executeScript(content, url);
+            console.log(`✅ Script ${key} executed successfully`);
+          } catch (error) {
+            console.error(`❌ Error loading script ${key}:`, error);
+            setAdStatus(`Error loading ${key} - Please refresh`);
+            throw error;
           }
+        }
 
-          const scriptElement = document.createElement("script");
-          scriptElement.src = script.src;
-          scriptElement.id = script.id;
-          scriptElement.async = true;
-          scriptElement.onload = () => {
-            if (script.id === "gpt-script") {
-              window.googletag.cmd.push(() => {
-                window.googletag.pubads().enableSingleRequest();
-                window.googletag.enableServices();
-                resolve();
-              });
-            } else {
-              resolve();
-            }
-          };
-          scriptElement.onerror = reject;
-          document.body.appendChild(scriptElement);
-        });
+        console.log('🎉 All scripts loaded successfully');
+        setIsReady(true);
+        setDebugState(prev => ({ ...prev, scriptsLoaded: true }));
+        setAdStatus("Scripts loaded - Initializing components...");
+        
+        // Initialize UID2 immediately after scripts are loaded
+        if (uid2Token) {
+          console.log('🔑 Initializing UID2 with token:', uid2Token);
+          if (window.__uid2?.setIdentity) {
+            window.__uid2.setIdentity({
+              advertising_token: uid2Token,
+              refresh_token: refreshToken,
+            });
+            console.log('✅ UID2 identity set');
+          } else {
+            console.warn('⚠️ window.__uid2.setIdentity not available yet');
+          }
+        }
+
+        // Force check GESPSK storage
+        console.log('🔄 Checking GESPSK storage after script load');
+        checkGespskStorage(0);
+      } catch (error) {
+        console.error('❌ Error in script loading sequence:', error);
+        setAdStatus("Error loading scripts - Please refresh");
       }
-      setIsReady(true);
     };
 
     loadScripts().catch(console.error);
@@ -142,6 +171,16 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
       }
     };
   }, [uid2Token, refreshToken]);
+
+  // Add debug info display
+  useEffect(() => {
+    console.log("Current state:", debugState, {
+      isReady,
+      gespskReady,
+      hasUserInteraction: hasUserInteraction,
+      isAdPlaying
+    });
+  }, [debugState, isReady, gespskReady, hasUserInteraction, isAdPlaying]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -166,12 +205,14 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
     if (!hasUserInteraction && isReady && gespskReady) {
       try {
         setHasUserInteraction(true);
+        setAdStatus("Loading video player...");
         videoRef.current.load();
-        // toggleFullscreen();
 
+        setAdStatus("Initializing ad container...");
         adDisplayContainerRef.current = new google.ima.AdDisplayContainer(adContainerRef.current, videoRef.current);
         adDisplayContainerRef.current.initialize();
 
+        setAdStatus("Setting up ad loader...");
         adsLoaderRef.current = new google.ima.AdsLoader(adDisplayContainerRef.current);
         adsLoaderRef.current.addEventListener(
           google.ima.AdsManagerLoadedEvent.Type.ADS_MANAGER_LOADED,
@@ -180,6 +221,7 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
         );
         adsLoaderRef.current.addEventListener(google.ima.AdErrorEvent.Type.AD_ERROR, onAdError, false);
 
+        setAdStatus("Requesting ads...");
         const adsRequest = new google.ima.AdsRequest();
         adsRequest.adTagUrl = adTag;
         adsRequest.linearAdSlotWidth = window.innerWidth;
@@ -190,6 +232,7 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
         adsLoaderRef.current.requestAds(adsRequest);
       } catch (error) {
         console.error("Error initializing ads:", error);
+        setAdStatus("Error loading ad");
         onAdError(error);
       }
     } else {
@@ -203,6 +246,7 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
 
   const onAdsManagerLoaded = (adsManagerLoadedEvent) => {
     try {
+      setAdStatus("Configuring ad manager...");
       const adsRenderingSettings = new google.ima.AdsRenderingSettings();
       adsRenderingSettings.restoreCustomPlaybackStateOnAdBreakComplete = true;
 
@@ -212,26 +256,33 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
       adsManagerRef.current.addEventListener(google.ima.AdEvent.Type.CONTENT_PAUSE_REQUESTED, () => {
         videoRef.current.pause();
         setIsAdPlaying(true);
+        setAdStatus("Playing ad...");
       });
       adsManagerRef.current.addEventListener(google.ima.AdEvent.Type.CONTENT_RESUME_REQUESTED, () => {
         setIsAdPlaying(false);
+        setAdStatus("Ad finished");
       });
       adsManagerRef.current.addEventListener(google.ima.AdEvent.Type.ALL_ADS_COMPLETED, () => {
         setIsAdPlaying(false);
         setHasUserInteraction(false);
+        setAdStatus("All ads completed");
         if (onAdWatched) onAdWatched();
       });
       adsManagerRef.current.addEventListener(google.ima.AdEvent.Type.COMPLETE, () => {
+        setAdStatus("Ad complete");
         if (onAdWatched) onAdWatched();
       });
       adsManagerRef.current.addEventListener(google.ima.AdEvent.Type.SKIPPED, () => {
+        setAdStatus("Ad skipped");
         if (onAdWatched) onAdWatched();
       });
 
+      setAdStatus("Starting ad playback...");
       adsManagerRef.current.init(window.innerWidth, window.innerHeight, google.ima.ViewMode.NORMAL);
       adsManagerRef.current.start();
     } catch (error) {
       console.error("Error in ads manager loading:", error);
+      setAdStatus("Error loading ad manager");
       onAdError(error);
     }
   };
@@ -243,6 +294,7 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
     }
     setIsAdPlaying(false);
     setHasUserInteraction(false);
+    setAdStatus("Ad error occurred");
     if (onAdWatched) onAdWatched();
   };
 
@@ -370,10 +422,10 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
                 backgroundColor: "rgba(0, 0, 0, 0.6)",
                 padding: "0.75rem 1.5rem",
                 borderRadius: "0.5rem",
-                pointerEvents: "auto", // Re-enable pointer events for this div
+                pointerEvents: "auto"
               }}
             >
-              {isAdPlaying ? "Loading Ad..." : gespskReady ? "" : "Initializing..."}
+              {isAdPlaying ? "Loading Ad..." : gespskReady ? adStatus : adStatus}
             </div>
           </div>
         )}

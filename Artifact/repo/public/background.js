@@ -401,3 +401,128 @@ function setupRefreshTokenTimer() {
     console.log('⚠️ No refresh token available, timer not set');
   }
 }
+
+// Cache for storing fetched scripts
+const scriptCache = new Map();
+
+// Function to fetch and cache scripts
+async function fetchScript(url) {
+  try {
+    // Check cache first
+    if (scriptCache.has(url)) {
+      console.log('🎯 Returning cached script for:', url);
+      return { content: scriptCache.get(url) };
+    }
+
+    console.log('📥 Fetching script from:', url);
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': '*/*',
+        'Cache-Control': 'no-cache'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const content = await response.text();
+    
+    // Cache the script
+    scriptCache.set(url, content);
+    
+    return { content };
+  } catch (error) {
+    console.error('❌ Error fetching script:', error);
+    return { error: error.message };
+  }
+}
+
+// Listen for script fetch requests
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'FETCH_SCRIPT') {
+    console.log('🔄 Received script fetch request for:', message.url);
+    
+    // Handle the fetch request
+    fetchScript(message.url)
+      .then(response => {
+        console.log('✅ Script fetch completed:', message.url);
+        sendResponse(response);
+      })
+      .catch(error => {
+        console.error('❌ Script fetch failed:', error);
+        sendResponse({ error: error.message });
+      });
+    
+    // Return true to indicate we will send a response asynchronously
+    return true;
+  }
+});
+
+// Function to inject script into a tab
+async function injectScriptIntoTab(tabId, scriptUrl) {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId: tabId },
+      world: 'MAIN', // This ensures the script runs in the main world context
+      func: (url) => {
+        const script = document.createElement('script');
+        script.src = url;
+        (document.head || document.documentElement).appendChild(script);
+        return new Promise((resolve, reject) => {
+          script.onload = resolve;
+          script.onerror = reject;
+        });
+      },
+      args: [scriptUrl]
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('Script injection failed:', error);
+    return { error: error.message };
+  }
+}
+
+// Listen for script injection requests
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'INJECT_SCRIPT') {
+    console.log('🔄 Received script injection request for:', message.url);
+    
+    injectScriptIntoTab(message.tabId, message.url)
+      .then(result => {
+        console.log('✅ Script injection completed:', message.url);
+        sendResponse(result);
+      })
+      .catch(error => {
+        console.error('❌ Script injection failed:', error);
+        sendResponse({ error: error.message });
+      });
+    
+    return true; // Will respond asynchronously
+  }
+  // ... rest of existing message handlers ...
+});
+
+// Handle ad content fetching
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === 'FETCH_AD_CONTENT') {
+    console.log('🔄 Background script received fetch request for:', request.url);
+    
+    fetch(request.url, {
+      mode: 'no-cors',
+      credentials: 'omit',
+    })
+    .then(response => response.blob())
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      sendResponse({ success: true, data: url });
+    })
+    .catch(error => {
+      console.error('❌ Error fetching ad content:', error);
+      sendResponse({ success: false, error: error.message });
+    });
+
+    return true; // Required for async response
+  }
+});
