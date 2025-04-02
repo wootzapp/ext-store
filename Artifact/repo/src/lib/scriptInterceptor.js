@@ -1,4 +1,6 @@
 /*global chrome, google */
+import { storeAdActivity } from './api';
+
 // Static implementations of required external scripts
 const scripts = {
   uid2SecureSignal: {
@@ -63,6 +65,21 @@ const scripts = {
       
       // Create a real video element for ad playback
       let adVideoElement = null;
+      let adCompleted = false;
+
+      // Helper function to handle ad completion
+      const handleAdCompletion = async () => {
+        if (adCompleted) return; // Prevent multiple calls
+        adCompleted = true;
+        
+        console.log('✅ Ad playback complete, storing activity');
+        try {
+          await storeAdActivity();
+          console.log('✅ Ad activity stored successfully');
+        } catch (error) {
+          console.error('❌ Failed to store ad activity:', error);
+        }
+      };
 
       // Helper function to fetch ad content through background script
       const fetchAdContent = async (url) => {
@@ -289,8 +306,12 @@ const scripts = {
                     }
 
                     // Set up event listeners
-                    adVideoElement.onended = () => {
+                    adVideoElement.onended = async () => {
                       console.log('✅ Ad playback complete');
+                      
+                      // Store ad activity
+                      await handleAdCompletion();
+
                       const completeHandler = this.eventHandlers.get(window.google.ima.AdEvent.Type.COMPLETE);
                       if (completeHandler) completeHandler();
                       
@@ -310,6 +331,7 @@ const scripts = {
                       if (adVideoElement && adVideoElement.parentNode) {
                         adVideoElement.parentNode.removeChild(adVideoElement);
                         adVideoElement = null;
+                        adCompleted = false; // Reset for next ad
                       }
                     };
 
