@@ -68,19 +68,78 @@ const scripts = {
       const fetchAdContent = async (url) => {
         return new Promise((resolve, reject) => {
           console.log('📡 Fetching ad content through background script');
-          // Send message to background script
-          chrome.runtime.sendMessage({
-            type: 'FETCH_AD_CONTENT',
-            url: url
-          }, response => {
-            if (response && response.success) {
-              console.log('✅ Ad content fetched successfully');
-              resolve(response.data);
-            } else {
-              console.error('❌ Failed to fetch ad content:', response?.error || 'Unknown error');
-              reject(new Error(response?.error || 'Failed to fetch ad content'));
+          
+          // Function to extract video URL from VAST XML
+          const extractVideoUrl = (vastXml) => {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(vastXml, 'text/xml');
+            const mediaFiles = xmlDoc.getElementsByTagName('MediaFile');
+            
+            console.log('🎥 Found MediaFiles:', mediaFiles.length);
+            
+            // Find the most suitable video URL
+            let selectedUrl = null;
+            let selectedBitrate = 0;
+            
+            for (let i = 0; i < mediaFiles.length; i++) {
+              const mediaFile = mediaFiles[i];
+              const type = mediaFile.getAttribute('type');
+              const bitrate = parseInt(mediaFile.getAttribute('bitrate') || '0');
+              
+              // Prefer MP4 format with moderate bitrate (around 1000-2000)
+              if (type === 'video/mp4' && bitrate > selectedBitrate && bitrate < 2000) {
+                selectedUrl = mediaFile.textContent.trim();
+                selectedBitrate = bitrate;
+                console.log('📼 Found suitable video:', { url: selectedUrl, bitrate, type });
+              }
             }
-          });
+            
+            return selectedUrl;
+          };
+
+          // First fetch VAST XML
+          fetch(url)
+            .then(response => response.text())
+            .then(vastXml => {
+              console.log('📄 Received VAST XML');
+              const videoUrl = extractVideoUrl(vastXml);
+              
+              if (!videoUrl) {
+                throw new Error('No suitable video URL found in VAST response');
+              }
+              
+              console.log('🎯 Selected video URL:', videoUrl);
+              
+              // Set video source directly
+              if (adVideoElement) {
+                console.log('🎥 Setting video source to:', videoUrl);
+                
+                // Remove any existing sources
+                while (adVideoElement.firstChild) {
+                  adVideoElement.removeChild(adVideoElement.firstChild);
+                }
+                
+                // Create and add new source element
+                const source = document.createElement('source');
+                source.src = videoUrl;
+                source.type = 'video/mp4';
+                adVideoElement.appendChild(source);
+                
+                // Set src attribute as fallback
+                adVideoElement.src = videoUrl;
+                
+                // Force reload
+                adVideoElement.load();
+                
+                resolve(videoUrl);
+              } else {
+                throw new Error('Video element not found');
+              }
+            })
+            .catch(error => {
+              console.error('❌ Error processing VAST response:', error);
+              reject(error);
+            });
         });
       };
       
@@ -100,9 +159,32 @@ const scripts = {
                 adVideoElement.style.width = '100%';
                 adVideoElement.style.height = '100%';
                 adVideoElement.style.zIndex = '10';
-                adVideoElement.playsInline = true;
-                adVideoElement.controls = true; // Enable controls for testing
+                adVideoElement.setAttribute('playsinline', '');
+                adVideoElement.setAttribute('webkit-playsinline', '');
+                adVideoElement.preload = 'auto';
                 this.adContainer.appendChild(adVideoElement);
+
+                // Add error listener
+                adVideoElement.addEventListener('error', (e) => {
+                  console.error('❌ Video error:', {
+                    error: e.target.error,
+                    code: e.target.error?.code,
+                    message: e.target.error?.message,
+                    networkState: adVideoElement.networkState,
+                    readyState: adVideoElement.readyState,
+                    src: adVideoElement.src
+                  });
+                });
+
+                // Add source error listener
+                adVideoElement.addEventListener('stalled', () => {
+                  console.warn('⚠️ Video stalled');
+                });
+
+                // Add loadedmetadata listener
+                adVideoElement.addEventListener('loadedmetadata', () => {
+                  console.log('✅ Video metadata loaded');
+                });
               }
             };
           }
@@ -117,21 +199,67 @@ const scripts = {
               this.eventHandlers.set(event, handler);
             };
             this.requestAds = async (adsRequest) => {
-              console.log('🔄 Requesting ads with:', adsRequest);
+              console.log('🔄 Requesting ads with:', {
+                adTagUrl: adsRequest.adTagUrl,
+                width: adsRequest.linearAdSlotWidth,
+                height: adsRequest.linearAdSlotHeight
+              });
               
               try {
-                // Use a test video if the ad tag is not accessible
-                const testVideoUrl = 'https://storage.googleapis.com/gvabox/media/samples/stock.mp4';
-                const adUrl = testVideoUrl; // Use test video for now
+                // Try to fetch the actual ad content first
+                let adUrl;
+                try {
+                  console.log('🎯 Attempting to fetch actual ad from:', adsRequest.adTagUrl);
+                  const adContent = await fetchAdContent(adsRequest.adTagUrl);
+                  console.log('✅ Successfully fetched ad content URL:', adContent);
+                  adUrl = adContent;
+                } catch (error) {
+                  console.warn('⚠️ Failed to fetch actual ad, falling back to test video:', error);
+                  adUrl = 'https://storage.googleapis.com/gvabox/media/samples/stock.mp4';
+                  console.log('🎬 Using fallback test video URL:', adUrl);
+                }
 
                 const adsManager = {
                   init: (width, height, viewMode) => {
                     console.log('🎨 Initializing ads manager:', { width, height, viewMode });
+                    
+                    // Create source element for better control
+                    const source = document.createElement('source');
+                    source.src = adUrl;
+                    source.type = 'video/mp4';
+                    
+                    // Clear existing sources
+                    while (adVideoElement.firstChild) {
+                      adVideoElement.removeChild(adVideoElement.firstChild);
+                    }
+                    
+                    // Add new source
+                    adVideoElement.appendChild(source);
+                    
+                    // Set source directly as fallback
                     adVideoElement.src = adUrl;
-                    adVideoElement.load(); // Important for mobile browsers
+                    
+                    // Force reload
+                    adVideoElement.load();
+                    
+                    // Add loadedmetadata event listener
+                    adVideoElement.addEventListener('loadedmetadata', () => {
+                      console.log('✅ Video metadata loaded successfully');
+                    });
+                    
+                    // Add error listener with detailed logging
+                    adVideoElement.addEventListener('error', (e) => {
+                      console.error('❌ Video loading error:', {
+                        error: e.target.error,
+                        networkState: adVideoElement.networkState,
+                        readyState: adVideoElement.readyState,
+                        src: adVideoElement.src,
+                        currentSrc: adVideoElement.currentSrc
+                      });
+                    });
                   },
                   start: () => {
-                    console.log('▶️ Starting ad playback');
+                    console.log('▶️ Starting ad playback for URL:', adVideoElement.src);
                     
                     // Trigger content pause
                     const pauseHandler = this.eventHandlers.get(window.google.ima.AdEvent.Type.CONTENT_PAUSE_REQUESTED);
@@ -144,7 +272,15 @@ const scripts = {
                     const playPromise = adVideoElement.play();
                     if (playPromise !== undefined) {
                       playPromise.then(() => {
-                        console.log('🎥 Ad playback started');
+                        console.log('🎥 Ad playback started successfully');
+                        // Log video information
+                        console.log('📺 Video Information:', {
+                          currentSrc: adVideoElement.currentSrc,
+                          videoWidth: adVideoElement.videoWidth,
+                          videoHeight: adVideoElement.videoHeight,
+                          duration: adVideoElement.duration,
+                          readyState: adVideoElement.readyState
+                        });
                       }).catch(error => {
                         console.error('❌ Error playing ad:', error);
                         const errorHandler = this.eventHandlers.get(window.google.ima.AdErrorEvent.Type.AD_ERROR);
