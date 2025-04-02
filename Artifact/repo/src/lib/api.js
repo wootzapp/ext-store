@@ -211,10 +211,28 @@ export async function getUserProfile() {
             throw new Error(data.error || 'Failed to retrieve user profile');
         }
 
-        console.log("User profile data:", data);
+        console.log("Full API Response:", data);
         return data.profile;
     } catch (error) {
         console.error('Error fetching user profile:', error);
+        throw error;
+    }
+}
+
+// Function to store ad activity
+export async function storeAdActivity() {
+    try {
+        const data = await makeAuthenticatedRequest('https://api-prd-0.gotartifact.com/v2/user_privacies/ad_activity', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        console.log("Ad activity stored:", data);
+        return data;
+    } catch (error) {
+        console.error('Error storing ad activity:', error);
         throw error;
     }
 }
