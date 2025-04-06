@@ -1,7 +1,7 @@
 {
   "manifest_version": "v1.0",
   "name": "Blockmesh Network",
-  "version": "0.0.519",
+  "version": "0.0.529",
   "description": "BlockMesh Network allows you to generate passive income from your excessive bandwidth",
   "author": "ohaddahan@blockmesh.xyz",
   "permissions": [
