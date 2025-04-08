@@ -15,6 +15,7 @@ import TwitterControl from './components/TwitterControl';
 import ScrapedData from './components/ScrapedData';
 import NewSignup from './components/NewSignup';
 import LandingPage from './components/LandingPage';
+import { VideoPlayer } from './components/VideoPlayer'; 
 
 function App() {
   const { token, loading, error, saveToken, clearToken } = useAuthToken();

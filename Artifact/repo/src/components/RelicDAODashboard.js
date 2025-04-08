@@ -1,4 +1,5 @@
 /* global chrome */
+/* global google */
 import React, { useState, useEffect, useCallback } from 'react';
 import { IoArrowBack, IoSettingsOutline, IoCloseOutline, IoInformationCircleOutline } from "react-icons/io5";
 import dataStakingOn from '../images/dataStakingOn.png';
@@ -15,6 +16,7 @@ import { ArrowLeftIcon } from '@heroicons/react/24/solid';
 import { getUserProfile, loadWallet } from '../lib/api';
 import twitterBanner from '../images/rb_45418.png';
 import { createThirdwebClient } from 'thirdweb';
+import { VideoPlayer } from './VideoPlayer';
 // import { useActiveAccount } from 'thirdweb/react';
 // import { createWallet } from 'thirdweb/wallets';
 // import { darkTheme } from 'thirdweb/react';
@@ -191,6 +193,9 @@ const RelicDAODashboard = () => {
     const [isPressed, setIsPressed] = useState(false);
     const [isInfoSheetOpen, setInfoSheetOpen] = useState(false);
     const [isSettingsSheetOpen, setSettingsSheetOpen] = useState(false);
+    const [showAd, setShowAd] = useState(false);
+    const [advertisingToken, setAdvertisingToken] = useState(null);
+    const [refreshToken, setRefreshToken] = useState(null);
 
     // State to hold dynamic points and level data
     const [points, setPoints] = useState(null);
@@ -267,85 +272,124 @@ const RelicDAODashboard = () => {
 
     useEffect(() => {
         const fetchUserData = async () => {
-            await syncAuthToken();
-            const token = localStorage.getItem('authToken');
-            if (token) {
-                try {
-                    const response = await axios.get(`${process.env.REACT_APP_CORE_API_URL}/v2/xp/me`, {
-                        headers: {
-                            Authorization: `Bearer ${token}`
-                        }
-                    });
-                    if (response.data.success) {
-                        setPoints(response.data.points);
-                        setLevel(response.data.level);
-                    }
+            try {
+                // First sync the auth token
+                await syncAuthToken();
+                const token = localStorage.getItem('authToken');
+                console.log('Current auth token:', token ? 'Present' : 'Missing');
 
-                    const response_Sparks = await axios.get(`${process.env.REACT_APP_CORE_API_URL}/v2/xp/platform/points/WEBSITE`,{
-                        headers: {
-                            Authorization: `Bearer ${token}`
-                        }
-                    });
+                if (!token) {
+                    console.error('No auth token available');
+                    return;
+                }
 
-                    if(response_Sparks){
-                        console.log("Sparks data:",response_Sparks.data);
-                        setSparks(response_Sparks.data.user_platform.points);
-                    }
+                // Log headers being sent
+                const headers = {
+                    Authorization: `Bearer ${token}`
+                };
+                console.log('Request headers:', headers);
 
-                    // Check if referral code is already in localStorage
-                    const storedReferralCode = localStorage.getItem('referralCode');
-                    if (!storedReferralCode) {
-                        const userResponse = await axios.get(`${process.env.REACT_APP_CORE_API_URL}/v2/users/me`, {
-                            headers: {
-                                Authorization: `Bearer ${token}`,
-                            },
-                        });
+                // Check if we already have cached points and level
+                const cachedPoints = localStorage.getItem('cachedPoints');
+                const cachedLevel = localStorage.getItem('cachedLevel');
+                const cachedSparks = localStorage.getItem('cachedSparks');
+                const lastFetchTime = localStorage.getItem('lastPointsFetchTime');
+                const now = Date.now();
                 
-                        if (userResponse.data.success) {
-                            const newReferralCode = userResponse.data.profile.referral_code;
-                            setReferralCode(newReferralCode);
-                            localStorage.setItem('referralCode', newReferralCode);
+                // Only fetch points if cache is older than 30 seconds or doesn't exist
+                if (!cachedPoints || !lastFetchTime || (now - parseInt(lastFetchTime)) > 30000) {
+                    try {
+                        const response = await axios.get(`${process.env.REACT_APP_CORE_API_URL}/v2/xp/me`, {
+                            headers: headers
+                        });
+                        console.log('XP response:', response.data);
+                        if (response.data.success) {
+                            // Only update state if values have changed
+                            if (response.data.points !== cachedPoints) {
+                                setPoints(response.data.points);
+                                localStorage.setItem('cachedPoints', response.data.points);
+                            }
+                            if (response.data.level !== cachedLevel) {
+                                setLevel(response.data.level);
+                                localStorage.setItem('cachedLevel', response.data.level);
+                            }
+                            // Update last fetch time
+                            localStorage.setItem('lastPointsFetchTime', now.toString());
                         }
-                    } else {
-                        setReferralCode(storedReferralCode);
+                    } catch (error) {
+                        console.error('Error fetching XP data:', error.response?.data || error.message);
+                        // Use cached values if available
+                        if (cachedPoints) setPoints(cachedPoints);
+                        if (cachedLevel) setLevel(cachedLevel);
                     }
+                } else {
+                    // Use cached values
+                    console.log('Using cached points data');
+                    setPoints(cachedPoints);
+                    setLevel(cachedLevel);
+                }
 
-                    // Check if we already have the staking status in localStorage
-                    const storedStakingStatus = localStorage.getItem('dataStakingStatus');
-                    if (storedStakingStatus === 'true') {
-                        setIsDataStakingOn(true);
-                        return; // Skip API call if we already know it's verified
-                    }
-
-                    // Only call the staking API if we don't have a stored status
-                    const stakingResponse = await axios.post(
-                        `${process.env.REACT_APP_CORE_API_URL}/v2/externals/data-staking/verify`,
-                        {
-                            reward: "TELEGRAM_FEATURED_AD_REWARD",
-                        },
-                        {
-                            headers: {
-                                Authorization: `Bearer ${token}`,
-                            },
+                // Only fetch sparks if cache is older than 30 seconds or doesn't exist
+                if (!cachedSparks || !lastFetchTime || (now - parseInt(lastFetchTime)) > 30000) {
+                    try {
+                        const response_Sparks = await axios.get(`${process.env.REACT_APP_CORE_API_URL}/v2/xp/platform/points/WEBSITE`, {
+                            headers: headers
+                        });
+                        console.log('Sparks response:', response_Sparks.data);
+                        if (response_Sparks.data && response_Sparks.data.user_platform) {
+                            const newSparks = response_Sparks.data.user_platform.points;
+                            // Only update state if value has changed
+                            if (newSparks !== cachedSparks) {
+                                setSparks(newSparks);
+                                localStorage.setItem('cachedSparks', newSparks);
+                            }
                         }
-                    );
+                    } catch (error) {
+                        console.error('Error fetching Sparks data:', error.response?.data || error.message);
+                        // Use cached value if available
+                        if (cachedSparks) setSparks(cachedSparks);
+                    }
+                } else {
+                    // Use cached value
+                    console.log('Using cached sparks data');
+                    setSparks(cachedSparks);
+                }
+
+                try {
+                    // Get user profile and advertising tokens
+                    const userProfile = await getUserProfile();
+                    console.log('User Profile full response:', userProfile);
                     
-                    if (stakingResponse.data.success) {
-                        setIsDataStakingOn(stakingResponse.data.success);
-                        // Store the status in localStorage if verified
-                        if (stakingResponse.data.success) {
-                            localStorage.setItem('dataStakingStatus', 'true');
-                        }
+                    // Find UID2 operator in identity_services
+                    const uid2Operator = userProfile?.identity_services?.find(service => service.operator_name === 'UID2');
+                    console.log('UID2 Operator found:', uid2Operator);
+                    
+                    if (uid2Operator) {
+                        console.log('Setting advertising tokens:', {
+                            advertising_token: uid2Operator.advertising_token,
+                            refresh_token: uid2Operator.refresh_token
+                        });
+                        setAdvertisingToken(uid2Operator.advertising_token);
+                        setRefreshToken(uid2Operator.refresh_token);
+                    } else {
+                        console.warn('No UID2 operator found in identity_services');
+                        // Log the full profile structure to debug
+                        console.log('Full profile structure:', JSON.stringify(userProfile, null, 2));
                     }
                 } catch (error) {
-                    console.error('Error fetching data:', error);
-                    // If there's an auth error, clear the storage
-                    if (error.response?.status === 401) {
-                        chrome.storage.local.set({
-                            authToken: null,
-                            isLoggedIn: false
-                        });
-                    }
+                    console.error('Error fetching user profile:', error.response?.data || error.message);
+                }
+
+            } catch (error) {
+                console.error('Error in fetchUserData:', error);
+                if (error.response?.status === 401) {
+                    console.log('Unauthorized error - clearing tokens');
+                    localStorage.removeItem('authToken');
+                    localStorage.removeItem('refreshToken');
+                    chrome.storage.local.set({
+                        authToken: null,
+                        isLoggedIn: false
+                    });
                 }
             }
         };
@@ -684,25 +728,45 @@ const RelicDAODashboard = () => {
                     <h1 className="text-2xl font-bold mb-2">Daily Ad</h1>
                     <p className="text-sm mb-4">Watch today's ad to earn 25 Sparks</p>
                     <div className="relative rounded-lg p-0 flex justify-between items-center">
-                        <img src={starbucksLogo} alt="Starbucks" className="w-full h-full object-contain rounded-lg" />
-                        <div
-                            className={`absolute bottom-4 right-4 bg-green-700 rounded-full p-2 shadow-xl border-4 border-white
-                        transition-all duration-150 ease-in-out transform
-                        ${isPressed ? 'scale-95 bg-green-800' : 'hover:scale-105'}`}
-                            onClick={() => {
-                                console.log("Watch ad");
-                            }}
-                            onMouseDown={handlePressStart}
-                            onMouseUp={handlePressEnd}
-                            onMouseLeave={handlePressEnd}
-                            onTouchStart={handlePressStart}
-                            onTouchEnd={handlePressEnd}
-                            onTouchCancel={handlePressEnd}
-                        >
-                            <svg className="w-8 h-8 scale-150 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                            </svg>
-                        </div>
+                        {!showAd ? (
+                            <>
+                                <img src={starbucksLogo} alt="Starbucks" className="w-full h-full object-contain rounded-lg" />
+                                <div
+                                    className={`absolute bottom-4 right-4 bg-green-700 rounded-full p-2 shadow-xl border-4 border-white
+                                transition-all duration-150 ease-in-out transform
+                                ${isPressed ? 'scale-95 bg-green-800' : 'hover:scale-105'}`}
+                                    onClick={() => {
+                                        console.log('going to show ad');
+                                        console.log('Advertising token:', advertisingToken);
+                                        console.log('Refresh token:', refreshToken);
+                                        if (advertisingToken && refreshToken) {
+                                            setShowAd(true);
+                                        }
+                                    }}
+                                    onMouseDown={handlePressStart}
+                                    onMouseUp={handlePressEnd}
+                                    onMouseLeave={handlePressEnd}
+                                    onTouchStart={handlePressStart}
+                                    onTouchEnd={handlePressEnd}
+                                    onTouchCancel={handlePressEnd}
+                                >
+                                    <svg className="w-8 h-8 scale-150 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                    </svg>
+                                </div>
+                            </>
+                        ) : (
+                            <VideoPlayer
+                                uid2Token={advertisingToken}
+                                refreshToken={refreshToken}
+                                adTag="https://pubads.g.doubleclick.net/gampad/live/ads?iu=/22988389496/Telegram/Reward_Video&tfcd=0&npa=0&sz=400x300%7C406x720%7C640x480&gdfp_req=1&unviewed_position_start=1&output=vast&env=vp&impl=s&correlator=12"
+                                posterImage={starbucksLogo}
+                                onAdWatched={() => {
+                                    console.log('ad watched');
+                                    setShowAd(false);
+                                }}
+                            />
+                        )}
                     </div>
                 </div>
 
