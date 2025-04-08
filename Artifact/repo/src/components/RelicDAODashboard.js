@@ -289,29 +289,70 @@ const RelicDAODashboard = () => {
                 };
                 console.log('Request headers:', headers);
 
-                try {
-                    const response = await axios.get(`${process.env.REACT_APP_CORE_API_URL}/v2/xp/me`, {
-                        headers: headers
-                    });
-                    console.log('XP response:', response.data);
-                    if (response.data.success) {
-                        setPoints(response.data.points);
-                        setLevel(response.data.level);
+                // Check if we already have cached points and level
+                const cachedPoints = localStorage.getItem('cachedPoints');
+                const cachedLevel = localStorage.getItem('cachedLevel');
+                const cachedSparks = localStorage.getItem('cachedSparks');
+                const lastFetchTime = localStorage.getItem('lastPointsFetchTime');
+                const now = Date.now();
+                
+                // Only fetch points if cache is older than 30 seconds or doesn't exist
+                if (!cachedPoints || !lastFetchTime || (now - parseInt(lastFetchTime)) > 30000) {
+                    try {
+                        const response = await axios.get(`${process.env.REACT_APP_CORE_API_URL}/v2/xp/me`, {
+                            headers: headers
+                        });
+                        console.log('XP response:', response.data);
+                        if (response.data.success) {
+                            // Only update state if values have changed
+                            if (response.data.points !== cachedPoints) {
+                                setPoints(response.data.points);
+                                localStorage.setItem('cachedPoints', response.data.points);
+                            }
+                            if (response.data.level !== cachedLevel) {
+                                setLevel(response.data.level);
+                                localStorage.setItem('cachedLevel', response.data.level);
+                            }
+                            // Update last fetch time
+                            localStorage.setItem('lastPointsFetchTime', now.toString());
+                        }
+                    } catch (error) {
+                        console.error('Error fetching XP data:', error.response?.data || error.message);
+                        // Use cached values if available
+                        if (cachedPoints) setPoints(cachedPoints);
+                        if (cachedLevel) setLevel(cachedLevel);
                     }
-                } catch (error) {
-                    console.error('Error fetching XP data:', error.response?.data || error.message);
+                } else {
+                    // Use cached values
+                    console.log('Using cached points data');
+                    setPoints(cachedPoints);
+                    setLevel(cachedLevel);
                 }
 
-                try {
-                    const response_Sparks = await axios.get(`${process.env.REACT_APP_CORE_API_URL}/v2/xp/platform/points/WEBSITE`, {
-                        headers: headers
-                    });
-                    console.log('Sparks response:', response_Sparks.data);
-                    if (response_Sparks?.data) {
-                        setSparks(response_Sparks.data.user_platform.points);
+                // Only fetch sparks if cache is older than 30 seconds or doesn't exist
+                if (!cachedSparks || !lastFetchTime || (now - parseInt(lastFetchTime)) > 30000) {
+                    try {
+                        const response_Sparks = await axios.get(`${process.env.REACT_APP_CORE_API_URL}/v2/xp/platform/points/WEBSITE`, {
+                            headers: headers
+                        });
+                        console.log('Sparks response:', response_Sparks.data);
+                        if (response_Sparks.data && response_Sparks.data.user_platform) {
+                            const newSparks = response_Sparks.data.user_platform.points;
+                            // Only update state if value has changed
+                            if (newSparks !== cachedSparks) {
+                                setSparks(newSparks);
+                                localStorage.setItem('cachedSparks', newSparks);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error fetching Sparks data:', error.response?.data || error.message);
+                        // Use cached value if available
+                        if (cachedSparks) setSparks(cachedSparks);
                     }
-                } catch (error) {
-                    console.error('Error fetching Sparks data:', error.response?.data || error.message);
+                } else {
+                    // Use cached value
+                    console.log('Using cached sparks data');
+                    setSparks(cachedSparks);
                 }
 
                 try {

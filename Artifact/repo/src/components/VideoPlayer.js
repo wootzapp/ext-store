@@ -21,6 +21,118 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
     uid2Ready: false,
     gespskReady: false
   });
+  
+  // Cooldown period states
+  const [nextRewardAvailable, setNextRewardAvailable] = useState(true);
+  const [adLocked, setAdLocked] = useState(false);
+  const [remainingTime, setRemainingTime] = useState(0);
+  const [adVideoTimestamp, setAdVideoTimestamp] = useState(null);
+
+  // Format time for display
+  const formatTime = (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Check if ad is available based on cooldown
+  const checkAdAvailability = () => {
+    const storedTimestamp = localStorage.getItem('adVideoTimestamp');
+    if (storedTimestamp) {
+      setAdVideoTimestamp(parseInt(storedTimestamp));
+      const adVideoWatchedTime = parseInt(storedTimestamp);
+      const currentTime = Date.now();
+      const timeDifference = currentTime - adVideoWatchedTime;
+      const cooldownPeriod = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+      
+      if (timeDifference >= cooldownPeriod) {
+        setNextRewardAvailable(true);
+        setAdLocked(false);
+      } else {
+        setNextRewardAvailable(false);
+        setAdLocked(true);
+        setRemainingTime(Math.ceil((cooldownPeriod - timeDifference) / 1000));
+      }
+    } else {
+      setNextRewardAvailable(true);
+      setAdLocked(false);
+    }
+  };
+
+  // Timer management for ad cooldowns
+  useEffect(() => {
+    // Initial check
+    checkAdAvailability();
+    
+    // Update timer every second
+    const timer = setInterval(() => {
+      if (adVideoTimestamp) {
+        const adVideoWatchedTime = adVideoTimestamp;
+        const currentTime = Date.now();
+        const timeDifference = currentTime - adVideoWatchedTime;
+        const cooldownPeriod = 24 * 60 * 60 * 1000; // 24 hours
+        
+        if (timeDifference >= cooldownPeriod) {
+          setNextRewardAvailable(true);
+          setAdLocked(false);
+        } else {
+          setNextRewardAvailable(false);
+          setAdLocked(true);
+          setRemainingTime(Math.ceil((cooldownPeriod - timeDifference) / 1000));
+        }
+      }
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [adVideoTimestamp]);
+
+  // Timer countdown effect
+  useEffect(() => {
+    let timer;
+    if (!nextRewardAvailable && remainingTime > 0) {
+      timer = setInterval(() => {
+        setRemainingTime((prev) => {
+          if (prev <= 1) {
+            setNextRewardAvailable(true);
+            setAdLocked(false);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [nextRewardAvailable, remainingTime]);
+
+  // Handle ad completion
+  const handleAdCompleted = async () => {
+    // Set cooldown timestamp
+    const timestamp = Date.now();
+    setAdVideoTimestamp(timestamp);
+    localStorage.setItem('adVideoTimestamp', timestamp.toString());
+    
+    // Update cooldown states
+    setNextRewardAvailable(false);
+    setAdLocked(true);
+    setRemainingTime(24 * 60 * 60);
+    
+    // Reset ad states
+    setIsAdPlaying(false);
+    setHasUserInteraction(false);
+    
+    // Call the original onAdWatched callback
+    try {
+      if (onAdWatched) {
+        await onAdWatched();
+      }
+    } catch (error) {
+      console.error("Error processing ad completion:", error);
+      // If error, reset lock state
+      setAdLocked(false);
+      setNextRewardAvailable(true);
+    }
+  };
 
   const checkGespskStorage = (retryCount = 0, maxRetries = 10) => {
     console.log("🔍 Checking GESPSK storage, attempt:", retryCount + 1, {
@@ -178,9 +290,12 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
       isReady,
       gespskReady,
       hasUserInteraction: hasUserInteraction,
-      isAdPlaying
+      isAdPlaying,
+      nextRewardAvailable,
+      adLocked,
+      remainingTime
     });
-  }, [debugState, isReady, gespskReady, hasUserInteraction, isAdPlaying]);
+  }, [debugState, isReady, gespskReady, hasUserInteraction, isAdPlaying, nextRewardAvailable, adLocked, remainingTime]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -202,7 +317,7 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
   }, []);
 
   const handlePlayClick = async () => {
-    if (!hasUserInteraction && isReady && gespskReady) {
+    if (!hasUserInteraction && isReady && gespskReady && nextRewardAvailable && !adLocked) {
       try {
         setHasUserInteraction(true);
         setAdStatus("Loading video player...");
@@ -240,6 +355,8 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
         hasUserInteraction,
         isReady,
         gespskReady,
+        nextRewardAvailable,
+        adLocked
       });
     }
   };
@@ -266,15 +383,15 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
         setIsAdPlaying(false);
         setHasUserInteraction(false);
         setAdStatus("All ads completed");
-        if (onAdWatched) onAdWatched();
+        handleAdCompleted();
       });
       adsManagerRef.current.addEventListener(google.ima.AdEvent.Type.COMPLETE, () => {
         setAdStatus("Ad complete");
-        if (onAdWatched) onAdWatched();
+        handleAdCompleted();
       });
       adsManagerRef.current.addEventListener(google.ima.AdEvent.Type.SKIPPED, () => {
         setAdStatus("Ad skipped");
-        if (onAdWatched) onAdWatched();
+        handleAdCompleted();
       });
 
       setAdStatus("Starting ad playback...");
@@ -393,19 +510,19 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  cursor: gespskReady ? "pointer" : "not-allowed",
-                  opacity: gespskReady ? 1 : 0.5,
+                  cursor: (gespskReady && nextRewardAvailable && !adLocked) ? "pointer" : "not-allowed",
+                  opacity: (gespskReady && nextRewardAvailable && !adLocked) ? 1 : 0.5,
                   transition: "transform 0.2s ease",
-                  transform: gespskReady ? "scale(1)" : "scale(0.95)",
+                  transform: (gespskReady && nextRewardAvailable && !adLocked) ? "scale(1)" : "scale(0.95)",
                 }}
-                disabled={!gespskReady}
+                disabled={!gespskReady || !nextRewardAvailable || adLocked}
                 onMouseEnter={(e) => {
-                  if (gespskReady) {
+                  if (gespskReady && nextRewardAvailable && !adLocked) {
                     e.currentTarget.style.transform = "scale(1.1)";
                   }
                 }}
                 onMouseLeave={(e) => {
-                  if (gespskReady) {
+                  if (gespskReady && nextRewardAvailable && !adLocked) {
                     e.currentTarget.style.transform = "scale(1)";
                   }
                 }}
@@ -425,7 +542,10 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
                 pointerEvents: "auto"
               }}
             >
-              {isAdPlaying ? "Loading Ad..." : gespskReady ? adStatus : adStatus}
+              {isAdPlaying ? "Loading Ad..." : 
+               !nextRewardAvailable ? `Next ad in ${formatTime(remainingTime)}` :
+               !gespskReady ? "Initializing..." : 
+               adStatus}
             </div>
           </div>
         )}

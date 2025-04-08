@@ -232,7 +232,7 @@ const scripts = {
                   adUrl = adContent;
                 } catch (error) {
                   console.warn('⚠️ Failed to fetch actual ad, falling back to test video:', error);
-                  adUrl = 'https://storage.googleapis.com/gvabox/media/samples/stock.mp4';
+                  // adUrl = 'https://storage.googleapis.com/gvabox/media/samples/stock.mp4';
                   console.log('🎬 Using fallback test video URL:', adUrl);
                 }
 
