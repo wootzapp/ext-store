@@ -12,7 +12,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Sheet } from 'react-modal-sheet';
 import { ArrowLeftIcon } from '@heroicons/react/24/solid'; 
-import { getUserProfile, loadWallet } from '../lib/api';
+import { getUserProfile, loadWallet, refreshAuthToken } from '../lib/api';
 import twitterBanner from '../images/rb_45418.png';
 import { createThirdwebClient } from 'thirdweb';
 // import { useActiveAccount } from 'thirdweb/react';
@@ -243,26 +243,45 @@ const RelicDAODashboard = () => {
 
     // Add new function to sync tokens
     const syncAuthToken = async () => {
+        const chromeStorage = await chrome.storage.local.get(['authToken', 'refreshToken']);
         const localToken = localStorage.getItem('authToken');
-        
-        const chromeStorage = await chrome.storage.local.get(['authToken']);
-        
-        const chromeToken = chromeStorage.authToken;
+        const localRefreshToken = localStorage.getItem('refreshToken');
 
-
-        const localrefreshToken = localStorage.getItem('refreshToken');
-        const chromerefreshToken = chromeStorage.refreshToken;
-
-        if (chromeToken && chromeToken !== localToken) {
+        if (chromeStorage.authToken && chromeStorage.authToken !== localToken) {
             console.log('🔄 Syncing auth token from chrome storage to local storage');
-            console.log('🔑 Chrome storage , local storage and chrome token:',{chromeToken,localToken,chromeStorage,localrefreshToken,chromerefreshToken});
-        
-            localStorage.setItem('authToken', chromeToken);
-            localStorage.setItem('refreshToken', chromerefreshToken);
+            localStorage.setItem('authToken', chromeStorage.authToken);
+            localStorage.setItem('refreshToken', chromeStorage.refreshToken);
             console.log('✅ Auth token synced');
-            return chromeToken;
         }
-        return localToken;
+
+        // Check if token is expired by decoding JWT
+        const token = localStorage.getItem('authToken');
+        if (token && token !== 'null') {
+            try {
+                // Split the token and decode the payload (middle part)
+                const tokenParts = token.split('.');
+                if (tokenParts.length === 3) {
+                    // Base64 decode and parse as JSON
+                    const payload = JSON.parse(atob(tokenParts[1]));
+                    const expiryTime = payload.exp * 1000; // Convert to milliseconds
+                    
+                    // If token is expired or about to expire in the next 5 minutes
+                    if (Date.now() >= expiryTime - 300000) { // 5 min buffer
+                        console.warn('⚠️ Token expired or about to expire, refreshing...');
+                        const refreshResult = await refreshAuthToken();
+                        console.log('🔑 Refresh from dashboard result:', refreshResult);
+                        if (refreshResult && refreshResult.authToken) {
+                            console.log('✅ Token refreshed successfully');
+                            return refreshResult.authToken;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Error checking token expiration:', error);
+            }
+        }
+
+        return token;
     };
 
     useEffect(() => {
@@ -340,12 +359,6 @@ const RelicDAODashboard = () => {
                 } catch (error) {
                     console.error('Error fetching data:', error);
                     // If there's an auth error, clear the storage
-                    if (error.response?.status === 401) {
-                        chrome.storage.local.set({
-                            authToken: null,
-                            isLoggedIn: false
-                        });
-                    }
                 }
             }
         };
