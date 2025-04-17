@@ -401,3 +401,234 @@ function setupRefreshTokenTimer() {
     console.log('⚠️ No refresh token available, timer not set');
   }
 }
+
+// Cache for storing fetched scripts
+const scriptCache = new Map();
+
+// Function to fetch and cache scripts
+async function fetchScript(url) {
+  try {
+    // Check cache first
+    if (scriptCache.has(url)) {
+      console.log('🎯 Returning cached script for:', url);
+      return { content: scriptCache.get(url) };
+    }
+
+    console.log('📥 Fetching script from:', url);
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': '*/*',
+        'Cache-Control': 'no-cache'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const content = await response.text();
+    
+    // Cache the script
+    scriptCache.set(url, content);
+    
+    return { content };
+  } catch (error) {
+    console.error('❌ Error fetching script:', error);
+    return { error: error.message };
+  }
+}
+
+// Listen for script fetch requests
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'FETCH_SCRIPT') {
+    console.log('🔄 Received script fetch request for:', message.url);
+    
+    // Handle the fetch request
+    fetchScript(message.url)
+      .then(response => {
+        console.log('✅ Script fetch completed:', message.url);
+        sendResponse(response);
+      })
+      .catch(error => {
+        console.error('❌ Script fetch failed:', error);
+        sendResponse({ error: error.message });
+      });
+    
+    // Return true to indicate we will send a response asynchronously
+    return true;
+  }
+});
+
+// Function to inject script into a tab
+async function injectScriptIntoTab(tabId, scriptUrl) {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId: tabId },
+      world: 'MAIN', // This ensures the script runs in the main world context
+      func: (url) => {
+        const script = document.createElement('script');
+        script.src = url;
+        (document.head || document.documentElement).appendChild(script);
+        return new Promise((resolve, reject) => {
+          script.onload = resolve;
+          script.onerror = reject;
+        });
+      },
+      args: [scriptUrl]
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('Script injection failed:', error);
+    return { error: error.message };
+  }
+}
+
+// Listen for script injection requests
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'INJECT_SCRIPT') {
+    console.log('🔄 Received script injection request for:', message.url);
+    
+    injectScriptIntoTab(message.tabId, message.url)
+      .then(result => {
+        console.log('✅ Script injection completed:', message.url);
+        sendResponse(result);
+      })
+      .catch(error => {
+        console.error('❌ Script injection failed:', error);
+        sendResponse({ error: error.message });
+      });
+    
+    return true; // Will respond asynchronously
+  }
+  // ... rest of existing message handlers ...
+});
+
+// Handle ad content fetching
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === 'FETCH_AD_CONTENT') {
+    console.log('🔄 Background script received fetch request for:', request.url);
+    
+    // First check if this is a VAST URL
+    if (request.url.includes('pubads.g.doubleclick.net/gampad/ads')) {
+      fetch(request.url)
+        .then(response => response.text())
+        .then(vastXml => {
+          console.log('📄 Received VAST XML response');
+          // Parse the XML to get video URLs
+          const parser = new DOMParser();
+          const xmlDoc = parser.parseFromString(vastXml, 'text/xml');
+          
+          // Find all MediaFile elements
+          const mediaFiles = xmlDoc.getElementsByTagName('MediaFile');
+          console.log('🎥 Found MediaFiles:', mediaFiles.length);
+
+          if (mediaFiles.length > 0) {
+            // Find the most suitable video
+            let selectedMedia = null;
+            let selectedBitrate = 0;
+
+            for (let i = 0; i < mediaFiles.length; i++) {
+              const mediaFile = mediaFiles[i];
+              const type = mediaFile.getAttribute('type');
+              const bitrate = parseInt(mediaFile.getAttribute('bitrate') || '0');
+              
+              // Prefer MP4 format with highest bitrate under 2000
+              if (type === 'video/mp4' && bitrate > selectedBitrate && bitrate < 2000) {
+                selectedMedia = mediaFile;
+                selectedBitrate = bitrate;
+              }
+            }
+
+            if (selectedMedia) {
+              const videoUrl = selectedMedia.textContent.trim();
+              console.log('✅ Selected video URL:', videoUrl);
+              
+              // Now fetch the actual video content
+              fetch(videoUrl, {
+                method: 'GET',
+                headers: {
+                  'Accept': 'video/mp4,video/*;q=0.9,*/*;q=0.8',
+                  'Range': 'bytes=0-'
+                }
+              })
+              .then(response => {
+                if (!response.ok) {
+                  throw new Error(`Video fetch failed: ${response.status}`);
+                }
+                console.log('✅ Video response received:', {
+                  status: response.status,
+                  type: response.headers.get('content-type'),
+                  url: response.url
+                });
+                sendResponse({
+                  success: true,
+                  data: {
+                    type: 'video/mp4',
+                    url: videoUrl
+                  }
+                });
+              })
+              .catch(error => {
+                console.error('❌ Error fetching video:', error);
+                sendResponse({
+                  success: false,
+                  error: error.message
+                });
+              });
+            } else {
+              sendResponse({
+                success: false,
+                error: 'No suitable video format found in VAST response'
+              });
+            }
+          } else {
+            sendResponse({
+              success: false,
+              error: 'No MediaFile elements found in VAST response'
+            });
+          }
+        })
+        .catch(error => {
+          console.error('❌ Error processing VAST XML:', error);
+          sendResponse({
+            success: false,
+            error: error.message
+          });
+        });
+      
+      return true;
+    }
+    
+    // Handle direct video URLs
+    fetch(request.url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'video/mp4,video/*;q=0.9,*/*;q=0.8',
+        'Range': 'bytes=0-'
+      }
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      console.log('✅ Direct video response received');
+      sendResponse({
+        success: true,
+        data: {
+          type: response.headers.get('content-type') || 'video/mp4',
+          url: request.url
+        }
+      });
+    })
+    .catch(error => {
+      console.error('❌ Error fetching video:', error);
+      sendResponse({
+        success: false,
+        error: error.message
+      });
+    });
+
+    return true;
+  }
+});

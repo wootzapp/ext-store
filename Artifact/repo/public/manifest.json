@@ -22,7 +22,8 @@
     "webRequestBlocking",
     "declarativeNetRequest",
     "debugger",
-    "webNavigation"
+    "webNavigation",
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "background.js",
@@ -38,10 +39,10 @@
         "static/js/*",
         "static/css/*",
         "icons/*",
-        "tokeninterceptor.js"
+        "tokeninterceptor.js",
+        "scripts/*"
       ],
-      "matches": ["<all_urls>"],
-      "use_dynamic_url": true
+      "matches": ["<all_urls>"]
     }
   ],
   "host_permissions": [
@@ -49,7 +50,11 @@
     "https://api-prd-0.gotartifact.com/*",
     "https://extension.free.beeceptor.com/*",
     "https://dev.relicdao.com/*",
-    "https://join.relicdao.com/*"
+    "https://join.relicdao.com/*",
+    "https://cdn.integ.uidapi.com/*",
+    "https://securepubads.g.doubleclick.net/*",
+    "https://imasdk.googleapis.com/*",
+    "<all_urls>"
   ],
   "action": {
     "default_popup": "index.html",
@@ -68,7 +73,7 @@
     "128": "icons/icon128.png"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src * 'self' https: http: <all_urls> https://api-staging-0.gotartifact.com https://dev.relicdao.com"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src * 'self' https: http: <all_urls>"
   },
   "externally_connectable": {
     "matches": ["<all_urls>"]
