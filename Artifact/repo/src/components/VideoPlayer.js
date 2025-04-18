@@ -424,10 +424,11 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
         position: "fixed",
         top: 0,
         left: 0,
-        backgroundColor: "#000000",
+        background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f172a 100%)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        zIndex: 50,
       }}
     >
       <div
@@ -438,6 +439,7 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          background: "radial-gradient(circle at center, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 70%)",
         }}
       >
         <video
@@ -451,6 +453,8 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
             top: 0,
             left: 0,
             zIndex: 5,
+            borderRadius: "12px",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
           }}
           poster={posterImage || "/api/placeholder/1920/1080"}
           playsInline
@@ -468,6 +472,8 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
             left: 0,
             width: "100%",
             height: "100%",
+            borderRadius: "12px",
+            overflow: "hidden",
           }}
         />
         {!hasUserInteraction && (
@@ -481,23 +487,28 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              gap: "1rem",
-              pointerEvents: "none", // This ensures clicks pass through to the button
+              gap: "1.5rem",
+              pointerEvents: "none",
+              backdropFilter: "blur(8px)",
+              padding: "2rem",
+              borderRadius: "24px",
+              background: "rgba(0, 0, 0, 0.2)",
             }}
           >
             <div
               style={{
-                width: "120px",
-                height: "120px",
+                width: "140px",
+                height: "140px",
                 borderRadius: "50%",
-                backgroundColor: "rgba(0, 0, 0, 0.4)",
+                background: "linear-gradient(145deg, rgba(99, 102, 241, 0.8), rgba(168, 85, 247, 0.8))",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 cursor: "pointer",
-                pointerEvents: "auto", // Re-enable pointer events for this div
-                border: "3px solid rgba(255, 255, 255, 0.8)",
-                boxShadow: "0 0 20px rgba(0, 0, 0, 0.3)",
+                pointerEvents: "auto",
+                border: "4px solid rgba(255, 255, 255, 0.2)",
+                boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3), inset 0 4px 8px rgba(255, 255, 255, 0.1)",
+                transition: "all 0.3s ease",
               }}
             >
               <button
@@ -512,38 +523,43 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
                   justifyContent: "center",
                   cursor: (gespskReady && nextRewardAvailable && !adLocked) ? "pointer" : "not-allowed",
                   opacity: (gespskReady && nextRewardAvailable && !adLocked) ? 1 : 0.5,
-                  transition: "transform 0.2s ease",
+                  transition: "all 0.3s ease",
                   transform: (gespskReady && nextRewardAvailable && !adLocked) ? "scale(1)" : "scale(0.95)",
                 }}
                 disabled={!gespskReady || !nextRewardAvailable || adLocked}
                 onMouseEnter={(e) => {
                   if (gespskReady && nextRewardAvailable && !adLocked) {
                     e.currentTarget.style.transform = "scale(1.1)";
+                    e.currentTarget.parentElement.style.boxShadow = "0 12px 40px rgba(0, 0, 0, 0.4), inset 0 4px 8px rgba(255, 255, 255, 0.2)";
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (gespskReady && nextRewardAvailable && !adLocked) {
                     e.currentTarget.style.transform = "scale(1)";
+                    e.currentTarget.parentElement.style.boxShadow = "0 8px 32px rgba(0, 0, 0, 0.3), inset 0 4px 8px rgba(255, 255, 255, 0.1)";
                   }
                 }}
               >
-                <Play size={60} color="white" style={{ marginLeft: "8px" }} />
+                <Play size={70} color="white" style={{ marginLeft: "8px", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.3))" }} />
               </button>
             </div>
             <div
               style={{
                 color: "white",
-                fontSize: "1.125rem",
+                fontSize: "1.25rem",
                 fontWeight: "500",
                 textAlign: "center",
-                backgroundColor: "rgba(0, 0, 0, 0.6)",
-                padding: "0.75rem 1.5rem",
-                borderRadius: "0.5rem",
-                pointerEvents: "auto"
+                background: "linear-gradient(135deg, rgba(99, 102, 241, 0.4), rgba(168, 85, 247, 0.4))",
+                padding: "1rem 2rem",
+                borderRadius: "16px",
+                pointerEvents: "auto",
+                backdropFilter: "blur(4px)",
+                boxShadow: "0 4px 16px rgba(0, 0, 0, 0.2)",
+                border: "1px solid rgba(255, 255, 255, 0.1)",
+                letterSpacing: "0.5px",
               }}
             >
               {isAdPlaying ? "Loading Ad..." : 
-               !nextRewardAvailable ? `Next ad in ${formatTime(remainingTime)}` :
                !gespskReady ? "Initializing..." : 
                adStatus}
             </div>

@@ -5,6 +5,7 @@ import { IoArrowBack, IoSettingsOutline, IoCloseOutline, IoInformationCircleOutl
 import dataStakingOn from '../images/dataStakingOn.png';
 import dataStakingOff from '../images/dataStakingOff.png';
 import starbucksLogo from '../images/starbucks.jpg';
+import artifactImage from '../images/art1.png';
 import starIcon from '../images/star.png';
 import reliclogo from '../images/RelicDAOLogo.png'
 import referralImage from '../images/banner.png';
@@ -217,6 +218,17 @@ const RelicDAODashboard = () => {
     const [retryCount, setRetryCount] = useState(0);
     const MAX_RETRIES = 10;
     const RETRY_DELAY = 10000; // 10 seconds
+    
+    // Add timer states
+    const [nextRewardAvailable, setNextRewardAvailable] = useState(true);
+    const [remainingTime, setRemainingTime] = useState(0);
+    const [adVideoTimestamp, setAdVideoTimestamp] = useState(() => {
+        const storedTimestamp = localStorage.getItem('adVideoTimestamp');
+        return storedTimestamp ? parseInt(storedTimestamp) : null;
+    });
+    const [hasWatchedAd, setHasWatchedAd] = useState(() => {
+        return localStorage.getItem('adVideoTimestamp') !== null;
+    });
     
     // Initialize the useSecretKey hook
     const { handleGetKey, secretKey, isLoading } = useSecretKey({
@@ -572,9 +584,14 @@ const RelicDAODashboard = () => {
             });
     };
 
-    const handlePressStart = () => setIsPressed(true);
-    const handlePressEnd = () => setIsPressed(false);
-    const [Content, setContent] = useState(null);
+    const handlePressStart = () => {
+        setIsPressed(true);
+    };
+    
+    const handlePressEnd = () => {
+        setIsPressed(false);
+    };
+
     const handleBackButton = () => {
         console.log("Back button pressed");
         navigate('/relicdao');
@@ -638,6 +655,75 @@ const RelicDAODashboard = () => {
     const handleTwitterControls = () => {
         console.log('📱 Navigating to Twitter controls...');
         navigate('/twitter-control');
+    };
+
+    // Format time for display
+    const formatTime = (seconds) => {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    // Check if ad is available based on cooldown
+    const checkAdAvailability = () => {
+        const storedTimestamp = localStorage.getItem('adVideoTimestamp');
+        if (storedTimestamp && hasWatchedAd) {
+            setAdVideoTimestamp(parseInt(storedTimestamp));
+            const adVideoWatchedTime = parseInt(storedTimestamp);
+            const currentTime = Date.now();
+            const timeDifference = currentTime - adVideoWatchedTime;
+            const cooldownPeriod = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+            
+            if (timeDifference >= cooldownPeriod) {
+                setNextRewardAvailable(true);
+            } else {
+                setNextRewardAvailable(false);
+                setRemainingTime(Math.ceil((cooldownPeriod - timeDifference) / 1000));
+            }
+        } else {
+            setNextRewardAvailable(true);
+        }
+    };
+
+    // Timer management for ad cooldowns
+    useEffect(() => {
+        if (hasWatchedAd) {
+            // Initial check
+            checkAdAvailability();
+            
+            // Update timer every second
+            const timer = setInterval(() => {
+                if (adVideoTimestamp) {
+                    const adVideoWatchedTime = adVideoTimestamp;
+                    const currentTime = Date.now();
+                    const timeDifference = currentTime - adVideoWatchedTime;
+                    const cooldownPeriod = 24 * 60 * 60 * 1000; // 24 hours
+                    
+                    if (timeDifference >= cooldownPeriod) {
+                        setNextRewardAvailable(true);
+                    } else {
+                        setNextRewardAvailable(false);
+                        setRemainingTime(Math.ceil((cooldownPeriod - timeDifference) / 1000));
+                    }
+                }
+            }, 1000);
+            
+            return () => clearInterval(timer);
+        }
+    }, [adVideoTimestamp, hasWatchedAd]);
+
+    // Add this function to handle ad watched
+    const handleAdWatched = () => {
+        console.log('ad watched');
+        setShowAd(false);
+        setHasWatchedAd(true);
+        // Set the timestamp when ad is watched
+        const timestamp = Date.now();
+        localStorage.setItem('adVideoTimestamp', timestamp.toString());
+        setAdVideoTimestamp(timestamp);
+        setNextRewardAvailable(false);
+        setRemainingTime(24 * 60 * 60); // 24 hours in seconds
     };
 
     return (
@@ -730,16 +816,17 @@ const RelicDAODashboard = () => {
                     <div className="relative rounded-lg p-0 flex justify-between items-center">
                         {!showAd ? (
                             <>
-                                <img src={starbucksLogo} alt="Starbucks" className="w-full h-full object-contain rounded-lg" />
+                                <img src={artifactImage} alt="Starbucks" className="w-full h-full object-contain rounded-lg" />
                                 <div
                                     className={`absolute bottom-4 right-4 bg-green-700 rounded-full p-2 shadow-xl border-4 border-white
-                                transition-all duration-150 ease-in-out transform
-                                ${isPressed ? 'scale-95 bg-green-800' : 'hover:scale-105'}`}
+                                    transition-all duration-150 ease-in-out transform
+                                    ${isPressed ? 'scale-95 bg-green-800' : 'hover:scale-105'}
+                                    ${(!nextRewardAvailable && hasWatchedAd) ? 'opacity-50 cursor-not-allowed' : ''}`}
                                     onClick={() => {
-                                        console.log('going to show ad');
-                                        console.log('Advertising token:', advertisingToken);
-                                        console.log('Refresh token:', refreshToken);
-                                        if (advertisingToken && refreshToken) {
+                                        if ((nextRewardAvailable || !hasWatchedAd) && advertisingToken && refreshToken) {
+                                            console.log('going to show ad');
+                                            console.log('Advertising token:', advertisingToken);
+                                            console.log('Refresh token:', refreshToken);
                                             setShowAd(true);
                                         }
                                     }}
@@ -754,17 +841,23 @@ const RelicDAODashboard = () => {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                                     </svg>
                                 </div>
+                                {(!nextRewardAvailable && hasWatchedAd) && (
+                                    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-full shadow-lg border-2 border-white/20 backdrop-blur-sm flex items-center space-x-2">
+                                        <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <span className="font-semibold tracking-wider">Next ad in {formatTime(remainingTime)}</span>
+                                    </div>
+                                )}
                             </>
                         ) : (
                             <VideoPlayer
                                 uid2Token={advertisingToken}
                                 refreshToken={refreshToken}
                                 adTag="https://pubads.g.doubleclick.net/gampad/live/ads?iu=/22988389496/Telegram/Reward_Video&tfcd=0&npa=0&sz=400x300%7C406x720%7C640x480&gdfp_req=1&unviewed_position_start=1&output=vast&env=vp&impl=s&correlator=12"
-                                posterImage={starbucksLogo}
-                                onAdWatched={() => {
-                                    console.log('ad watched');
-                                    setShowAd(false);
-                                }}
+                                // posterImage={starbucksLogo}
+                                onAdWatched={handleAdWatched}
                             />
                         )}
                     </div>
@@ -790,11 +883,7 @@ const RelicDAODashboard = () => {
                         )}
                     </div>
                     <img src={referralImage} alt="Referral" className="w-full rounded-lg" />
-                </div>
-
-
-                
-                
+                </div>             
                 <Sheet isOpen={isInfoSheetOpen}
                     onClose={() => setInfoSheetOpen(false)}
                     detent='content-height'
