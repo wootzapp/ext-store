@@ -1,0 +1,69 @@
+{
+  "manifest_version": 3,
+  "name": "ZK Proofing",
+  "version": "1.0",
+  "description": "Generates ZK proof from page content and the TLS data.",
+  "action": {
+    "default_popup": "index.html",
+    "default_icon": {
+      "16": "icons/icon128.png",
+      "32": "icons/icon128.png",
+      "48": "icons/icon128.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon128.png",
+    "32": "icons/icon128.png",
+    "48": "icons/icon128.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "alarms",
+    "activeTab",
+    "storage",
+    "identity",
+    "scripting",
+    "tabs",
+    "cookies",
+    "windows",
+    "webRequest",
+    "webRequestBlocking",
+    "*://*.twitter.com/*",
+    "*://*.x.com/*",
+    "declarativeNetRequest",
+    "debugger",
+    "webNavigation",
+    "wootz"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "https://*.twitter.com/*",
+    "https://*.x.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "index.html",
+        "static/js/*",
+        "static/css/*"
+      ],
+      "matches": ["<all_urls>", "https://*.twitter.com/*", "https://*.x.com/*"],
+      "use_dynamic_url": true
+    }
+  ],
+  "externally_connectable": {
+    "matches": ["<all_urls>"]
+  }
+}
