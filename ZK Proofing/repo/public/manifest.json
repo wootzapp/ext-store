@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "ZK Proof Generator",
+  "name": "ZK Proofing",
   "version": "1.0",
-  "description": "Generates ZK proof from page content",
+  "description": "Generates ZK proof from page content and the TLS data.",
   "action": {
     "default_popup": "index.html",
     "default_icon": {

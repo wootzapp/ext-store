@@ -1,0 +1,15 @@
+{
+  "manifest_version": "v1.0",
+  "name": "ZK Proofing",
+  "version": "1.0.0",
+  "description": "Generates ZK proof from page content and the TLS data.",
+  "author": {
+    "name": "Wootzapp Team",
+    "email": "dev.jangid@wootzapp.com"
+  },
+  "permissions": [
+    "activeTab",
+    "storage",
+    "wootz"
+  ]
+}
