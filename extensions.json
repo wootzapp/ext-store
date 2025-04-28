@@ -1,0 +1,140 @@
+{
+  "extensions": [
+    {
+      "id": "allmdcfldidgeghfoioaaiammdlpmnnk",
+      "name": "Artifact",
+      "description": "An extension to earn rewards for browsing the web.",
+      "version": "1.0.0",
+      "author": "Wootzapp Team",
+      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Artifact/Artifact.crx",
+      "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Artifact/repo/public/icons/icon128.png",
+      "github_url": "https://github.com/wootzapp/ext-store/tree/main/Artifact/repo",
+      "tags": [
+        "Earn",
+        "Rewards",
+        "Browse"
+      ],
+      "created_at": "2025-02-26T15:00:00Z",
+      "updated_at": "2025-02-26T15:00:00Z"
+    },
+    {
+      "id": "fdjkflhcgjnhmbfpbojnalpfmomjggkj",
+      "name": "Wootzapp Wallet",
+      "description": "Wallet for Ethereum and Solana blockchain networks.",
+      "version": "1.0.0",
+      "author": "Wootzapp Team",
+      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Wootzapp%20Wallet/Wootzapp%20Wallet.crx",
+      "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Wootzapp%20Wallet/repo/public/icons/icon128.png",
+      "github_url": "https://github.com/wootzapp/ext-store/tree/main/Wootzapp%20Wallet/repo",
+      "tags": [
+        "Wallet",
+        "Ethereum",
+        "Solana"
+      ],
+      "created_at": "2025-02-26T15:00:00Z",
+      "updated_at": "2025-02-26T15:00:00Z"
+    },
+    {
+      "id": "gpfellaldmjpgonllcjpjfpodfmgobnk",
+      "name": "Tap.Eclipse",
+      "description": "Tap Eclipse website integration with wootzapp wallet.",
+      "version": "1.0.0",
+      "author": "Wootzapp Team",
+      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Eclipse/tap.eclipse.crx",
+      "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Eclipse/repo/public/icons/icon128.png",
+      "github_url": "https://github.com/wootzapp/ext-store/tree/main/Eclipse/repo",
+      "tags": [
+        "Games",
+        "Web3",
+        "Crypto"
+      ],
+      "created_at": "2025-02-26T15:00:00Z",
+      "updated_at": "2025-02-26T15:00:00Z"
+    },
+    {
+      "id": "kpobgdhknoakgagflffeigaojlglkbhn",
+      "name": "Blockmesh Network",
+      "description": "BlockMesh Network allows you to generate passive income from your excessive bandwidth.",
+      "version": "0.0.539",
+      "author": "Wootzapp Team",
+      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Blockmesh%20Network/Blockmesh.crx",
+      "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Blockmesh%20Network/blockmesh-icon.png",
+      "github_url": "https://github.com/wootzapp/ext-store/tree/main/Blockmesh%20Network/repo",
+      "tags": [
+        "Earn",
+        "Rewards",
+        "Scraping"
+      ],
+      "created_at": "2025-02-26T15:00:00Z",
+      "updated_at": "2025-02-26T15:00:00Z"
+    },
+    {
+      "id": "amjlbcejmaebkjfmeenkcijgpjpieepc",
+      "name": "Camp Network",
+      "description": "An extension to earn passive money by scrolling tweets on twitter(X).",
+      "version": "1.0.0",
+      "author": "Wootzapp Team",
+      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Camp%20Network/CampNetwork.crx",
+      "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Camp%20Network/repo/public/icons/icon128.png",
+      "github_url": "https://github.com/wootzapp/ext-store/tree/main/Camp%20Network/repo",
+      "tags": [
+        "Earn",
+        "Rewards",
+        "Scraping"
+      ],
+      "created_at": "2025-02-26T15:00:00Z",
+      "updated_at": "2025-02-26T15:00:00Z"
+    },
+    {
+      "id": "agjibinbfgapiccgicponbdambneljnp",
+      "name": "ZK Proofing",
+      "description": "An extension to generate cryptographic proofs for zk-SNARKs.",
+      "version": "1.0.0",
+      "author": "Wootzapp Team",
+      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/ZK%20Proofing/ZkProof.crx",
+      "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/ZK%20Proofing/repo/public/icons/icon128.png",
+      "github_url": "https://github.com/wootzapp/ext-store/tree/main/ZK%20Proofing/repo",
+      "tags": [
+        "Crypto",
+        "Proofs",
+        "Starknet"
+      ],
+      "created_at": "2025-04-26T15:00:00Z",
+      "updated_at": "2025-04-26T15:00:00Z"
+    },
+    {
+      "id": "gfciojmkoheeffnkgpfdjdkfiffnohmb",
+      "name": "Data Hive",
+      "description": "An extension to earn rewards for browsing the web.",
+      "version": "1.0.0",
+      "author": "Wootzapp Team",
+      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Datahive/Datahive.crx",
+      "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Datahive/repo/public/icons/icon128.png",
+      "github_url": "https://github.com/wootzapp/ext-store/tree/main/Datahive/repo",
+      "tags": [
+        "Earn",
+        "Rewards",
+        "Data Mining"
+      ],
+      "created_at": "2025-02-26T15:00:00Z",
+      "updated_at": "2025-02-26T15:00:00Z"
+    },
+    {
+      "id": "nofldplihhlkcpbejlmccfafcpeejaef",
+      "name": "Sapien",
+      "description": "Earn rewards by playing games.",
+      "version": "1.0.0",
+      "author": "Wootzapp Team",
+      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Sapien/Sapien.crx",
+      "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Sapien/repo/public/icons/icon.png",
+      "github_url": "https://github.com/wootzapp/ext-store/tree/main/Sapien/repo",
+      "tags": [
+        "Earn",
+        "Rewards",
+        "Games"
+      ],
+      "created_at": "2025-02-26T15:00:00Z",
+      "updated_at": "2025-02-26T15:00:00Z"
+    }
+  ]
+}
