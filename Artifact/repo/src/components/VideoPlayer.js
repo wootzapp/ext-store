@@ -28,6 +28,10 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
   const [remainingTime, setRemainingTime] = useState(0);
   const [adVideoTimestamp, setAdVideoTimestamp] = useState(null);
 
+  // Add this near the top of your component, with your other state variables
+  const [isWatching, setIsWatching] = useState(true);
+  const playerRef = useRef(null);
+
   // Format time for display
   const formatTime = (seconds) => {
     const hours = Math.floor(seconds / 3600);
@@ -414,6 +418,48 @@ export function VideoPlayer({ adTag, uid2Token, refreshToken, onAdWatched, poste
     setAdStatus("Ad error occurred");
     if (onAdWatched) onAdWatched();
   };
+
+  useEffect(() => {
+    // Function to handle visibility change
+    const handleVisibilityChange = () => {
+      if (document.hidden || document.visibilityState === 'hidden') {
+        // Extension is minimized or user switched tabs
+        if (playerRef.current && typeof playerRef.current.pause === 'function') {
+          playerRef.current.pause();
+        }
+        // Set a flag to prevent points
+        setIsWatching(false);
+        console.log('Video paused - extension not visible');
+      } else {
+        // Extension is visible again
+        setIsWatching(true);
+      }
+    };
+
+    // Function to handle extension closing
+    const handleBeforeUnload = (event) => {
+      if (playerRef.current && typeof playerRef.current.pause === 'function') {
+        playerRef.current.pause();
+      }
+      // Prevent points from being awarded
+      setIsWatching(false);
+      console.log('Video stopped - extension closing');
+      
+      // Use navigator.sendBeacon for async logging if needed
+      // const data = new Blob([JSON.stringify({videoId: videoId})], {type: 'application/json'});
+      // navigator.sendBeacon('/api/log-video-stop', data);
+    };
+
+    // Add event listeners
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Clean up event listeners
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
 
   return (
     <div
