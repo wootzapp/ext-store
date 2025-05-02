@@ -77,6 +77,7 @@ const scripts = {
           await storeAdActivity();
           console.log('✅ Ad activity stored successfully');
         } catch (error) {
+          console.log('User has already watched the ad');
           console.error('❌ Failed to store ad activity:', error);
         }
       };
