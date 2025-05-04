@@ -166,7 +166,7 @@ class JobFetcher {
             // Clean up any existing duplicates
             await this.cleanupProcessedJobs();
 
-            await chrome.wootz.setJob(this.apiUrl);
+            await chrome.wootzapp.setJob(this.apiUrl);
             console.log('✅ API job setup complete');
 
             this.isRunning = true;
@@ -183,7 +183,7 @@ class JobFetcher {
         console.log('🛑 Stopping job fetcher');
 
         try {
-            await chrome.wootz.removeJob(this.apiUrl);
+            await chrome.wootzapp.removeJob(this.apiUrl);
             console.log('✅ API job removed successfully');
         } catch (error) {
             console.error('❌ Error removing API job:', error);
@@ -199,7 +199,7 @@ class JobFetcher {
 
     async checkForJobs() {
         try {
-            const jobs = await chrome.wootz.getJobs();
+            const jobs = await chrome.wootzapp.getJobs();
             console.log(`📦 Found ${jobs.length} jobs`);
 
                         // Update fetched count with new unprocessed jobs
@@ -354,11 +354,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
         return true;
     } else if (message.action === 'getJobs') {
-        chrome.wootz.getJobs().then(sendResponse);
+        chrome.wootzapp.getJobs().then(sendResponse);
         return true;
     } else if (message.action === 'clearJobs') {
         Promise.all([
-            chrome.wootz.cleanJobs(),
+            chrome.wootzapp.cleanJobs(),
             jobFetcher.clearProcessedJobs(),
             jobFetcher.isRunning ? jobFetcher.stop() : Promise.resolve()
         ]).then(() => sendResponse({ success: true }));

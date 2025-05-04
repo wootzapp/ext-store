@@ -79,7 +79,7 @@ const Portfolio = ({ setIsLocked }) => {
     });
 
     // Fetch accounts
-    chrome.wootz.getAllAccounts((result) => {
+    chrome.wootzapp.getAllAccounts((result) => {
       if (result.success) {
         console.log('Accounts fetched:', result.accounts);
         setAccounts(result.accounts);
@@ -99,7 +99,7 @@ const Portfolio = ({ setIsLocked }) => {
   const handleLockWallet = () => {
     console.log('Locking wallet...');
     try {
-      const result = chrome.wootz.lockWallet();
+      const result = chrome.wootzapp.lockWallet();
       if (result.success) {
         console.log('Wallet locked successfully');
         setIsLocked(true);
