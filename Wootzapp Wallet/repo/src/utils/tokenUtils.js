@@ -6,7 +6,7 @@ const ETHERSCAN_API_KEY = '';
 // Multiple free RPC endpoints for each network
 const RPC_ENDPOINTS = {
   'mainnet-beta': [
-    'https://api.mainnet-beta.solana.com',
+    'https://solana-rpc.publicnode.com/',
     'https://rpc.ankr.com/solana'
   ],
   'devnet': [

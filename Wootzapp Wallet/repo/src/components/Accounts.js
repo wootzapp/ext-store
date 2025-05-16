@@ -1,7 +1,7 @@
 /* global chrome */
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { FaPlus, FaWallet, FaBolt, FaUserCircle, FaCompass, FaCopy, FaEthereum, FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { FaPlus, FaWallet, FaBolt, FaUserCircle, FaCompass, FaCopy, FaEthereum, FaChevronDown, FaChevronUp, FaCog } from 'react-icons/fa';
 import { fetchAllSolanaAssets, fetchSepoliaEthereumBalance, fetchEclipseBalance } from '../utils/tokenUtils';
 import btcIcon from '../assets/btc.svg';
 import solIcon from '../assets/sol.svg';
@@ -16,6 +16,7 @@ const Accounts = () => {
   const [error, setError] = useState(null);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [eclipseBalances, setEclipseBalances] = useState({});
+  const [toggleEnabled, setToggleEnabled] = useState(false);
 
   useEffect(() => {
     const fetchAccounts = () => {
@@ -39,6 +40,19 @@ const Accounts = () => {
     };
 
     fetchAccounts();
+
+    // Add this to check the current blinks state
+    chrome.wootz.setBlinksEnabled(false, (result) => {
+      if (result && typeof result.enabled !== 'undefined') {
+        setToggleEnabled(result.enabled);
+      }
+    });
+
+    chrome.storage.local.get('blinksEnabled', (result) => {
+      if (result.blinksEnabled !== undefined) {
+        setToggleEnabled(result.blinksEnabled);
+      }
+    });
   }, []);
 
   const fetchBalances = async (accountsList) => {
@@ -46,7 +60,10 @@ const Accounts = () => {
       try {
         let balance;
         if (account.coin === 501) {
+          // Fetch actual Solana balances instead of using placeholder
           balance = 0.0000; // Solana balance placeholder
+          balance = await fetchAllSolanaAssets(account.address);
+          console.log(`Fetched Solana balances for ${account.address}:`, balance);
           
           // Additionally fetch Eclipse balance for Solana accounts
           try {
@@ -65,7 +82,6 @@ const Accounts = () => {
         } else if (account.coin === 60) {
           balance = await fetchSepoliaEthereumBalance(account.address);
           console.log(`Fetched ETH balances for ${account.address}:`, balance);
-          // No need to convert here as balance is now an object
         }
         
         setBalances(prev => ({
@@ -119,24 +135,25 @@ const Accounts = () => {
     }
 
     if (account.coin === 501) {
-      const balance = balances[account.address]?.solBalance || {};
-      const total = Object.values(balance).reduce((sum, val) => sum + (Number(val) || 0), 0);
+      const solanaData = balances[account.address] || { solBalance: {} };
+      const solBalance = solanaData.solBalance || {};
+      // Only use mainnet-beta balance
+      const mainnetBalance = Number(solBalance['mainnet-beta'] || 0);
       return (
         <div className="flex flex-col items-end">
-          <span className="text-lg font-semibold">{Number(total).toFixed(4)}</span>
+          <span className="text-lg font-semibold">{mainnetBalance.toFixed(6)}</span>
           <span className="text-sm text-gray-500">SOL</span>
         </div>
       );
     }
 
     if (account.coin === 60) {
-      // For ETH accounts, show the combined balance
       const ethBalances = balances[account.address] || { sepolia: 0, mainnet: 0 };
       const total = (ethBalances.sepolia || 0) + (ethBalances.mainnet || 0);
       return (
         <div className="flex flex-col items-end">
           <span className="text-lg font-semibold">
-            {typeof total === 'number' ? total.toFixed(4) : '0.0000'}
+            {typeof total === 'number' ? total.toFixed(6) : '0.0000'}
           </span>
           <span className="text-sm text-gray-500">ETH</span>
         </div>
@@ -152,31 +169,32 @@ const Accounts = () => {
     if (loadingBalances[account.address]) {
       return (
         <div className="mt-4 space-y-2">
-          {['mainnet-beta', 'devnet', 'testnet'].map((network) => (
-            <div key={network} className="flex justify-between items-center bg-white rounded-lg p-3 shadow-sm border border-gray-100">
-              <div className="h-4 w-24 bg-gray-200 animate-pulse rounded"></div>
-              <div className="h-4 w-20 bg-gray-200 animate-pulse rounded"></div>
-            </div>
-          ))}
+          <div className="flex justify-between items-center bg-white rounded-lg p-3 shadow-sm border border-gray-100">
+            <div className="h-4 w-24 bg-gray-200 animate-pulse rounded"></div>
+            <div className="h-4 w-20 bg-gray-200 animate-pulse rounded"></div>
+          </div>
         </div>
       );
     }
 
     if (account.coin === 501) {
-      const balance = balances[account.address]?.solBalance || {};
+      const solanaData = balances[account.address] || { solBalance: {} };
+      const solBalance = solanaData.solBalance || {};
       const eclipseBalance = eclipseBalances[account.address] || 0;
       
       return (
         <div className="mt-4 space-y-2">
-          {Object.entries(balance).map(([network, amount]) => (
-            <div key={network} className="flex justify-between items-center bg-white rounded-lg p-3 shadow-sm border border-gray-100">
-              <span className="text-gray-500 capitalize">{network}</span>
-              <span className={Number(amount) > 0 ? 'font-medium' : 'text-gray-400'}>
-                {`${Number(amount).toFixed(4)} SOL`}
-              </span>
-            </div>
-          ))}
-          
+          {/* Display only mainnet-beta Solana balance */}
+          <div className="flex justify-between items-center bg-white rounded-lg p-3 shadow-sm border border-gray-100">
+            <span className="text-gray-500 flex items-center">
+              <img src={solIcon} alt="Solana" className="h-4 w-4 mr-1" />
+              Mainnet-Beta
+            </span>
+            <span className={Number(solBalance['mainnet-beta'] || 0) > 0 ? 'font-medium' : 'text-gray-400'}>
+              {`${Number(solBalance['mainnet-beta'] || 0).toFixed(6)} SOL`}
+            </span>
+          </div>
+
           {/* Add Eclipse balance display */}
           <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-100 flex justify-between items-center">
             <span className="text-gray-500 flex items-center">
@@ -184,7 +202,7 @@ const Accounts = () => {
               Eclipse
             </span>
             <span className={Number(eclipseBalance) > 0 ? 'font-medium' : 'text-gray-400'}>
-              {`${Number(eclipseBalance).toFixed(4)} ETH`}
+              {`${Number(eclipseBalance).toFixed(6)} ETH`}
             </span>
           </div>
         </div>
@@ -210,12 +228,30 @@ const Accounts = () => {
               Mainnet
             </span>
             <span className={Number(ethBalances.mainnet) > 0 ? 'font-medium' : 'text-gray-400'}>
-              {`${Number(ethBalances.mainnet || 0).toFixed(4)} ETH`}
+              {`${Number(ethBalances.mainnet || 0).toFixed(6)} ETH`}
             </span>
           </div>
         </div>
       );
     }
+  };
+
+  // Toggle handler
+  const handleToggle = () => {
+    setToggleEnabled(!toggleEnabled);
+    // Add any functionality you want to trigger when the toggle changes
+    if (toggleEnabled) {
+      chrome.wootz.setBlinksEnabled(false, (result) => {
+        console.log("Blinks disabled:", result);
+      });
+    } else {
+      chrome.wootz.setBlinksEnabled(true, (result) => {
+        console.log("Blinks enabled:", result);
+      });
+    }
+    // Example: You might want to save this preference
+    // chrome.storage.local.set({ 'userPreference': !toggleEnabled });
+    chrome.storage.local.set({ 'blinksEnabled': !toggleEnabled });
   };
 
   return (
@@ -224,9 +260,9 @@ const Accounts = () => {
         <h1 className="text-3xl font-bold bg-gradient-to-r from-[#FF3B30] to-[#FF8C00] text-transparent bg-clip-text">
           Accounts
         </h1>
-        {/* <button className="text-[#FF8C00] hover:text-[#FF3B30] transition-colors">
-          <FaPlus size={24} />
-        </button> */}
+        <Link to="/settings" className="text-[#FF8C00] hover:text-[#FF3B30] transition-colors">
+          <FaCog size={24} />
+        </Link>
       </div>
 
       {error && (
@@ -275,9 +311,9 @@ const Accounts = () => {
                   <FaCopy />
                 </button>
               </div>
-              {/* <div className="text-right">
+              <div className="text-right">
                 {renderCollapsedBalance(account)}
-              </div> */}
+              </div>
             </div>
 
             {selectedAccount?.address === account.address && (
