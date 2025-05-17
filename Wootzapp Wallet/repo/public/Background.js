@@ -129,6 +129,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
       );
       return true;
+
+    case 'setBlinksEnabled':
+      console.log('Setting blinks enabled:', message.enable);
+      chrome.wootz.setBlinksEnabled(message.enable, (result) => {
+        console.log("Blinks " + (message.enable ? "enabled" : "disabled") + ":", result);
+        sendResponse(result);
+      });
+      return true; // Indicates async response
   }
 });
 

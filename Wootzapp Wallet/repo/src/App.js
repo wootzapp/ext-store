@@ -12,6 +12,7 @@ import Explore from './components/Explore';
 import Buy from './components/Buy';
 // import SendWallet from './components/SendWallet';
 import Accounts from './components/Accounts';
+import Settings from './components/Settings';
 
 function App() {
   const [walletCreated, setWalletCreated] = useState(false);
@@ -166,6 +167,7 @@ function App() {
           <Route path="/buy" element={<Buy />} /> */}
           {/* <Route path="/send" element={<SendWallet />} /> */}
           <Route path="/accounts" element={<Accounts />} />
+          <Route path="/settings" element={<Settings />} />
         </Routes>
       </div>
     </Router>
