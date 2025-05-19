@@ -62,7 +62,7 @@ export const fetchAllSolanaAssets = async (address) => {
             await new Promise(resolve => setTimeout(resolve, 1000));
           }
         }
-        
+
         assets.solBalance[network] = balance / 1e9;
 
         // const tokenAccounts = await connection.getTokenAccountsByOwner(
@@ -108,30 +108,37 @@ export const fetchAllSolanaAssets = async (address) => {
             })
           });
           const tokenAccounts = await response.json();
-  
+
           console.log('Token accounts:', tokenAccounts);
           console.log('Token accounts value:', tokenAccounts.result.value);
-          const tokens = tokenAccounts.result.value
-            .map(account => {
-              const info = account.account.data.parsed.info;
-              console.log('Info:', info);
-              return {
-                mint: info.mint,
-                amount: info.tokenAmount.uiAmount,
-                decimals: info.tokenAmount.decimals,
-                owner: info.owner,
-                address: account.pubkey.toString()
+          const tokensByMint = {};
+
+          tokenAccounts.result.value.forEach(account => {
+            const info = account.account.data.parsed.info;
+            const mint = info.mint;
+            const amount = info.tokenAmount.uiAmount || 0;
+            const decimals = info.tokenAmount.decimals;
+            const owner = info.owner;
+            const address = account.pubkey.toString();
+
+            if (!tokensByMint[mint]) {
+              tokensByMint[mint] = {
+                mint,
+                amount: 0,
+                decimals,
+                owner,
+                address, // you can keep the first address or make this an array if you want all
               };
-            })
-            .filter(token => token.amount > 0);
-  
+            }
+            tokensByMint[mint].amount += amount;
+          });
+
+          // Convert to array and filter out zero balances
+          const tokens = Object.values(tokensByMint).filter(token => token.amount > 0);
+
           console.log('Tokens:', tokens);
-  
-          assets.tokens.push(...tokens);
-            
-            console.log("Processed tokens:", tokens);
-            assets.tokens.push(...tokens);
-          
+          assets.tokens = tokens;
+
         } catch (tokenErr) {
           console.warn(`Error fetching token accounts for ${network}:`, tokenErr);
         }
@@ -141,7 +148,7 @@ export const fetchAllSolanaAssets = async (address) => {
         assets.solBalance[network] = 0;
       }
     }
-    console.log("assets", assets); 
+    console.log("assets", assets);
     return assets;
 
   } catch (error) {
@@ -189,7 +196,7 @@ export const fetchAllSolanaAssets = async (address) => {
 export const fetchSepoliaEthereumBalance = async (address) => {
   try {
     const balances = {};
-    
+
     // Add delay between requests to avoid rate limiting
     const fetchWithDelay = async (network, endpoint) => {
       try {
@@ -215,7 +222,7 @@ export const fetchSepoliaEthereumBalance = async (address) => {
 
           const data = await response.json();
           console.log(`Balance response for ${network}:`, data);
-          
+
           if (data.result) {
             // Convert hex result to decimal and divide by 1e18
             const balance = parseInt(data.result, 16) / 1e18;
@@ -243,7 +250,7 @@ export const fetchSepoliaEthereumBalance = async (address) => {
 
           const data = await response.json();
           console.log(`Balance response for ${network}:`, data);
-          
+
           if (data.status === '1' && data.message === 'OK') {
             // Ensure we're converting the result to a number and dividing by 1e18
             const balance = Number(data.result) / 1e18;
@@ -286,7 +293,7 @@ export const fetchEclipseBalance = async (address) => {
       method: "getBalance",
       params: [address]  // Use the hardcoded address in an array
     };
-    
+
     const response = await fetch(ECLIPSE_RPC_ENDPOINT, {
       method: 'POST',
       headers: {
@@ -302,11 +309,11 @@ export const fetchEclipseBalance = async (address) => {
 
     const data = await response.json();
     console.log('Balance response for Eclipse:', data);
-    
+
     // Check if we have a proper result
     if (data.result && data.result.value !== undefined) {
       const rawBalance = data.result.value;
-      
+
       // Convert the result from lamports (like SOL) to a human-readable format
       const balance = Number(rawBalance) / 1e9;
       console.log('Calculated balance for Eclipse:', balance);

@@ -65,6 +65,8 @@ const Accounts = () => {
           balance = 0.0000; // Solana balance placeholder
           balance = await fetchAllSolanaAssets(account.address);
           console.log(`Fetched Solana balances for ${account.address}:`, balance);
+          const tokens= balance.tokens;
+          console.log(`Fetched Solana tokens for ${account.address}:`, tokens);
           
           // Additionally fetch Eclipse balance for Solana accounts
           try {
@@ -83,15 +85,12 @@ const Accounts = () => {
           
           // Fetch token data for Solana accounts
           try {
-            // Get token accounts for the address
-            const tokenAccounts = await fetchTokenAccounts(account.address);
-            
             // For each token account, fetch detailed token info
             const tokenDetails = await Promise.all(
-              tokenAccounts.map(async (tokenAccount) => {
-                const tokenInfo = await fetchTokenInfo(tokenAccount.mint);
+              tokens.map(async (token) => {
+                const tokenInfo = await fetchTokenInfo(token.mint);
                 return {
-                  ...tokenAccount,
+                  ...token,
                   tokenInfo
                 };
               })
@@ -126,21 +125,6 @@ const Accounts = () => {
         }));
       }
     }
-  };
-
-  // Function to fetch token accounts for an address
-  const fetchTokenAccounts = async (address) => {
-    // This would be your actual API call to get token accounts
-    // For now, returning a mock response
-    return [
-      {
-        mint: "ENAq7HzQ5YSSZS663nFEydump1gfM4NfmswTsMaugpHc",
-        amount: "1",
-        decimals: 0,
-        uiAmount: 1.0,
-        uiAmountString: "1"
-      }
-    ];
   };
 
   // Function to fetch detailed token info using Helius API
@@ -299,8 +283,8 @@ const Accounts = () => {
                           {tokenSymbol && <span className="text-xs text-gray-400">{tokenSymbol}</span>}
                         </div>
                       </span>
-                      <span className={Number(token.uiAmount) > 0 ? 'font-medium' : 'text-gray-400'}>
-                        {token.uiAmountString}
+                      <span className={Number(token.amount) > 0 ? 'font-medium' : 'text-gray-400'}>
+                        {token.amount}
                       </span>
                     </div>
                   );
