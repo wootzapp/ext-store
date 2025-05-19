@@ -17,6 +17,7 @@ const Accounts = () => {
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [eclipseBalances, setEclipseBalances] = useState({});
   const [toggleEnabled, setToggleEnabled] = useState(false);
+  const [tokenData, setTokenData] = useState({});
 
   useEffect(() => {
     const fetchAccounts = () => {
@@ -79,6 +80,30 @@ const Accounts = () => {
               [account.address]: 0
             }));
           }
+          
+          // Fetch token data for Solana accounts
+          try {
+            // Get token accounts for the address
+            const tokenAccounts = await fetchTokenAccounts(account.address);
+            
+            // For each token account, fetch detailed token info
+            const tokenDetails = await Promise.all(
+              tokenAccounts.map(async (tokenAccount) => {
+                const tokenInfo = await fetchTokenInfo(tokenAccount.mint);
+                return {
+                  ...tokenAccount,
+                  tokenInfo
+                };
+              })
+            );
+            
+            setTokenData(prev => ({
+              ...prev,
+              [account.address]: tokenDetails
+            }));
+          } catch (tokenError) {
+            console.error(`Error fetching token data for ${account.address}:`, tokenError);
+          }
         } else if (account.coin === 60) {
           balance = await fetchSepoliaEthereumBalance(account.address);
           console.log(`Fetched ETH balances for ${account.address}:`, balance);
@@ -100,6 +125,48 @@ const Accounts = () => {
           [account.address]: false
         }));
       }
+    }
+  };
+
+  // Function to fetch token accounts for an address
+  const fetchTokenAccounts = async (address) => {
+    // This would be your actual API call to get token accounts
+    // For now, returning a mock response
+    return [
+      {
+        mint: "ENAq7HzQ5YSSZS663nFEydump1gfM4NfmswTsMaugpHc",
+        amount: "1",
+        decimals: 0,
+        uiAmount: 1.0,
+        uiAmountString: "1"
+      }
+    ];
+  };
+
+  // Function to fetch detailed token info using Helius API
+  const fetchTokenInfo = async (mintAddress) => {
+    try {
+      const response = await fetch(`https://mainnet.helius-rpc.com/?api-key=${process.env.REACT_APP_HELIUS_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: mintAddress,
+          method: 'getAsset',
+          params: {
+            id: mintAddress,
+            options: {
+              showFungible: true
+            }
+          }
+        })
+      });
+      
+      const data = await response.json();
+      return data.result;
+    } catch (error) {
+      console.error(`Error fetching token info for ${mintAddress}:`, error);
+      return null;
     }
   };
 
@@ -181,6 +248,7 @@ const Accounts = () => {
       const solanaData = balances[account.address] || { solBalance: {} };
       const solBalance = solanaData.solBalance || {};
       const eclipseBalance = eclipseBalances[account.address] || 0;
+      const tokens = tokenData[account.address] || [];
       
       return (
         <div className="mt-4 space-y-2">
@@ -205,6 +273,41 @@ const Accounts = () => {
               {`${Number(eclipseBalance).toFixed(6)} ETH`}
             </span>
           </div>
+          
+          {/* Display token balances with detailed info */}
+          {tokens.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">SPL Tokens</h3>
+              <div className="space-y-2">
+                {tokens.map((token, idx) => {
+                  const tokenInfo = token.tokenInfo;
+                  const hasMetadata = tokenInfo && tokenInfo.content && tokenInfo.content.metadata;
+                  const tokenName = hasMetadata ? tokenInfo.content.metadata.name : token.mint.slice(0, 4) + '...' + token.mint.slice(-4);
+                  const tokenSymbol = hasMetadata ? tokenInfo.content.metadata.symbol : '';
+                  const tokenImage = tokenInfo && tokenInfo.content && tokenInfo.content.links ? tokenInfo.content.links.image : null;
+                  
+                  return (
+                    <div key={idx} className="bg-white rounded-lg p-3 shadow-sm border border-gray-100 flex justify-between items-center">
+                      <span className="text-gray-500 flex items-center">
+                        {tokenImage ? (
+                          <img src={tokenImage} alt={tokenName} className="h-4 w-4 mr-1 rounded-full" />
+                        ) : (
+                          <div className="h-4 w-4 rounded-full bg-gray-200 mr-1 flex items-center justify-center text-[10px]">T</div>
+                        )}
+                        <div className="flex flex-col">
+                          <span>{tokenName}</span>
+                          {tokenSymbol && <span className="text-xs text-gray-400">{tokenSymbol}</span>}
+                        </div>
+                      </span>
+                      <span className={Number(token.uiAmount) > 0 ? 'font-medium' : 'text-gray-400'}>
+                        {token.uiAmountString}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       );
     }

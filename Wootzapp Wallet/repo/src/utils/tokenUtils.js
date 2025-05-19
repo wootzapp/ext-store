@@ -25,6 +25,7 @@ const ETHEREUM_RPC_ENDPOINTS = {
 const ECLIPSE_RPC_ENDPOINT = 'https://mainnetbeta-rpc.eclipse.xyz';
 
 export const fetchAllSolanaAssets = async (address) => {
+  console.log("fetchAllSolanaAssets", address);
   try {
     const pubKey = new PublicKey(address);
     const assets = {
@@ -64,27 +65,73 @@ export const fetchAllSolanaAssets = async (address) => {
         
         assets.solBalance[network] = balance / 1e9;
 
-        // Get token accounts (optional, can be skipped if it fails)
-        try {
-          const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
-            pubKey,
-            { programId: TOKEN_PROGRAM_ID }
-          );
+        // const tokenAccounts = await connection.getTokenAccountsByOwner(
+        //   pubKey,
+        //   { programId: TOKEN_PROGRAM_ID }
+        // );
+        // console.log("tokenAccounts", JSON.stringify(tokenAccounts));
+        // console.log("tokenAccounts.value", JSON.stringify(tokenAccounts.value));
+        // const tokens = tokenAccounts.value
+        //   .map(account => {
+        //     const info = account.account.data.parsed.info;
+        //     console.log("info", info);
+        //     return {
+        //       mint: info.mint,
+        //       amount: info.tokenAmount.uiAmount,
+        //       decimals: info.tokenAmount.decimals,
+        //       network,
+        //       address: account.pubkey.toString()
+        //     };
+        //   })
+        //   .filter(token => token.amount > 0);
+        // console.log("tokens", tokens);
+        // assets.tokens.push(...tokens);
 
-          const tokens = tokenAccounts.value
+        // Get token accounts using Helius RPC endpoint
+        try {
+          const response = await fetch(`https://mainnet.helius-rpc.com/?api-key=${process.env.REACT_APP_HELIUS_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              id: '1',
+              method: 'getTokenAccountsByOwner',
+              params: [
+                pubKey,
+                {
+                  programId: TOKEN_PROGRAM_ID
+                },
+                {
+                  encoding: 'jsonParsed'
+                }
+              ]
+            })
+          });
+          const tokenAccounts = await response.json();
+  
+          console.log('Token accounts:', tokenAccounts);
+          console.log('Token accounts value:', tokenAccounts.result.value);
+          const tokens = tokenAccounts.result.value
             .map(account => {
               const info = account.account.data.parsed.info;
+              console.log('Info:', info);
               return {
                 mint: info.mint,
                 amount: info.tokenAmount.uiAmount,
                 decimals: info.tokenAmount.decimals,
-                network,
+                owner: info.owner,
                 address: account.pubkey.toString()
               };
             })
             .filter(token => token.amount > 0);
-
+  
+          console.log('Tokens:', tokens);
+  
           assets.tokens.push(...tokens);
+            
+            console.log("Processed tokens:", tokens);
+            assets.tokens.push(...tokens);
+          
         } catch (tokenErr) {
           console.warn(`Error fetching token accounts for ${network}:`, tokenErr);
         }
@@ -94,7 +141,7 @@ export const fetchAllSolanaAssets = async (address) => {
         assets.solBalance[network] = 0;
       }
     }
-
+    console.log("assets", assets); 
     return assets;
 
   } catch (error) {

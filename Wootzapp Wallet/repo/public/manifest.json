@@ -38,10 +38,11 @@
     "https://mainnetbeta-rpc.eclipse.xyz/*",
     "https://ethereum-rpc.publicnode.com/*",
     "wss://*.solana.com/*",
-    "https://solana-rpc.publicnode.com/*"
+    "https://solana-rpc.publicnode.com/*",
+    "https://mainnet.helius-rpc.com/*"
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://*.solana.com https://api.mainnet-beta.solana.com https://api.devnet.solana.com https://api.testnet.solana.com https://rpc.ankr.com/solana https://api.etherscan.io https://api-sepolia.etherscan.io https://api-goerli.etherscan.io https://eth-mainnet.public.blastapi.io https://eth-sepolia.public.blastapi.io https://eth-goerli.public.blastapi.io wss://*.solana.com https://*.rpc.extrnode.com https://*.public-rpc.com https://mainnetbeta-rpc.eclipse.xyz https://ethereum-rpc.publicnode.com https://solana-rpc.publicnode.com;"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://*.solana.com https://api.mainnet-beta.solana.com https://api.devnet.solana.com https://api.testnet.solana.com https://rpc.ankr.com/solana https://api.etherscan.io https://api-sepolia.etherscan.io https://api-goerli.etherscan.io https://eth-mainnet.public.blastapi.io https://eth-sepolia.public.blastapi.io https://eth-goerli.public.blastapi.io wss://*.solana.com https://*.rpc.extrnode.com https://*.public-rpc.com https://mainnetbeta-rpc.eclipse.xyz https://ethereum-rpc.publicnode.com https://solana-rpc.publicnode.com https://mainnet.helius-rpc.com;"
   },
   "background": {
     "service_worker": "Background.js"
