@@ -64,85 +64,8 @@ export const fetchAllSolanaAssets = async (address) => {
         }
 
         assets.solBalance[network] = balance / 1e9;
-
-        // const tokenAccounts = await connection.getTokenAccountsByOwner(
-        //   pubKey,
-        //   { programId: TOKEN_PROGRAM_ID }
-        // );
-        // console.log("tokenAccounts", JSON.stringify(tokenAccounts));
-        // console.log("tokenAccounts.value", JSON.stringify(tokenAccounts.value));
-        // const tokens = tokenAccounts.value
-        //   .map(account => {
-        //     const info = account.account.data.parsed.info;
-        //     console.log("info", info);
-        //     return {
-        //       mint: info.mint,
-        //       amount: info.tokenAmount.uiAmount,
-        //       decimals: info.tokenAmount.decimals,
-        //       network,
-        //       address: account.pubkey.toString()
-        //     };
-        //   })
-        //   .filter(token => token.amount > 0);
-        // console.log("tokens", tokens);
-        // assets.tokens.push(...tokens);
-
-        // Get token accounts using Helius RPC endpoint
-        try {
-          const response = await fetch(`https://mainnet.helius-rpc.com/?api-key=${process.env.REACT_APP_HELIUS_API_KEY}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              jsonrpc: '2.0',
-              id: '1',
-              method: 'getTokenAccountsByOwner',
-              params: [
-                pubKey,
-                {
-                  programId: TOKEN_PROGRAM_ID
-                },
-                {
-                  encoding: 'jsonParsed'
-                }
-              ]
-            })
-          });
-          const tokenAccounts = await response.json();
-
-          console.log('Token accounts:', tokenAccounts);
-          console.log('Token accounts value:', tokenAccounts.result.value);
-          const tokensByMint = {};
-
-          tokenAccounts.result.value.forEach(account => {
-            const info = account.account.data.parsed.info;
-            const mint = info.mint;
-            const amount = info.tokenAmount.uiAmount || 0;
-            const decimals = info.tokenAmount.decimals;
-            const owner = info.owner;
-            const address = account.pubkey.toString();
-
-            if (!tokensByMint[mint]) {
-              tokensByMint[mint] = {
-                mint,
-                amount: 0,
-                decimals,
-                owner,
-                address, // you can keep the first address or make this an array if you want all
-              };
-            }
-            tokensByMint[mint].amount += amount;
-          });
-
-          // Convert to array and filter out zero balances
-          const tokens = Object.values(tokensByMint).filter(token => token.amount > 0);
-
-          console.log('Tokens:', tokens);
-          assets.tokens = tokens;
-
-        } catch (tokenErr) {
-          console.warn(`Error fetching token accounts for ${network}:`, tokenErr);
-        }
-
+        
+        // No token fetching here - tokens will be handled by Blinks.js
       } catch (err) {
         console.error(`Error fetching data for ${network}:`, err);
         assets.solBalance[network] = 0;
