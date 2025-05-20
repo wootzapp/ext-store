@@ -25,6 +25,7 @@ const ETHEREUM_RPC_ENDPOINTS = {
 const ECLIPSE_RPC_ENDPOINT = 'https://mainnetbeta-rpc.eclipse.xyz';
 
 export const fetchAllSolanaAssets = async (address) => {
+  console.log("fetchAllSolanaAssets", address);
   try {
     const pubKey = new PublicKey(address);
     const assets = {
@@ -61,30 +62,83 @@ export const fetchAllSolanaAssets = async (address) => {
             await new Promise(resolve => setTimeout(resolve, 1000));
           }
         }
-        
+
         assets.solBalance[network] = balance / 1e9;
 
-        // Get token accounts (optional, can be skipped if it fails)
+        // const tokenAccounts = await connection.getTokenAccountsByOwner(
+        //   pubKey,
+        //   { programId: TOKEN_PROGRAM_ID }
+        // );
+        // console.log("tokenAccounts", JSON.stringify(tokenAccounts));
+        // console.log("tokenAccounts.value", JSON.stringify(tokenAccounts.value));
+        // const tokens = tokenAccounts.value
+        //   .map(account => {
+        //     const info = account.account.data.parsed.info;
+        //     console.log("info", info);
+        //     return {
+        //       mint: info.mint,
+        //       amount: info.tokenAmount.uiAmount,
+        //       decimals: info.tokenAmount.decimals,
+        //       network,
+        //       address: account.pubkey.toString()
+        //     };
+        //   })
+        //   .filter(token => token.amount > 0);
+        // console.log("tokens", tokens);
+        // assets.tokens.push(...tokens);
+
+        // Get token accounts using Helius RPC endpoint
         try {
-          const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
-            pubKey,
-            { programId: TOKEN_PROGRAM_ID }
-          );
-
-          const tokens = tokenAccounts.value
-            .map(account => {
-              const info = account.account.data.parsed.info;
-              return {
-                mint: info.mint,
-                amount: info.tokenAmount.uiAmount,
-                decimals: info.tokenAmount.decimals,
-                network,
-                address: account.pubkey.toString()
-              };
+          const response = await fetch(`https://mainnet.helius-rpc.com/?api-key=${process.env.REACT_APP_HELIUS_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              id: '1',
+              method: 'getTokenAccountsByOwner',
+              params: [
+                pubKey,
+                {
+                  programId: TOKEN_PROGRAM_ID
+                },
+                {
+                  encoding: 'jsonParsed'
+                }
+              ]
             })
-            .filter(token => token.amount > 0);
+          });
+          const tokenAccounts = await response.json();
 
-          assets.tokens.push(...tokens);
+          console.log('Token accounts:', tokenAccounts);
+          console.log('Token accounts value:', tokenAccounts.result.value);
+          const tokensByMint = {};
+
+          tokenAccounts.result.value.forEach(account => {
+            const info = account.account.data.parsed.info;
+            const mint = info.mint;
+            const amount = info.tokenAmount.uiAmount || 0;
+            const decimals = info.tokenAmount.decimals;
+            const owner = info.owner;
+            const address = account.pubkey.toString();
+
+            if (!tokensByMint[mint]) {
+              tokensByMint[mint] = {
+                mint,
+                amount: 0,
+                decimals,
+                owner,
+                address, // you can keep the first address or make this an array if you want all
+              };
+            }
+            tokensByMint[mint].amount += amount;
+          });
+
+          // Convert to array and filter out zero balances
+          const tokens = Object.values(tokensByMint).filter(token => token.amount > 0);
+
+          console.log('Tokens:', tokens);
+          assets.tokens = tokens;
+
         } catch (tokenErr) {
           console.warn(`Error fetching token accounts for ${network}:`, tokenErr);
         }
@@ -94,7 +148,7 @@ export const fetchAllSolanaAssets = async (address) => {
         assets.solBalance[network] = 0;
       }
     }
-
+    console.log("assets", assets);
     return assets;
 
   } catch (error) {
@@ -142,7 +196,7 @@ export const fetchAllSolanaAssets = async (address) => {
 export const fetchSepoliaEthereumBalance = async (address) => {
   try {
     const balances = {};
-    
+
     // Add delay between requests to avoid rate limiting
     const fetchWithDelay = async (network, endpoint) => {
       try {
@@ -168,7 +222,7 @@ export const fetchSepoliaEthereumBalance = async (address) => {
 
           const data = await response.json();
           console.log(`Balance response for ${network}:`, data);
-          
+
           if (data.result) {
             // Convert hex result to decimal and divide by 1e18
             const balance = parseInt(data.result, 16) / 1e18;
@@ -196,7 +250,7 @@ export const fetchSepoliaEthereumBalance = async (address) => {
 
           const data = await response.json();
           console.log(`Balance response for ${network}:`, data);
-          
+
           if (data.status === '1' && data.message === 'OK') {
             // Ensure we're converting the result to a number and dividing by 1e18
             const balance = Number(data.result) / 1e18;
@@ -239,7 +293,7 @@ export const fetchEclipseBalance = async (address) => {
       method: "getBalance",
       params: [address]  // Use the hardcoded address in an array
     };
-    
+
     const response = await fetch(ECLIPSE_RPC_ENDPOINT, {
       method: 'POST',
       headers: {
@@ -255,11 +309,11 @@ export const fetchEclipseBalance = async (address) => {
 
     const data = await response.json();
     console.log('Balance response for Eclipse:', data);
-    
+
     // Check if we have a proper result
     if (data.result && data.result.value !== undefined) {
       const rawBalance = data.result.value;
-      
+
       // Convert the result from lamports (like SOL) to a human-readable format
       const balance = Number(rawBalance) / 1e9;
       console.log('Calculated balance for Eclipse:', balance);
