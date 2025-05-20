@@ -13,7 +13,7 @@ const UnlockWallet = ({ setIsLocked }) => {
   const unlockWalletAsync = (password) => {
     console.log('Attempting to unlock wallet with password length:', password.length);
     return new Promise((resolve, reject) => {
-      chrome.wootz.unlockWallet(password, (result) => {
+      chrome.wootzapp.unlockWallet(password, (result) => {
         if (chrome.runtime.lastError) {
           reject(chrome.runtime.lastError);
         } else {

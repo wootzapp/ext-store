@@ -10,19 +10,19 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log('Extension ID:', chrome.runtime.id);
 });
 
-chrome.wootz.onSignMessageRequested.addListener((request) => {
+chrome.wootzapp.onSignMessageRequested.addListener((request) => {
   console.log('Sign message request received in background:', request);
   pendingSignRequest = request;
   chrome.runtime.sendMessage({ type: 'signMessageRequest', data: request });
 });
 
-chrome.wootz.OnNewUnapprovedTxAPI.addListener((txInfo) => {
+chrome.wootzapp.OnNewUnapprovedTxAPI.addListener((txInfo) => {
   console.log('New unapproved transaction received in background:', txInfo);
   pendingTransaction = txInfo;
   chrome.runtime.sendMessage({ type: 'newTransactionRequest', data: txInfo });
 });
 
-chrome.wootz.onTransactionStatusChangedAPI.addListener((txInfo) => {
+chrome.wootzapp.onTransactionStatusChangedAPI.addListener((txInfo) => {
   console.log('Transaction status changed:', txInfo);
   if (txInfo.status === 'signed' || txInfo.status === 'failed') {
     pendingTransaction = null;
@@ -31,7 +31,7 @@ chrome.wootz.onTransactionStatusChangedAPI.addListener((txInfo) => {
 });
 
 // Fix the Solana transaction listener
-chrome.wootz.onSolanaSignTransactionRequested.addListener((request) => {
+chrome.wootzapp.onSolanaSignTransactionRequested.addListener((request) => {
   console.log('🌟 Solana transaction sign request received:', request);
   
   // Format the request data properly
@@ -72,7 +72,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
 
     case 'signMessage':
-      chrome.wootz.signMessage(message.requestId, message.approved, message.signature, (result) => {
+      chrome.wootzapp.signMessage(message.requestId, message.approved, message.signature, (result) => {
         console.log('Sign message result:', result);
         pendingSignRequest = null;
         sendResponse(result);
@@ -89,7 +89,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case 'signTransaction':
       console.log('Signing transaction:', message.txMetaId, message.approved, message.chainId, message.coinType);
-      chrome.wootz.signTransaction(
+      chrome.wootzapp.signTransaction(
         message.txMetaId,
         message.chainId,
         message.coinType,
@@ -117,7 +117,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'signSolanaTransaction':
       console.log('Signing Solana transaction:', message);
 
-      chrome.wootz.signSolanaTransaction(
+      chrome.wootzapp.signSolanaTransaction(
         message.requestId,
         message.approved,
         (result) => {
