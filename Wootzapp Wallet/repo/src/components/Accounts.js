@@ -61,7 +61,7 @@ const Accounts = () => {
         let balance;
         if (account.coin === 501) {
           // Fetch only Solana balances, no token data
-          balance = await fetchAllSolanaAssets('43fvoUwv2D2pFMmpHVNWCRTiDTZhsKyc4A7PZssvZVkH');
+          balance = await fetchAllSolanaAssets(account.address);
           console.log(`Fetched Solana balances for ${account.address}:`, balance);
           
           // Additionally fetch Eclipse balance for Solana accounts
