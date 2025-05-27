@@ -41,18 +41,13 @@ const Accounts = () => {
 
     fetchAccounts();
 
-    // Add this to check the current blinks state
-    chrome.wootz.setBlinksEnabled(false, (result) => {
-      if (result && typeof result.enabled !== 'undefined') {
-        setToggleEnabled(result.enabled);
-      }
-    });
-
-    chrome.storage.local.get('blinksEnabled', (result) => {
-      if (result.blinksEnabled !== undefined) {
-        setToggleEnabled(result.blinksEnabled);
-      }
-    });
+        // Only check stored preference without changing state
+        chrome.storage.local.get('blinksEnabled', (result) => {
+          console.log('Retrieved blinksEnabled from storage in Accounts:', result);
+          if (result.blinksEnabled !== undefined) {
+            setToggleEnabled(result.blinksEnabled);
+          }
+        });
   }, []);
 
   const fetchBalances = async (accountsList) => {
