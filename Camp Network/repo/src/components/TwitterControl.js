@@ -221,6 +221,7 @@ const TwitterControl = () => {
 
     setIsProfileScrapingEnabled(newState);
     if(newState){
+      setProfileData(null);
       setScrapingStatus((prev) => ({
         ...prev,
         isProfileScraping: newState,
@@ -267,6 +268,7 @@ const TwitterControl = () => {
 
     setIsLikedTweetsScrapingEnabled(newState);
     if(newState){
+      setLikedTweets([]);
       setScrapingStatus((prev) => ({
         ...prev,
         isLikedTweetsScraping: newState,
@@ -382,30 +384,41 @@ const TwitterControl = () => {
 
   const handleRepliesScraping = () => {
     const newState = !isRepliesScraping;
-    if (newState) {
-      // Get initial username from storage instead of relying on profileData
-      chrome.storage.local.get(["initialUsername"], (result) => {
-        if (result.initialUsername) {
-          console.log(
-            "🔄 Requesting Posts and Replies scrape for:",
-            result.initialUsername
-          );
-          chrome.runtime.sendMessage({
-            type: "TOGGLE_REPLIES_SCRAPING",
-            username: result.initialUsername,
-            enabled: newState,
-          });
-        } else {
-          console.error("No username found for Posts and Replies scrape");
-          setIsRepliesScraping(false);
-        }
-      });
-    }
-    // Save the replies scraping state
-    chrome.storage.local.set({
-      isRepliesScrapingEnabled: newState,
-    });
+    console.log("🔄 Toggling replies scraping:", newState);
+    
+    // First update local state
     setIsRepliesScraping(newState);
+    
+    // Then update storage and trigger scraping
+    chrome.storage.local.set({
+        isRepliesScrapingEnabled: newState,
+        hasScrapedReplies: false // Reset the completion flag
+    }, () => {
+        if (newState) {
+            setPostedTweets([]);
+            setRetweetedTweets([]);
+            setUserReplies([]);
+            chrome.storage.local.get(["initialUsername"], (result) => {
+                if (result.initialUsername) {
+                    console.log("🔄 Starting Posts and Replies scrape for:", result.initialUsername);
+                    chrome.runtime.sendMessage({
+                        type: "TOGGLE_REPLIES_SCRAPING",
+                        username: result.initialUsername,
+                        enabled: newState,
+                    });
+                } else {
+                    console.error("No username found for Posts and Replies scrape");
+                    setIsRepliesScraping(false);
+                    chrome.storage.local.set({ isRepliesScrapingEnabled: false });
+                }
+            });
+        } else {
+            // Stop scraping when disabled
+            chrome.runtime.sendMessage({
+                type: "STOP_REPLIES_SCRAPING"
+            });
+        }
+    });
   };
 
   return (
@@ -578,7 +591,7 @@ const TwitterControl = () => {
               <div className="px-4 py-2 bg-gray-50/90 backdrop-blur-sm rounded-lg border border-gray-300">
                 <p className="text-gray-500 text-sm mb-1">Likes</p>
                 <p className="text-xl font-bold text-gray-900">
-                  {likedTweets.length !== 0 || isLikedTweetsScrapingEnabled ? (
+                  {likedTweets.length !== 0 ? (
                     likedTweets.length
                   ) : (
                     <span className="inline-block w-8 h-4 bg-gray-200 animate-pulse rounded"></span>
@@ -588,7 +601,7 @@ const TwitterControl = () => {
               <div className="px-4 py-2 bg-gray-50/90 backdrop-blur-sm rounded-lg border border-gray-300">
                 <p className="text-gray-500 text-sm mb-1">Posts</p>
                 <p className="text-xl font-bold text-gray-900">
-                  {postedTweets.length !== 0 || isRepliesScraping ? (
+                  {scrapingStatus.hasScrapedReplies ? (
                     postedTweets.length
                   ) : (
                     <span className="inline-block w-8 h-4 bg-gray-200 animate-pulse rounded"></span>
@@ -598,7 +611,7 @@ const TwitterControl = () => {
               <div className="px-4 py-2 bg-gray-50/90 backdrop-blur-sm rounded-lg border border-gray-300">
                 <p className="text-gray-500 text-sm mb-1">Replies</p>
                 <p className="text-xl font-bold text-gray-900">
-                  {userReplies.length !== 0 || isRepliesScraping ? (
+                  {scrapingStatus.hasScrapedReplies ? (
                     userReplies.length
                   ) : (
                     <span className="inline-block w-8 h-4 bg-gray-200 animate-pulse rounded"></span>
@@ -608,7 +621,7 @@ const TwitterControl = () => {
               <div className="px-4 py-2 bg-gray-50/90 backdrop-blur-sm rounded-lg border border-gray-300">
                 <p className="text-gray-500 text-sm mb-1">Retweets</p>
                 <p className="text-xl font-bold text-gray-900">
-                  {retweetedTweets.length !== 0 || isRepliesScraping ? (
+                  {scrapingStatus.hasScrapedReplies ? (
                     retweetedTweets.length
                   ) : (
                     <span className="inline-block w-8 h-4 bg-gray-200 animate-pulse rounded"></span>
