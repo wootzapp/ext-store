@@ -43,6 +43,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "SCRAPED_DATA" && message.data.type === "LIKED_TWEETS") {
     console.log("📥 Received liked tweets data");
+    console.log("📥 Received liked tweets data:", {
+      count: message.data.content.length,
+      tabId: sender.tab?.id
+  });
     handleLikedTweetsData(message.data.content, message.data.metadata).catch(
       (error) => console.error("Error handling liked tweets:", error)
     );
@@ -63,6 +67,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       console.error("Error handling likes count:", error)
     );
     return true;
+  }
+
+  if (message.type === "SCRAPED_DATA" && message.data.type === "REPLIES") {
+    console.log("📥 Received replies data"); // This should appear in your logs
+    handleRepliesData(message.data.content)
+      .then(() => sendResponse({ success: true }))
+      .catch((error) => sendResponse({ success: false, error: error.message }));
+    return true; // Important!
   }
 
   console.log(
@@ -247,14 +259,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.type === "TOGGLE_REPLIES_SCRAPING") {
     console.log("🔄 Toggling Posts and Replies scraping:", message.enabled);
     handleRepliesScraping(message.username);
-  } else if (
-    message.type === "SCRAPED_DATA" &&
-    message.data.type === "REPLIES"
-  ) {
-    console.log("📥 Received replies data");
-    handleRepliesData(message.data.content).catch((error) =>
-      console.error("Error handling replies data:", error)
-    );
   } else if (message.type === "SEND_PROFILE_VISIT") {
     console.log("📤 Processing profile visit:", message.data);
 
@@ -346,6 +350,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     });
   }
+  sendResponse({status: 'received'}); // Default for other messages
   return true;
 });
 
@@ -841,18 +846,19 @@ async function handleLikedTweetsData(tweets, metadata) {
       total: mergedTweets.length,
       newlyAdded: tweets.length,
       existingBefore: existingTweets.length,
+      mergedTweets: mergedTweets.length,
     });
 
-    // Update storage with merged tweets FIRST
+    // Update storage with tweets FIRST
     await chrome.storage.local.set({
-      likedTweets: mergedTweets,
+      likedTweets: tweets,
       lastLikedTweetsUpdate: new Date().toISOString(),
     });
 
     // Broadcast update immediately
     chrome.runtime.sendMessage({
       type: "LIKED_TWEETS_UPDATED",
-      data: mergedTweets,
+      data: tweets,
     });
 
     // SECOND: Handle API calls if we have wallet and handle
@@ -1168,22 +1174,22 @@ async function handleRepliesData(tweets) {
     const storage = await chrome.storage.local.get([
       "userReplies",
       "postedTweets",
-      "retweetedTweets",  // Add this
+      "retweetedTweets",
       "walletAddress",
       "initialUsername",
       "sentPosts",
       "sentReplies",
-      "sentRetweets",  // Add this
+      "sentRetweets",
     ]);
 
     const walletAddress = storage.walletAddress;
     const userHandle = storage.initialUsername;
     const sentPosts = new Set(storage.sentPosts || []);
     const sentReplies = new Set(storage.sentReplies || []);
-    const sentRetweets = new Set(storage.sentRetweets || []); // Add this
+    const sentRetweets = new Set(storage.sentRetweets || []);
     const existingPostedTweets = storage.postedTweets || [];
     const existingReplies = storage.userReplies || [];
-    const existingRetweets = storage.retweetedTweets || []; // Add this
+    const existingRetweets = storage.retweetedTweets || [];
 
     if (!walletAddress || !userHandle) {
       console.log("⏳ Skipping API calls - missing wallet or handle:", {
@@ -1193,33 +1199,47 @@ async function handleRepliesData(tweets) {
       return;
     }
 
+    console.log("🔍 Debug info:", {
+      userHandle,
+      sampleTweetUser: tweets[0]?.user
+    });
+
     // Separate posts, retweets and replies
     const posts = [];
     const replies = [];
-    const retweets = [];  // New array for retweets
+    const retweets = [];
 
     tweets.forEach((tweet) => {
+      // Handle different data structures from content.js vs Twitter API
       const processedTweet = {
-        id: tweet.rest_id,
-        text: tweet.legacy?.full_text || tweet.legacy?.text,
-        timestamp: tweet.legacy?.created_at,
+        id: tweet.rest_id || tweet.id,
+        text: tweet.legacy?.full_text || tweet.legacy?.text || tweet.text,
+        timestamp: tweet.legacy?.created_at || tweet.created_at,
         metrics: {
-          replies: tweet.legacy?.reply_count || 0,
-          retweets: tweet.legacy?.retweet_count || 0,
-          likes: tweet.legacy?.favorite_count || 0,
+          replies: tweet.legacy?.reply_count || tweet.metrics?.reply_count || 0,
+          retweets: tweet.legacy?.retweet_count || tweet.metrics?.retweet_count || 0,
+          likes: tweet.legacy?.favorite_count || tweet.metrics?.favorite_count || 0,
         },
         user: {
-          name: tweet.core?.user_results?.result?.legacy?.name,
-          handle: tweet.core?.user_results?.result?.legacy?.screen_name,
-          avatar: tweet.core?.user_results?.result?.legacy?.profile_image_url_https,
+          name: tweet.core?.user_results?.result?.legacy?.name || tweet.user?.name,
+          handle: tweet.core?.user_results?.result?.legacy?.screen_name || tweet.user?.screen_name,
+          avatar: tweet.core?.user_results?.result?.legacy?.profile_image_url_https || tweet.user?.profile_image_url,
         },
-        in_reply_to_screen_name: tweet.legacy?.in_reply_to_screen_name,
-        in_reply_to_status_id_str: tweet.legacy?.in_reply_to_status_id_str,
+        in_reply_to_screen_name: tweet.legacy?.in_reply_to_screen_name || tweet.in_reply_to_screen_name,
+        in_reply_to_status_id_str: tweet.legacy?.in_reply_to_status_id_str || tweet.in_reply_to_status_id,
       };
+
+      console.log("🔍 Processing tweet:", {
+        id: processedTweet.id,
+        userHandle: processedTweet.user.handle,
+        expectedHandle: userHandle,
+        isReply: !!processedTweet.in_reply_to_screen_name,
+        hasRetweetedStatus: !!(tweet.legacy?.retweeted_status_result)
+      });
 
       // Check for retweet first by looking for retweeted_status_result
       if (tweet.legacy?.retweeted_status_result) {
-        // This is a retweet
+        // This is a nested retweet structure
         const originalTweet = tweet.legacy.retweeted_status_result.result;
         processedTweet.original_tweet = {
           id: originalTweet.rest_id,
@@ -1231,12 +1251,34 @@ async function handleRepliesData(tweets) {
           }
         };
         retweets.push(processedTweet);
-      } else if (tweet.legacy?.in_reply_to_screen_name) {
+        console.log("📄 Categorized as nested retweet:", processedTweet.id);
+      } else if (tweet.text && tweet.text.startsWith('RT @')) {
+        // This is a flattened retweet structure - text starts with "RT @"
+        const rtMatch = tweet.text.match(/^RT @(\w+): (.+)$/);
+        if (rtMatch) {
+          const [, originalHandle, originalText] = rtMatch;
+          processedTweet.original_tweet = {
+            id: null, // Original tweet ID not available in this format
+            text: originalText,
+            user: {
+              name: null, // Original user name not available
+              handle: originalHandle,
+              avatar: null // Original user avatar not available
+            }
+          };
+          retweets.push(processedTweet);
+          console.log("📄 Categorized as flattened retweet:", processedTweet.id);
+        }
+      } else if (processedTweet.in_reply_to_screen_name) {
         // This is a reply
         replies.push(processedTweet);
-      } else if (userHandle === processedTweet.user.handle) {
-        // This is a regular post
+        console.log("💬 Categorized as reply:", processedTweet.id);
+      } else {
+        // This is a regular post - be more flexible with handle matching
+        // Since the user data might be empty from content.js, assume it's the user's post
+        // if it's not a reply or retweet and we're processing their timeline
         posts.push(processedTweet);
+        console.log("📝 Categorized as post:", processedTweet.id);
       }
     });
 
@@ -1348,7 +1390,7 @@ async function handleRepliesData(tweets) {
     // Merge with existing data and remove duplicates
     const mergedPosts = [...existingPostedTweets];
     const mergedReplies = [...existingReplies];
-    const mergedRetweets = [...existingRetweets]; // Add this
+    const mergedRetweets = [...existingRetweets];
 
     // Add new posts
     posts.forEach((post) => {

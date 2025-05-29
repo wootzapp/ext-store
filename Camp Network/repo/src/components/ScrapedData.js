@@ -155,7 +155,7 @@ const ScrapedData = () => {
               })
               .slice(0, 15000);
           });
-        } else if (message.data.type === "REPLIES") {
+        } else if (message.data.type === "REPLIES_UPDATED") {
           console.log(
             "💬 Updating replied tweets:",
             message.data.content.length
@@ -323,7 +323,7 @@ const ScrapedData = () => {
                 <div className="px-4 py-2 bg-gray-50/90 backdrop-blur-sm rounded-lg border border-gray-300">
                   <p className="text-gray-500 text-sm mb-1">Likes</p>
                   <p className="text-xl font-bold text-gray-900">
-                    {likedTweets.length !== 0 ? (
+                    {likedTweets.length !== undefined ? (
                         likedTweets.length
                     ) : (
                       <span className="inline-block w-8 h-4 bg-gray-200 animate-pulse rounded"></span>
@@ -333,7 +333,7 @@ const ScrapedData = () => {
                 <div className="px-4 py-2 bg-gray-50/90 backdrop-blur-sm rounded-lg border border-gray-300">
                   <p className="text-gray-500 text-sm mb-1">Posts</p>
                   <p className="text-xl font-bold text-gray-900">
-                    {postedTweets.length !== 0 ? (
+                    {postedTweets.length !== undefined ? (
                       postedTweets.length
                     ) : (
                       <span className="inline-block w-8 h-4 bg-gray-200 animate-pulse rounded"></span>
@@ -343,7 +343,7 @@ const ScrapedData = () => {
                 <div className="px-4 py-2 bg-gray-50/90 backdrop-blur-sm rounded-lg border border-gray-300">
                   <p className="text-gray-500 text-sm mb-1">Replies</p>
                   <p className="text-xl font-bold text-gray-900">
-                    {userReplies.length !== 0 ? (
+                    {userReplies.length !== undefined ? (
                       userReplies.length
                     ) : (
                       <span className="inline-block w-8 h-4 bg-gray-200 animate-pulse rounded"></span>
@@ -353,7 +353,7 @@ const ScrapedData = () => {
                 <div className="px-4 py-2 bg-gray-50/90 backdrop-blur-sm rounded-lg border border-gray-300">
                   <p className="text-gray-500 text-sm mb-1">Retweets</p>
                   <p className="text-xl font-bold text-gray-900">
-                    {retweetedTweets.length !== 0 ? (
+                    {retweetedTweets.length !== undefined ? (
                       retweetedTweets.length
                     ) : (
                       <span className="inline-block w-8 h-4 bg-gray-200 animate-pulse rounded"></span>
