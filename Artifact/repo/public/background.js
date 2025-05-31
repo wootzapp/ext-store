@@ -33,6 +33,34 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
   }
 });
 
+async function fetchAndStoreEasyListSelectors() {
+  const url = "https://easylist.to/easylist/easylist.txt";
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Failed to fetch EasyList");
+    const text = await response.text();
+    const lines = text.split('\n');
+    const selectors = [];
+    for (let line of lines) {
+      line = line.trim();
+      if (!line || line.startsWith('!')) continue;
+      if (line.startsWith('##') || line.startsWith('###')) {
+        let selector = line.replace(/^##+/, '').trim();
+        if (selector.startsWith('#')) selector = selector.slice(1).trim();
+        if (selector.includes('href')) continue;
+        if (/".*?"/.test(selector)) continue;
+        selectors.push(selector);
+      }
+    }
+    await chrome.storage.local.set({ easylistSelectors: selectors });
+    console.log('✅ EasyList selectors stored:', selectors.length);
+  } catch (e) {
+    console.error('❌ EasyList fetch/parse failed:', e);
+  }
+}
+
+fetchAndStoreEasyListSelectors();
+
 // Create a queue to store URLs that need to be logged
 let urlQueue = [];
 
