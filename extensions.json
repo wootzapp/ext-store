@@ -4,7 +4,7 @@
       "id": "allmdcfldidgeghfoioaaiammdlpmnnk",
       "name": "Artifact",
       "description": "An extension to earn rewards for browsing the web.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "Wootzapp Team",
       "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Artifact/Artifact.crx",
       "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Artifact/repo/public/icons/icon128.png",
@@ -15,7 +15,7 @@
         "Browse"
       ],
       "created_at": "2025-02-26T15:00:00Z",
-      "updated_at": "2025-02-26T15:00:00Z"
+      "updated_at": "2025-05-31T15:00:00Z"
     },
     {
       "id": "fdjkflhcgjnhmbfpbojnalpfmomjggkj",
