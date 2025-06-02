@@ -16,6 +16,7 @@ import ScrapedData from './components/ScrapedData';
 import NewSignup from './components/NewSignup';
 import LandingPage from './components/LandingPage';
 import { VideoPlayer } from './components/VideoPlayer'; 
+import { AdControlPage } from './components/AdControlPage';
 
 function App() {
   const { token, loading, error, saveToken, clearToken } = useAuthToken();
@@ -101,6 +102,10 @@ function App() {
             
             <Route path="*" element={
               isAuthenticated ? <Navigate to="/relicdao/dashboard" /> : <Navigate to="/relicdao" />
+            } />
+
+            <Route path="/relicdao/dashboard/adcontrol" element={
+              isAuthenticated ? <AdControlPage /> : <Navigate to="/relicdao" />
             } />
           </Routes>
         </div>
