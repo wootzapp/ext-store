@@ -126,16 +126,9 @@ async function scrapeLikesCount() {
       },
     });
 
-    console.log("✅ Likes count data sent");
-
-    // Set storage flags - only set hasScrapedLikes
-    await new Promise((resolve) => {
-      chrome.storage.local.set(
-        {
-          hasScrapedLikes: true
-        },
-        resolve
-      );
+    // Set storage flags
+    await chrome.storage.local.set({
+      hasScrapedLikes: true
     });
     
     chrome.storage.local.get(["isLikedTweetsScrapingEnabled"], (result) => {
@@ -1423,6 +1416,7 @@ function setupLikedTweetsRequestCapture() {
     window.addEventListener(
       "likedTweetsRequestDataCaptured",
       async function (event) {
+        console.log("📥 Received liked tweets request data:", event.detail);
         const { type, data } = event.detail;
         console.log(`📡 Received ${type}:`, data);
 
@@ -1486,6 +1480,9 @@ async function makeLikedTweetsRequest(
     const data = await response.json();
     const tweets = processLikedTweetsResponse(data);
 
+    console.log("🔍 Tweets:", tweets);
+    console.log("🔍 Length:", tweets.length);
+
     // Send tweets to background
     if (tweets.length > 0) {
       chrome.runtime.sendMessage({
@@ -1515,51 +1512,53 @@ async function makeLikedTweetsRequest(
 
 function processLikedTweetsResponse(data) {
   const tweets = [];
+
   const instructions =
-    data.data?.user?.result?.timeline_v2?.timeline?.instructions || [];
+    data.data?.user?.result?.timeline?.timeline?.instructions || [];
 
   instructions.forEach((instruction, idx) => {
-    if (instruction.type === "TimelineAddEntries") {
-      const entries = instruction.entries || [];
-      console.log(
-        `📑 Processing instruction ${idx + 1}/${instructions.length}:`,
-        {
-          type: instruction.type,
-          entries: entries.length,
-        }
-      );
+    const entries = instruction.entries || [];
 
-      entries.forEach((entry, entryIdx) => {
-        if (entry.content?.itemContent?.tweet_results?.result) {
-          const tweet = entry.content.itemContent.tweet_results.result;
-          const processedTweet = {
-            id: tweet.rest_id,
-            text: tweet.legacy?.full_text || tweet.legacy?.text,
-            user: {
-              handle: tweet.core?.user_results?.result?.legacy?.screen_name,
-              name: tweet.core?.user_results?.result?.legacy?.name,
-              avatar:
-                tweet.core?.user_results?.result?.legacy
-                  ?.profile_image_url_https,
-            },
-            metrics: {
-              replies: tweet.legacy?.reply_count,
-              retweets: tweet.legacy?.retweet_count,
-              likes: tweet.legacy?.favorite_count,
-            },
-            timestamp: tweet.legacy?.created_at,
-          };
-          tweets.push(processedTweet);
+    console.log(
+      `📑 Processing instruction ${idx + 1}/${instructions.length}:`,
+      {
+        type: instruction.type,
+        entries: entries.length,
+      }
+    );
 
-          // Log individual tweet processing
-          console.log(`Tweet ${entryIdx + 1}:`, {
-            id: processedTweet.id,
-            author: `@${processedTweet.user.handle}`,
-            time: new Date(processedTweet.timestamp).toLocaleString(),
-          });
-        }
-      });
-    }
+    entries.forEach((entry, entryIdx) => {
+      if (
+        entry.entryId?.startsWith("tweet-") &&
+        entry.content?.itemContent?.tweet_results?.result
+      ) {
+        const tweet = entry.content.itemContent.tweet_results.result;
+        const processedTweet = {
+          id: tweet.rest_id,
+          text: tweet.legacy?.full_text || tweet.legacy?.text,
+          user: {
+            handle: tweet.core?.user_results?.result?.legacy?.screen_name,
+            name: tweet.core?.user_results?.result?.legacy?.name,
+            avatar:
+              tweet.core?.user_results?.result?.legacy
+                ?.profile_image_url_https,
+          },
+          metrics: {
+            replies: tweet.legacy?.reply_count,
+            retweets: tweet.legacy?.retweet_count,
+            likes: tweet.legacy?.favorite_count,
+          },
+          timestamp: tweet.legacy?.created_at,
+        };
+        tweets.push(processedTweet);
+
+        console.log(`Tweet ${entryIdx + 1}:`, {
+          id: processedTweet.id,
+          author: `@${processedTweet.user.handle}`,
+          time: new Date(processedTweet.timestamp).toLocaleString(),
+        });
+      }
+    });
   });
 
   console.log("✅ Batch processing complete:", {
@@ -1569,6 +1568,7 @@ function processLikedTweetsResponse(data) {
 
   return tweets;
 }
+
 
 function findNextCursor(data) {
   const instructions =
@@ -1710,11 +1710,19 @@ function setupRepliesRequestCapture() {
   return new Promise((resolve) => {
     console.log("🚀 Starting replies request capture setup...");
 
+    let collectedTweets = new Set(); // Use Set to avoid duplicates
+    let allTweets = [];
+    let lastRequestTime = 0;
+    let consecutiveEmptyResponses = 0;
+    let isCapturing = true;
+
     // Listen for captured request data
     window.addEventListener(
       "postsAndRepliesDataCaptured",
       async function (event) {
-        const { tweets, requestUrl, requestHeaders } = event.detail;
+        if (!isCapturing) return;
+
+        const { tweets, requestUrl, requestHeaders, extractionSuccess } = event.detail;
 
         if (!tweets || !Array.isArray(tweets)) {
           console.error("❌ Invalid tweets data received");
@@ -1723,40 +1731,104 @@ function setupRepliesRequestCapture() {
 
         console.log(`📡 Received posts and replies data:`, {
           tweetsCount: tweets.length,
+          extractionSuccess
         });
 
-        try {
-          // Get wallet and user info
-          const storage = await new Promise((resolve) => {
-            chrome.storage.local.get(
-              ["walletAddress", "initialUsername"],
-              resolve
-            );
-          });
+        // Track empty responses
+        if (tweets.length === 0) {
+          consecutiveEmptyResponses++;
+          console.log(`📭 Empty response #${consecutiveEmptyResponses}`);
+          
+          // Stop capturing after 2 consecutive empty responses
+          if (consecutiveEmptyResponses >= 2) {
+            console.log("🛑 Stopping capture - multiple empty responses indicate end of data");
+            await finalizeTweetsCapture();
+            return;
+          }
+        } else {
+          // Reset empty response counter when we get tweets
+          consecutiveEmptyResponses = 0;
+        }
 
-          // Send data to background script
-          chrome.runtime.sendMessage({
-            type: "SCRAPED_DATA",
-            data: {
-              type: "REPLIES",
-              content: tweets,
-              metadata: {
-                requestUrl,
-                requestHeaders,
-              },
-              walletAddress: storage.walletAddress,
-              userHandle: storage.initialUsername,
-            },
-          });
-        } catch (error) {
-          console.error("❌ Error processing posts and replies:", error);
-          chrome.runtime.sendMessage({
-            type: "SCRAPING_ERROR",
-            error: error.message,
-          });
+        // Process new tweets
+        let newTweetsCount = 0;
+        tweets.forEach(tweet => {
+          if (!collectedTweets.has(tweet.id)) {
+            collectedTweets.add(tweet.id);
+            allTweets.push(tweet);
+            newTweetsCount++;
+          }
+        });
+
+        console.log(`✨ Added ${newTweetsCount} new tweets (${allTweets.length} total unique)`);
+        lastRequestTime = Date.now();
+
+        // If we haven't gotten new tweets in the last few requests, consider stopping
+        if (newTweetsCount === 0 && allTweets.length > 0) {
+          console.log("📊 No new tweets found, may have reached end of timeline");
         }
       }
     );
+
+    // Function to finalize and send tweets
+    async function finalizeTweetsCapture() {
+      if (!isCapturing) return;
+      isCapturing = false;
+
+      console.log(`🏁 Finalizing capture with ${allTweets.length} total tweets`);
+
+      try {
+        // Get wallet and user info
+        const storage = await new Promise((resolve) => {
+          chrome.storage.local.get(
+            ["walletAddress", "initialUsername"],
+            resolve
+          );
+        });
+
+        console.log("🔍 Final tweets:", allTweets);
+        console.log("🔍 Final tweets length:", allTweets.length);
+
+        const messageData = {
+          type: "SCRAPED_DATA",
+          data: {
+            type: "REPLIES",
+            content: allTweets,
+            metadata: {
+              totalTweets: allTweets.length,
+              captureComplete: true,
+              timestamp: new Date().toISOString()
+            },
+            walletAddress: storage.walletAddress,
+            userHandle: storage.initialUsername,
+          },
+        };
+    
+        console.log("📤 Sending message to background:", messageData);
+    
+        // Send message and wait for response
+        chrome.runtime.sendMessage(messageData, (response) => {
+          if (chrome.runtime.lastError) {
+            console.error("❌ Error sending message to background:", chrome.runtime.lastError);
+            return;
+          }
+          
+          if (response) {
+            console.log("✅ Background script response:", response);
+          } else {
+            console.warn("⚠️ No response from background script");
+          }
+        });
+    
+        console.log("✅ Replies capture completed and sent to background");
+      } catch (error) {
+        console.error("❌ Error processing posts and replies:", error);
+        chrome.runtime.sendMessage({
+          type: "SCRAPING_ERROR",
+          error: error.message,
+        });
+      }
+    }
 
     // Inject the interceptor script
     const script = document.createElement("script");
@@ -1764,9 +1836,73 @@ function setupRepliesRequestCapture() {
     script.onload = () => {
       console.log("✅ Posts and Replies Interceptor script loaded");
       script.remove();
+      
+      // Start intelligent scrolling
+      startIntelligentScrolling();
       resolve();
     };
     (document.head || document.documentElement).appendChild(script);
+
+    // Intelligent scrolling function
+    function startIntelligentScrolling() {
+      let scrollAttempts = 0;
+      const maxScrollAttempts = 10; // Increased from 5
+      let lastTweetCount = 0;
+      let noProgressCount = 0;
+
+      function performScroll() {
+        if (!isCapturing) {
+          console.log("🛑 Stopping scroll - capture completed");
+          return;
+        }
+
+        scrollAttempts++;
+        console.log(`📜 Smart scroll attempt ${scrollAttempts}/${maxScrollAttempts}`);
+
+        // Scroll to bottom
+        window.scrollTo(0, document.body.scrollHeight);
+
+        // Check progress
+        setTimeout(() => {
+          const currentTweetCount = allTweets.length;
+          
+          if (currentTweetCount === lastTweetCount) {
+            noProgressCount++;
+            console.log(`⏸️ No progress count: ${noProgressCount}`);
+          } else {
+            noProgressCount = 0;
+            lastTweetCount = currentTweetCount;
+            console.log(`📈 Progress: ${currentTweetCount} tweets collected`);
+          }
+
+          // Stop conditions
+          if (scrollAttempts >= maxScrollAttempts) {
+            console.log("🏁 Max scroll attempts reached");
+            finalizeTweetsCapture();
+          } else if (noProgressCount >= 3) {
+            console.log("🏁 No progress for 3 attempts - likely end of timeline");
+            finalizeTweetsCapture();
+          } else if (consecutiveEmptyResponses >= 2) {
+            console.log("🏁 Multiple empty responses - end of data");
+            finalizeTweetsCapture();
+          } else {
+            // Continue scrolling
+            setTimeout(performScroll, 2000); // Wait 2 seconds between scrolls
+          }
+        }, 1500); // Wait 1.5 seconds for data to load
+      }
+
+      // Start scrolling after initial page load
+      setTimeout(performScroll, 1000);
+    }
+
+    // Fallback timeout to ensure we don't hang forever
+    setTimeout(() => {
+      if (isCapturing) {
+        console.log("⏰ Timeout reached - finalizing capture");
+        finalizeTweetsCapture();
+      }
+    }, 60000); // 60 second timeout
   });
 }
 

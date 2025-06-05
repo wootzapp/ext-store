@@ -16,25 +16,26 @@
         params: null
     };
 
-    // Function to send data to content script
-    function sendToContentScript(data, type = 'TIMELINE_REQUEST_DATA') {
-        console.log(`📤 Sending ${type} to content script:`, data);
-        window.dispatchEvent(new CustomEvent('timelinerequestdataCaptured', {
-            detail: {
-                type: type,
-                data: data
-            }
+    // Function to dispatch custom events
+    function dispatchRequestData(data, type) {
+        window.dispatchEvent(new CustomEvent('likedTweetsRequestDataCaptured', {
+            detail: { type, data }
         }));
     }
 
-    function sendLikedTweetsToContentScript(data, type = 'LIKED_TWEETS_REQUEST_DATA') {
-        console.log(`📤 Sending liked tweets ${type} to content script:`, data);
-        window.dispatchEvent(new CustomEvent('likedTweetsRequestDataCaptured', {
-            detail: {
-                type: type,
-                data: data
-            }
-        }));
+    // Function to log data to console
+    function logData(data, type = 'TIMELINE_REQUEST_DATA') {
+        console.log(`📤 ${type}:`, data);
+        console.log('🔍 Full request details:', {
+            url: data.url,
+            method: data.method,
+            headers: data.headers,
+            body: data.body,
+            responseData: data.responseData
+        });
+        
+        // Dispatch the event to content script
+        dispatchRequestData(data, type);
     }
 
     // Helper function to identify relevant URLs
@@ -53,7 +54,7 @@
         if (url.includes('HomeTimeline')) return 'TWEET_XHR_COMPLETE';
         if (url.includes('/Likes') || url.includes('/likes') || 
             url.includes('getLikes') || url.includes('Favorites')) {
-            return 'LIKES_XHR_COMPLETE';
+            return 'LIKED_TWEETS_XHR_COMPLETE';
         }
         return 'TIMELINE_REQUEST_DATA';
     }
@@ -109,42 +110,38 @@
                 xhrRequestComplete = true;
                 try {
                     const responseData = JSON.parse(xhr.responseText);
-                    console.log('✅ XHR request complete, sending final data');
+                    console.log('✅ XHR request complete');
                     
                     const requestType = getRequestType(currentUrl);
-                    sendToContentScript({
-                        ...window.timelineRequestData,
-                        responseData
-                    }, requestType);
+                    const dataToSend = currentUrl.includes('/Likes') ? 
+                        { ...window.likedTweetsRequestData, responseData } :
+                        { ...window.timelineRequestData, responseData };
+                    
+                    logData(dataToSend, requestType);
                 } catch (error) {
                     console.error('Error parsing response:', error);
-                    sendToContentScript(window.timelineRequestData, getRequestType(currentUrl));
+                    const requestType = getRequestType(currentUrl);
+                    const dataToSend = currentUrl.includes('/Likes') ? 
+                        window.likedTweetsRequestData :
+                        window.timelineRequestData;
+                    
+                    logData(dataToSend, requestType);
                 }
-            }
-
-            if (currentUrl && currentUrl.includes('/Likes')) {
-                xhrRequestComplete = true;
-                console.log('✅ Liked tweets XHR request complete, sending final data');
-                sendLikedTweetsToContentScript(window.likedTweetsRequestData, 'LIKED_TWEETS_XHR_COMPLETE');
             }
         });
 
         xhr.send = function(body) {
             if (isRelevantUrl(currentUrl)) {
                 try {
-                    window.timelineRequestData.body = body;
-                    console.log('📦 Sending XHR with data:', window.timelineRequestData);
+                    if (currentUrl.includes('/Likes')) {
+                        window.likedTweetsRequestData.body = body;
+                        console.log('📦 Sending Liked Tweets XHR with data:', window.likedTweetsRequestData);
+                    } else {
+                        window.timelineRequestData.body = body;
+                        console.log('📦 Sending XHR with data:', window.timelineRequestData);
+                    }
                 } catch (e) {
                     console.error('Error with request body:', e);
-                }
-            }
-
-            if (currentUrl && currentUrl.includes('/Likes')) {
-                try {
-                    window.likedTweetsRequestData.body = body;
-                    console.log('📦 Sending Liked Tweets XHR with data:', window.likedTweetsRequestData);
-                } catch (e) {
-                    console.error('Error with liked tweets request body:', e);
                 }
             }
             return originalSend.apply(this, arguments);
