@@ -2,9 +2,7 @@
     "update_url": "https://clients2.google.com/service/update2/crx",
     "manifest_version": 3,
     "version": "1.1.9",
-    "name": "Codatta Clip",
-   "Wootzapp_verified":false,
-    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAx9+n3Q7T+yiDpnlYs5tSrPGYl7TLm4S5Tn5Lu7ibJJgKGG/ccxxgHUxfD+41u+wXFoLyv9I22oBWblmgXbbI8dFYx21KP9vFqpiaCEoT54tIfvav2a7aP1nuUC7CGsCnoaN5XbgzKjHEle4telnzK/39/qoUNOKmMTCwGcUN9erRMelsEzIc3BsN7HBHICqS1tfmT7ehVELlqBQ0aSbRE4fJaQ+/3zfyMHrL5YmDkFZ/9ZPx6dTjTnKq3THKUX6JtRqRQ/VhWuMgGOyoJAZrKr1L6K795g7I0H7A6uC5ncdjTeX4b+SvhJlf2qtKQB/MjpsjNN7oufFiy/r/ZPT6EQIDAQAB",
+    "name": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAx9+n3Q7T+yiDpnlYs5tSrPGYl7TLm4S5Tn5Lu7ibJJgKGG/ccxxgHUxfD+41u+wXFoLyv9I22oBWblmgXbbI8dFYx21KP9vFqpiaCEoT54tIfvav2a7aP1nuUC7CGsCnoaN5XbgzKjHEle4telnzK/39/qoUNOKmMTCwGcUN9erRMelsEzIc3BsN7HBHICqS1tfmT7ehVELlqBQ0aSbRE4fJaQ+/3zfyMHrL5YmDkFZ/9ZPx6dTjTnKq3THKUX6JtRqRQ/VhWuMgGOyoJAZrKr1L6K795g7I0H7A6uC5ncdjTeX4b+SvhJlf2qtKQB/MjpsjNN7oufFiy/r/ZPT6EQIDAQAB",
     "description": "Turn Your Intelligence into AI",
     "icons": {
         "16": "assets/images/logo.png",
