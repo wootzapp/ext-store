@@ -121,6 +121,24 @@
       "updated_at": "2025-04-26T15:00:00Z"
     },
     {
+      "id": "ambidcnondngfdngdlflbfgikhhnidpl",
+      "name": "AI Social Agent",
+      "description": "An extension to assist users in navigating and interacting with social media platforms using AI.",
+      "version": "1.0.0",
+      "author": "Wootzapp Team",
+      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/AI%20Social%20Agent/AISocialAgent.crx",
+      "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/AI%20Social%20Agent/repo/public/icons/icon128.png",
+      "github_url": "https://github.com/wootzapp/ext-store/tree/main/AI%20Social%20Agent/repo",
+      "tags": [
+        "AI",
+        "Social Media",
+        "Productivity",
+        "Automation"
+      ],
+      "created_at": "2025-06-23T15:00:00Z",
+      "updated_at": "2025-06-23T15:00:00Z"
+    },
+    {
       "id": "gfciojmkoheeffnkgpfdjdkfiffnohmb",
       "name": "Data Hive",
       "description": "An extension to earn rewards for browsing the web.",
