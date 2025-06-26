@@ -129,7 +129,7 @@ function Settings({ onConfigUpdate }) {
           </h3>
           
           <div className="form-group">
-            <label className="form-label">AI Model:</label>
+            <label className="form-label">AI Model</label>
             <select
               className="form-select"
               value={selectedModel}
@@ -148,7 +148,7 @@ function Settings({ onConfigUpdate }) {
 
           <div className="form-group">
             <label className="form-label">
-              {supportedModels.find(m => m.value === selectedModel)?.label} API Key:
+              {supportedModels.find(m => m.value === selectedModel)?.label} API Key
             </label>
             <input
               type="password"
@@ -174,7 +174,7 @@ function Settings({ onConfigUpdate }) {
             <span role="img" aria-label="twitter">🐦</span> Twitter Credentials
           </h3>
           <div className="form-group">
-            <label className="form-label">Username/Email:</label>
+            <label className="form-label">Username/Email</label>
             <input
               type="text"
               className="form-input"
@@ -183,12 +183,12 @@ function Settings({ onConfigUpdate }) {
                 ...localConfig,
                 twitter: { ...localConfig.twitter, username: e.target.value }
               })}
-              placeholder="Twitter username or email"
+              placeholder="Twitter username"
             />
           </div>
           
           <div className="form-group">
-            <label className="form-label">Password:</label>
+            <label className="form-label">Password</label>
             <input
               type="password"
               className="form-input"
@@ -202,7 +202,7 @@ function Settings({ onConfigUpdate }) {
           </div>
           
           <div className="form-group">
-            <label className="form-label">Email (for verification):</label>
+            <label className="form-label">Email (for verification)</label>
             <input
               type="email"
               className="form-input"
@@ -221,20 +221,33 @@ function Settings({ onConfigUpdate }) {
             <span role="img" aria-label="settings">⚙️</span> Agent Settings
           </h3>
           <div className="form-group">
-            <label className="form-label">Tweet Interval (minutes):</label>
-            <input
-              type="number"
-              className="form-input"
-              min="1"
-              max="1440"
-              value={localConfig.settings?.interval || 60}
-              onChange={(e) => handleSettingChange('interval', parseInt(e.target.value))}
-            />
-            <small className="form-help">How often to post tweets (30 minutes to 24 hours)</small>
+            <label className="form-label">Tweet Interval</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                type="number"
+                className="form-input"
+                min="1"
+                max="1440"
+                value={localConfig.settings?.interval || 240}
+                onChange={(e) => handleSettingChange('interval', parseInt(e.target.value))}
+                style={{ flex: 1 }}
+              />
+              <span style={{ 
+                fontSize: '0.8rem', 
+                color: '#718096', 
+                fontWeight: '500',
+                whiteSpace: 'nowrap'
+              }}>
+                minutes
+              </span>
+            </div>
+            {/* <small className="form-help">
+              How often to post tweets (30 minutes to 24 hours)
+            </small> */}
           </div>
           
           <div className="form-group">
-            <label className="form-label">Writing Style:</label>
+            <label className="form-label">Writing Style</label>
             <select
               className="form-select"
               value={localConfig.settings?.style || 'professional but engaging'}
@@ -261,26 +274,28 @@ function Settings({ onConfigUpdate }) {
                   className="form-input topic-input"
                   value={topic}
                   onChange={(e) => handleTopicChange(index, e.target.value)}
-                  placeholder="Enter topic"
+                  placeholder="Enter a topic for tweet generation"
                 />
                 <button 
                   type="button" 
                   onClick={() => removeTopic(index)}
                   className="btn btn-small btn-danger topic-btn"
                   disabled={(localConfig.topics || []).length <= 1}
+                  title="Remove topic"
                 >
                   <span role="img" aria-label="remove">🗑️</span>
                 </button>
               </div>
             ))}
-            <button 
-              type="button" 
-              onClick={addTopic}
-              className="btn btn-small btn-secondary add-topic-btn"
-            >
-              <span role="img" aria-label="add">➕</span> Add Topic
-            </button>
           </div>
+          <button 
+            type="button" 
+            onClick={addTopic}
+            className="btn btn-small btn-secondary add-topic-btn"
+            style={{ marginTop: 12 }}
+          >
+            <span role="img" aria-label="add">➕</span> Add Topic
+          </button>
         </div>
 
         <div className="settings-actions">

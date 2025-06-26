@@ -92,45 +92,66 @@ function Dashboard({
   return (
     <div className="dashboard">
       <div className="status-card">
-        <h2>Agent Status</h2>
-        <div className={`status-indicator ${agentStatus.isRunning ? 'running' : 'stopped'}`}>
-          {agentStatus.isRunning ? '🟢 Running' : '🔴 Stopped'}
+        {/* show Agent status and status indicator in one row,  in left and right */}
+        <div className="status-card-header">
+          <h2>Agent Status</h2>
+          <div className={`status-indicator ${agentStatus.isRunning ? 'running' : 'stopped'}`}>
+            {agentStatus.isRunning ? 'Running' : 'Stopped'}
+          </div>
         </div>
         <div className="status-details">
-          <p>
-            <span role="img" aria-label="agent">🤖</span>
-            Agent Initialized: {agentStatus.hasAgent ? '✅' : '❌'}
+          <p style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>
+              <span role="img" aria-label="agent">🤖</span> Agent Initialized:
+            </span>
+            <span>{agentStatus.hasAgent ? '✅' : '❌'}</span>
           </p>
-          <p>
+
+          {/* <p>
             <span role="img" aria-label="api">🔑</span>
             Anthropic API: {agentStatus.config?.hasAnthropicKey ? '✅' : '❌'}
+          </p> */}
+          <p style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>
+              <span role="img" aria-label="ai-model">🤖</span> AI Model: {agentStatus.config?.aiModel || 'Claude'}
+            </span>
+            <span>{agentStatus.config?.hasValidAIKey ? '✅' : '❌'}</span>
           </p>
-          <p>
-            <span role="img" aria-label="ai-model">🤖</span>
-            AI Model: {agentStatus.config?.aiModel || 'Claude'} {agentStatus.config?.hasValidAIKey ? '✅' : '❌'}
+
+          <p style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>
+              <span role="img" aria-label="twitter">🐦</span> Twitter Credentials:
+            </span>
+            <span>{agentStatus.config?.hasTwitterCredentials ? '✅' : '❌'}</span>
           </p>
-          <p>
-            <span role="img" aria-label="twitter">🐦</span>
-            Twitter Credentials: {agentStatus.config?.hasTwitterCredentials ? '✅' : '❌'}
+
+          <p style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>
+              <span role="img" aria-label="topics">📝</span> Topics:
+            </span>
+            <span>{agentStatus.config?.topicsCount || 0}</span>
           </p>
-          <p>
-            <span role="img" aria-label="topics">📝</span>
-            Topics: {agentStatus.config?.topicsCount || 0}
-          </p>
-          <p>
+
+          {/* <p>
             <span role="img" aria-label="environment">🌐</span>
             {isExtension() ? 'Chrome Extension' : 'Web Application'}
-          </p>
+          </p> */}
           {agentStatus.config?.interval && (
-            <p>
-              <span role="img" aria-label="interval">⏱️</span>
-              Interval: {agentStatus.config.interval} min
+            <p style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>
+                <span role="img" aria-label="interval">⏱️</span>
+                Interval: {agentStatus.config.interval} min
+              </span>
+              <span>{agentStatus.config.interval}</span>
             </p>
           )}
           {agentStatus.schedules && agentStatus.schedules.length > 0 && (
-            <p>
-              <span role="img" aria-label="schedules">📅</span>
-              Active Schedules: {agentStatus.schedules.length}
+            <p style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>
+                <span role="img" aria-label="schedules">📅</span>
+                Active Schedules: {agentStatus.schedules.length}
+              </span>
+              <span>{agentStatus.schedules.length}</span>
             </p>
           )}
         </div>
