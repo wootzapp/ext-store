@@ -28,24 +28,23 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <h1>AI Twitter Agent</h1>
-        <div className="environment-indicator">
-          Running as: {environment}
+        <div className="header-content">
+          <h1>AI Twitter Agent</h1>
+          <nav className="nav-tabs">
+            <button 
+              className={activeTab === 'dashboard' ? 'active' : ''}
+              onClick={() => setActiveTab('dashboard')}
+            >
+              <span>Dashboard</span>
+            </button>
+            <button 
+              className={activeTab === 'settings' ? 'active' : ''}
+              onClick={() => setActiveTab('settings')}
+            >
+              <span>Settings</span>
+            </button>
+          </nav>
         </div>
-        <nav className="nav-tabs">
-          <button 
-            className={activeTab === 'dashboard' ? 'active' : ''}
-            onClick={() => setActiveTab('dashboard')}
-          >
-            Dashboard
-          </button>
-          <button 
-            className={activeTab === 'settings' ? 'active' : ''}
-            onClick={() => setActiveTab('settings')}
-          >
-            Settings
-          </button>
-        </nav>
       </header>
       
       <main className="App-main">

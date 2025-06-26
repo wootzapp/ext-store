@@ -69,9 +69,6 @@ class BrowserStorage {
       topics: [
         'Artificial Intelligence trends',
         'Machine Learning innovations',
-        'Web Development tips',
-        'Tech industry news',
-        'Programming best practices'
       ],
       settings: {
         interval: 240, // minutes

@@ -13,17 +13,17 @@ class BackgroundTwitterAgent {
     this.minCheckInterval = 30000; // Minimum time between checks (30 seconds)
     this.initializePersistentState();
     this.tweetPrompts = [
-      `Create an engaging tweet about topic. Keep it under 280 characters with relevant hashtags. Make it original and thought-provoking.`,
-      `Create a humorous tweet about topic. Keep it under 280 characters with clever wordplay or puns. Make it light-hearted and witty with relevant hashtags.`,
-      `Create an engaging tweet about topic. Use poetic language or metaphor. Keep it under 280 characters. Add hashtags that reflect a creative or emotional tone.`,
-      `Create an educational tweet about topic. Include a surprising fact or stat. Keep it under 280 characters. Use informative hashtags.`,
-      `Create a futuristic tweet about topic. Imagine the year is 2040. Keep it under 280 characters. Use hashtags to reflect innovation and vision.`,
-      `Create a tweet about topic in the voice of a fictional character. Keep it under 280 characters. Make it fun and character-driven with unique hashtags.`,
-      `Create a thought-provoking tweet about topic using a question. Keep it under 280 characters. Encourage replies and add conversation-starting hashtags.`,
-      `Create a sarcastic tweet about topic. Keep it under 280 characters with biting humor. Use relevant satirical hashtags.`,
-      `Create an engaging tweet about topic from a beginner's perspective. Keep it under 280 characters. Use encouraging and relatable hashtags.`,
-      `Create a tweet about topic as if it's breaking news. Keep it under 280 characters. Use dramatic flair and trending news hashtags.`
-    ];
+      `Create an engaging tweet about topic. Keep it under 280 characters with relevant hashtags. Make it original and thought-provoking. Never exceed 280 characters including hashtags. Output only the tweet and nothing else.`,
+      `Create a humorous tweet about topic. Keep it under 280 characters with clever wordplay or puns. Make it light-hearted and witty with relevant hashtags. Never exceed 280 characters including hashtags. Output only the tweet and nothing else.`,
+      `Create an engaging tweet about topic. Use poetic language or metaphor. Keep it under 280 characters. Add hashtags that reflect a creative or emotional tone. Never exceed 280 characters including hashtags. Output only the tweet and nothing else.`,
+      `Create an educational tweet about topic. Include a surprising fact or stat. Keep it under 280 characters. Use informative hashtags. Never exceed 280 characters including hashtags. Output only the tweet and nothing else.`,
+      `Create a futuristic tweet about topic. Imagine the year is 2040. Keep it under 280 characters. Use hashtags to reflect innovation and vision. Never exceed 280 characters including hashtags. Output only the tweet and nothing else.`,
+      `Create a tweet about topic in the voice of a fictional character. Keep it under 280 characters. Make it fun and character-driven with unique hashtags. Never exceed 280 characters including hashtags. Output only the tweet and nothing else.`,
+      `Create a thought-provoking tweet about topic using a question. Keep it under 280 characters. Encourage replies and add conversation-starting hashtags. Never exceed 280 characters including hashtags. Output only the tweet and nothing else.`,
+      `Create a sarcastic tweet about topic. Keep it under 280 characters with biting humor. Use relevant satirical hashtags. Never exceed 280 characters including hashtags. Output only the tweet and nothing else.`,
+      `Create an engaging tweet about topic from a beginner's perspective. Keep it under 280 characters. Use encouraging and relatable hashtags. Never exceed 280 characters including hashtags. Output only the tweet and nothing else.`,
+      `Create a tweet about topic as if it's breaking news. Keep it under 280 characters. Use dramatic flair and trending news hashtags. Never exceed 280 characters including hashtags. Output only the tweet and nothing else.`
+    ];    
   }
 
   async initializePersistentState() {
@@ -764,6 +764,11 @@ class BackgroundTwitterAgent {
       })
       .then(data => {
         const tweet = data.content[0].text.trim();
+        // it the tweet is over 280 characters, keep only 280 characters
+        if (tweet.length > 280) {
+          tweet = tweet.slice(0, 280);
+          console.log('Tweet is over 280 characters, keeping only 280 characters:', tweet);
+        }
         console.log('Generated tweet via direct fetch:', tweet);
         resolve({
           success: true,
@@ -824,6 +829,11 @@ class BackgroundTwitterAgent {
 
         const data = await response.json();
         const tweet = data.content[0].text.trim();
+        // it the tweet is over 280 characters, keep only 280 characters
+        if (tweet.length > 280) {
+          tweet = tweet.slice(0, 280);
+          console.log('Tweet is over 280 characters, keeping only 280 characters:', tweet);
+        }
         
         console.log('Generated tweet:', tweet);
         
@@ -862,7 +872,7 @@ class BackgroundTwitterAgent {
           temperature: 0.7,
           messages: [{
             role: 'user',
-            content: `Improve this tweet to make it more engaging and concise: "${originalTweet}". Keep it under 280 characters.`
+            content: `Improve this tweet to make it more engaging and concise: "${originalTweet}". Keep it under 280 characters including hashtags. Output only the tweet and nothing else.`
           }]
         })
       });
@@ -874,6 +884,11 @@ class BackgroundTwitterAgent {
 
       const data = await response.json();
       const improvedTweet = data.content[0].text.trim();
+      // it the tweet is over 280 characters, keep only 280 characters
+      if (improvedTweet.length > 280) {
+        improvedTweet = improvedTweet.slice(0, 280);
+        console.log('Tweet is over 280 characters, keeping only 280 characters:', improvedTweet);
+      }
       
       return {
         success: true,
@@ -904,7 +919,7 @@ class BackgroundTwitterAgent {
           temperature: 0.8,
           messages: [{
             role: 'user',
-            content: `Create ${count} different engaging tweets about "${topic}". Each tweet should be under 280 characters, include relevant hashtags, and have a different angle. Separate each tweet with "---".`
+            content: `Create ${count} different engaging tweets about "${topic}". Each tweet should be under 280 characters, include relevant hashtags, and have a different angle. Separate each tweet with "---". Never exceed 280 characters including hashtags. Output only the tweets and nothing else.`
           }]
         })
       });
@@ -1667,7 +1682,7 @@ class BackgroundTwitterAgent {
           temperature: 0.7,
           messages: [{
             role: 'user',
-            content: `Improve this tweet to make it more engaging and concise: "${originalTweet}". Keep it under 280 characters.`
+            content: `Improve this tweet to make it more engaging and concise: "${originalTweet}". Keep it under 280 characters including hashtags. Output only the tweet and nothing else.`
           }]
         })
       });
@@ -1707,7 +1722,7 @@ class BackgroundTwitterAgent {
           temperature: 0.8,
           messages: [{
             role: 'user',
-            content: `Create ${count} different engaging tweets about "${topic}". Each tweet should be under 280 characters, include relevant hashtags, and have a different angle. Separate each tweet with "---".`
+            content: `Create ${count} different engaging tweets about "${topic}". Each tweet should be under 280 characters, include relevant hashtags, and have a different angle. Separate each tweet with "---". Never exceed 280 characters including hashtags. Output only the tweets and nothing else.`
           }]
         })
       });
@@ -1797,7 +1812,7 @@ class BackgroundTwitterAgent {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `Improve this tweet to make it more engaging and concise: "${originalTweet}". Keep it under 280 characters.`
+              text: `Improve this tweet to make it more engaging and concise: "${originalTweet}". Keep it under 280 characters including hashtags. Output only the tweet and nothing else.`
             }]
           }]
         })
@@ -1836,7 +1851,7 @@ class BackgroundTwitterAgent {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `Create ${count} different engaging tweets about "${topic}". Each tweet should be under 280 characters, include relevant hashtags, and have a different angle. Separate each tweet with "---".`
+              text: `Create ${count} different engaging tweets about "${topic}". Each tweet should be under 280 characters, include relevant hashtags, and have a different angle. Separate each tweet with "---". Never exceed 280 characters including hashtags. Output only the tweets and nothing else.`
             }]
           }]
         })

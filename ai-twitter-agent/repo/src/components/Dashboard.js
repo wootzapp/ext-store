@@ -149,7 +149,7 @@ function Dashboard({
             <p style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>
                 <span role="img" aria-label="schedules">📅</span>
-                Active Schedules: {agentStatus.schedules.length}
+                Active Schedules: 
               </span>
               <span>{agentStatus.schedules.length}</span>
             </p>
@@ -157,7 +157,7 @@ function Dashboard({
         </div>
       </div>
 
-      {!isExtension() && (
+      {/* {!isExtension() && (
         <div className="webapp-notice">
           <h3>
             <span role="img" aria-label="info">ℹ️</span>
@@ -168,7 +168,7 @@ function Dashboard({
             You can test Claude AI generation and manage settings.
           </p>
         </div>
-      )}
+      )} */}
 
       <div className="controls">
         {/* <button 
