@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Automation Flow</title>
+</head>
+<body>
+    <h1>Test Automation Flow - Extension Context</h1>
+    
+    <div>
+        <h2>Step 1: Test Background Automation</h2>
+        <button id="start-btn">Start Background Automation</button>
+        <div id="start-result"></div>
+    </div>
+    
+    <div>
+        <h2>Step 2: Test Sidepanel Registration</h2>
+        <button id="register-btn">Register Sidepanel Automation</button>
+        <div id="register-result"></div>
+    </div>
+    
+    <div>
+        <h2>Step 3: Simulate Instagram Ready State</h2>
+        <button id="ready-btn">Send ins-ready</button>
+        <div id="ready-result"></div>
+    </div>
+    
+    <div>
+        <h2>Step 4: Check Automation State</h2>
+        <button id="state-btn">Get State</button>
+        <div id="state-result"></div>
+    </div>
+    
+    <div>
+        <h2>Step 5: Stop Automation</h2>
+        <button id="stop-btn">Stop Automation</button>
+        <div id="stop-result"></div>
+    </div>
+
+    <div>
+        <h2>Console Logs</h2>
+        <p>Open Chrome DevTools Console to see background script logs.</p>
+        <p>Look for messages starting with "Background:" and "Sidepanel:"</p>
+    </div>
+
+    <script>
+        // Check if we're in extension context
+        if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
+            console.log('Running in extension context:', chrome.runtime.id);
+        } else {
+            console.log('NOT in extension context - some features may not work');
+        }
+
+        // Test configuration
+        const testConfig = {
+            page_type: "SEARCH",
+            load_comment_count: 5,
+            tag: {
+                url: "https://www.instagram.com/explore/tags/test/",
+                explore_max_page_count: 3,
+                explore_page_timeout: 5000,
+                explore_post_count: 10
+            },
+            get_html_type: 1,
+            environment: "test"
+        };
+
+        const testUserProfile = {
+            profile_timeout: 5000,
+            post_timeout: 3000,
+            start_click_timeout: 1000
+        };
+
+        function showResult(elementId, result, isError = false) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<pre style="color: ${isError ? 'red' : 'green'}">${JSON.stringify(result, null, 2)}</pre>`;
+        }
+
+        // Test background automation start
+        document.getElementById('start-btn').addEventListener('click', async () => {
+            try {
+                console.log('Testing background start-automation...');
+                const response = await chrome.runtime.sendMessage({
+                    id: 'start-automation',
+                    tabId: 999, // Test tab ID
+                    config: testConfig
+                });
+                showResult('start-result', response);
+                console.log('Background start response:', response);
+            } catch (error) {
+                showResult('start-result', { error: error.message }, true);
+                console.error('Background start error:', error);
+            }
+        });
+
+        // Test sidepanel registration
+        document.getElementById('register-btn').addEventListener('click', async () => {
+            try {
+                console.log('Testing sidepanel register-automation...');
+                const response = await chrome.runtime.sendMessage({
+                    id: 'register-automation',
+                    tabId: 888, // Test tab ID
+                    config: testConfig
+                });
+                showResult('register-result', response);
+                console.log('Sidepanel register response:', response);
+            } catch (error) {
+                showResult('register-result', { error: error.message }, true);
+                console.error('Sidepanel register error:', error);
+            }
+        });
+
+        // Test ins-ready
+        document.getElementById('ready-btn').addEventListener('click', async () => {
+            try {
+                console.log('Testing ins-ready message...');
+                const response = await chrome.runtime.sendMessage({
+                    id: 'ins-ready',
+                    data: { status: 'ready' }
+                });
+                showResult('ready-result', response);
+                console.log('ins-ready response:', response);
+            } catch (error) {
+                showResult('ready-result', { error: error.message }, true);
+                console.error('ins-ready error:', error);
+            }
+        });
+
+        // Test get state
+        document.getElementById('state-btn').addEventListener('click', async () => {
+            try {
+                console.log('Getting automation state...');
+                const response = await chrome.runtime.sendMessage({
+                    id: 'get-automation-state'
+                });
+                showResult('state-result', response);
+                console.log('Automation state:', response);
+            } catch (error) {
+                showResult('state-result', { error: error.message }, true);
+                console.error('Get state error:', error);
+            }
+        });
+
+        // Test stop automation
+        document.getElementById('stop-btn').addEventListener('click', async () => {
+            try {
+                console.log('Testing stop automation...');
+                const response = await chrome.runtime.sendMessage({
+                    id: 'stop-automation'
+                });
+                showResult('stop-result', response);
+                console.log('Stop automation response:', response);
+            } catch (error) {
+                showResult('stop-result', { error: error.message }, true);
+                console.error('Stop automation error:', error);
+            }
+        });
+
+        // Store test user profile for ins-ready handler
+        chrome.storage.local.set({ userProfile: testUserProfile });
+
+        console.log('Test page loaded. Extension ID:', chrome.runtime.id);
+        console.log('Click buttons to test automation flow.');
+    </script>
+</body>
+</html>
