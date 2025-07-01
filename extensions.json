@@ -104,6 +104,24 @@
       "updated_at": "2025-02-26T15:00:00Z"
     },
     {
+      "id": "ficjckojhebnoogjmhacgodjcgddphac",
+      "name": "AI Twitter Agent",
+      "description": "An AI Twitter Agent that can post ai generated tweets on your behalf.",
+      "version": "1.0.0",
+      "author": "Wootzapp Team",
+      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/AI%20Twitter%20Agent/AITwitterAgent.crx",
+      "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/AI%20Twitter%20Agent/repo/public/icons/icon.png",
+      "github_url": "https://github.com/wootzapp/ext-store/tree/main/AI%20Twitter%20Agent/repo",
+      "tags": [
+        "AI",
+        "Twitter",
+        "Agent",
+        "Automation"
+      ],
+      "created_at": "2025-07-02T15:00:00Z",
+      "updated_at": "2025-07-02T15:00:00Z"
+    },
+    {
       "id": "mafnkcehjhddilcnhlnkbcbelilbifhm",
       "name": "ZK Proofing",
       "description": "An extension to generate cryptographic proofs for zk-SNARKs.",
