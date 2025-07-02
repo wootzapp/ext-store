@@ -119,9 +119,7 @@ function Settings({ onConfigUpdate }) {
   const selectedModel = localConfig.ai?.model || 'claude';
 
   return (
-    <div className="settings">
-      <h2 className="settings-title">Configuration Settings</h2>
-      
+    <div className="settings">      
       <form onSubmit={handleSubmit} className="settings-form">
         <div className="settings-section">
           <h3 className="section-title">
@@ -171,7 +169,7 @@ function Settings({ onConfigUpdate }) {
 
         <div className="settings-section">
           <h3 className="section-title">
-            <span role="img" aria-label="twitter">🐦</span> Twitter Credentials
+            <span role="img" aria-label="twitter">🕊️</span> Twitter Credentials
           </h3>
           <div className="form-group">
             <label className="form-label">Username/Email</label>
@@ -301,7 +299,7 @@ function Settings({ onConfigUpdate }) {
             className="btn btn-primary submit-btn"
             disabled={saving}
           >
-            {saving ? '🔄 Updating...' : '💾 Update Configuration'}
+            {saving ? '🔄 Updating...' : 'Update Configurations'}
           </button>
         </div>
       </form>

@@ -97,7 +97,7 @@ function Dashboard({
 
           <p style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span>
-              <span role="img" aria-label="twitter">🐦</span> Twitter Credentials:
+              <span role="img" aria-label="twitter">🕊️</span> Twitter Credentials:
             </span>
             <span>{agentStatus.config?.hasTwitterCredentials ? '✅' : '❌'}</span>
           </p>
@@ -113,7 +113,7 @@ function Dashboard({
             <p style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>
                 <span role="img" aria-label="interval">⏱️</span>
-                Interval: {agentStatus.config.interval} min
+                 Interval: {agentStatus.config.interval} min
               </span>
               <span>{agentStatus.config.interval}</span>
             </p>
@@ -144,7 +144,7 @@ function Dashboard({
           disabled={isLoading}
           className="btn btn-primary"
         >
-          {isLoading ? '🔄 Generating & Posting...' : '🐦 Generate & Post Tweet'}
+          {isLoading ? '🔄 Generating & Posting...' : '🕊️ Generate & Post Tweet'}
         </button>
       </div>
 
