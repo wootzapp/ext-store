@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import useConfig from '../hooks/useConfig';
-import { validateTwitterCredentials } from '../utils/browserHelpers';
 import AIClientFactory from '../services/ai/aiClientFactory';
 
 function Settings({ onConfigUpdate }) {
@@ -31,7 +30,7 @@ function Settings({ onConfigUpdate }) {
         throw new Error(`Invalid ${AIClientFactory.getSupportedModels().find(m => m.value === selectedModel)?.label} API key format`);
       }
 
-      if (localConfig.twitter?.username && !validateTwitterCredentials(localConfig.twitter)) {
+      if (localConfig.twitter?.username && !localConfig.twitter?.password && !localConfig.twitter?.email) {
         throw new Error('Twitter credentials incomplete');
       }
 
@@ -226,7 +225,7 @@ function Settings({ onConfigUpdate }) {
                 className="form-input"
                 min="1"
                 max="1440"
-                value={localConfig.settings?.interval || 240}
+                value={localConfig.settings?.interval}
                 onChange={(e) => handleSettingChange('interval', parseInt(e.target.value))}
                 style={{ flex: 1 }}
               />
@@ -293,6 +292,12 @@ function Settings({ onConfigUpdate }) {
           </button>
         </div>
 
+        {message && (
+          <div className={`message ${message.includes('Error') ? 'error' : 'success'}`}>
+            {message}
+          </div>
+        )}
+
         <div className="settings-actions">
           <button 
             type="submit" 
@@ -303,12 +308,6 @@ function Settings({ onConfigUpdate }) {
           </button>
         </div>
       </form>
-
-      {message && (
-        <div className={`message ${message.includes('Error') ? 'error' : 'success'}`}>
-          {message}
-        </div>
-      )}
     </div>
   );
 }

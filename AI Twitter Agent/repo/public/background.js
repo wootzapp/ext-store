@@ -1,9 +1,16 @@
 /* global chrome */
 
+const ALARMS = {
+  KEEP_ALIVE: 'service-worker-keep-alive',
+  TWEET_GENERATOR: 'tweet-generator',
+  WAKE_UP: 'wake-up-check'
+};
+
 class BackgroundTwitterAgent {
   constructor() {
     this.setupMessageHandlers();
     this.webContentsId = 2;  // Fixed WebContents ID for Twitter operations
+    this.lastTweetTime = null;
     this.isRunning = false;
     this.checkInterval = null;
     this.isProcessing = false;
@@ -24,6 +31,24 @@ class BackgroundTwitterAgent {
     ];    
     this.loginCheckValidityMs = 5 * 60 * 1000; // 5 minutes
     this.lastLoginCheck = null;
+    this.setupKeepAlive();
+  }
+
+  setupKeepAlive() {
+    chrome.alarms.create(ALARMS.KEEP_ALIVE, { 
+      periodInMinutes: 0.1
+    });
+
+    chrome.alarms.onAlarm.addListener((alarm) => {
+      if (alarm.name === ALARMS.KEEP_ALIVE) {
+        console.log("🟢 Background Service Worker Active:", new Date().toISOString());
+        if (this.isRunning) {
+          console.log("📊 Agent Status: Running");
+        } else {
+          console.log("📊 Agent Status: Not Running");
+        }
+      }
+    });
   }
 
   async initializePersistentState() {
@@ -56,10 +81,7 @@ class BackgroundTwitterAgent {
           await this.stopAgent();
         }
       } else if (this.isRunning) {
-        // If agent is running, ensure keep-alive mechanisms are active
         console.log('Background: Agent is running, ensuring keep-alive mechanisms');
-        await this.ensureServiceWorkerActive();
-        this.keepAlive();
       }
       
       // Handle any pending operations from previous session
@@ -198,7 +220,7 @@ class BackgroundTwitterAgent {
 
     // Handle alarms for scheduled tweets
     chrome.alarms.onAlarm.addListener(async (alarm) => {
-      if (alarm.name === 'tweet-generator') {
+      if (alarm.name === ALARMS.TWEET_GENERATOR) {
         console.log('Background: Alarm triggered for tweet generation');
         try {
           // Get latest state from both storages
@@ -238,7 +260,7 @@ class BackgroundTwitterAgent {
         } catch (error) {
           console.error('Background: Error handling alarm:', error);
         }
-      } else if (alarm.name === 'wake-up-check') {
+      } else if (alarm.name === ALARMS.WAKE_UP) {
         console.log('Background: Wake-up check alarm triggered');
         try {
           const { isRunning } = await chrome.storage.local.get(['isRunning']);
@@ -247,8 +269,6 @@ class BackgroundTwitterAgent {
             console.log('Background: Wake-up check - agent not running, skipping all operations');
             return;
           }
-          
-          await this.keepAlive();
           
           const { currentApiAttempt } = await chrome.storage.local.get(['currentApiAttempt']);
           
@@ -261,6 +281,8 @@ class BackgroundTwitterAgent {
         } catch (error) {
           console.error('Background: Error handling wake-up check alarm:', error);
         }
+      } else if (alarm.name === ALARMS.KEEP_ALIVE) {
+        console.log('Background: Keep-alive alarm triggered');
       }
     });
 
@@ -282,6 +304,21 @@ class BackgroundTwitterAgent {
         return { success: false, error: 'No config provided' };
       }
 
+      // Clear only agent-related alarms
+      await this.clearAgentAlarms();
+      
+      // Create tweet generator alarm
+      await chrome.alarms.create(ALARMS.TWEET_GENERATOR, {
+        delayInMinutes: 1,
+        periodInMinutes: config.settings.interval
+      });
+
+      // Create wake-up check alarm
+      await chrome.alarms.create(ALARMS.WAKE_UP, {
+        delayInMinutes: 1,
+        periodInMinutes: 5
+      });
+      
       // Store config and running state in both storages
       await Promise.all([
         chrome.storage.sync.set({ agentConfig: config }),
@@ -292,27 +329,11 @@ class BackgroundTwitterAgent {
         })
       ]);
       
-      // Set up alarm for scheduled tweets
-      const intervalMinutes = config?.settings?.interval || 240;
-      
-      // Clear any existing alarms
-      await chrome.alarms.clearAll();
-      
-      // Create new alarm
-      await chrome.alarms.create('tweet-generator', {
-        delayInMinutes: 1,
-        periodInMinutes: intervalMinutes
-      });
-
       // Update in-memory state
       this.isRunning = true;
       
       // Start periodic checks
-      this.startPeriodicChecks(intervalMinutes);
-      
-      // Activate keep-alive mechanisms
-      await this.ensureServiceWorkerActive();
-      this.keepAlive();
+      this.startPeriodicChecks(config.settings.interval);
       
       // NEW: Perform initial login check before the first interval
       console.log('Background: Performing initial login check at startup...');
@@ -329,7 +350,7 @@ class BackgroundTwitterAgent {
       // Trigger initial check (this will now skip login if already logged in)
       await this.checkAndPostTweet();
       
-      console.log(`Background: Agent started with ${intervalMinutes} minute intervals`);
+      console.log(`Background: Agent started with ${config.settings.interval} minute intervals`);
       return { success: true, message: 'Agent started successfully' };
     } catch (error) {
       console.error('Background: Error starting agent:', error);
@@ -342,12 +363,12 @@ class BackgroundTwitterAgent {
     try {
       console.log('Background: Stopping agent...');
       
+      // Clear only agent-related alarms
+      await this.clearAgentAlarms();
+      
       // Set running state to false first to prevent new operations
       this.isRunning = false;
       await chrome.storage.local.set({ isRunning: false });
-      
-      // Clear all alarms
-      await chrome.alarms.clearAll();
       
       // Clear all intervals
       if (this.checkInterval) {
@@ -367,11 +388,12 @@ class BackgroundTwitterAgent {
       
       // Clear storage
       await chrome.storage.local.remove([
+        'isRunning',
+        'lastTweetTime',
+        'pendingTweet',
         'currentApiAttempt',
         'lastApiResult',
-        'pendingTweet',
         'lastLoginCheck',
-        'lastTweetTime',
         'isProcessing'
       ]);
       
@@ -391,30 +413,43 @@ class BackgroundTwitterAgent {
 
   async getAgentStatus() {
     try {
-      const alarms = await chrome.alarms.getAll();
-      const config = await chrome.storage.sync.get(['agentConfig']);
+      const [localData, alarms, config] = await Promise.all([
+        chrome.storage.local.get(['isRunning']),
+        chrome.alarms.getAll(),
+        chrome.storage.sync.get(['agentConfig'])
+      ]);
       
-      // Get current AI configuration
-      const aiModel = config.agentConfig?.ai?.model || 'claude';
-      const apiKey = config.agentConfig?.ai?.apiKeys?.[aiModel] || config.agentConfig?.anthropicApiKey;
+      const aiModel = config.agentConfig?.ai?.model;
+      const apiKey = config.agentConfig?.ai?.apiKeys?.[aiModel];
       const hasValidAIKey = !!apiKey;
+
+      const hasTweetGeneratorAlarm = alarms.some(
+        alarm => alarm.name === ALARMS.TWEET_GENERATOR
+      );
+      
+      const isRunning = !!(
+        localData.isRunning &&
+        hasTweetGeneratorAlarm && 
+        config.agentConfig 
+      );
       
       return {
-        isRunning: alarms.length > 0,
+        isRunning,
         hasAgent: true,
         config: config.agentConfig ? {
-          hasAnthropicKey: hasValidAIKey, // Backward compatibility
           hasTwitterCredentials: !!(config.agentConfig.twitter?.username && config.agentConfig.twitter?.password),
-          topicsCount: config.agentConfig.topics?.length || 0,
-          interval: config.agentConfig.settings?.interval || 240,
+          topicsCount: config.agentConfig.topics?.length,
+          interval: config.agentConfig.settings?.interval,
           style: config.agentConfig.settings?.style || 'professional but engaging',
           aiModel: aiModel,
           hasValidAIKey: hasValidAIKey
         } : {},
-        schedules: alarms.map(alarm => ({
-          name: alarm.name,
-          periodInMinutes: alarm.periodInMinutes
-        }))
+        schedules: alarms
+          .filter(alarm => alarm.name !== ALARMS.KEEP_ALIVE) // Filter out keep-alive alarm
+          .map(alarm => ({
+            name: alarm.name,
+            periodInMinutes: alarm.periodInMinutes
+          }))
       };
     } catch (error) {
       console.error('Error getting agent status:', error);
@@ -425,6 +460,14 @@ class BackgroundTwitterAgent {
   async updateConfig(config) {
     try {
       await chrome.storage.sync.set({ agentConfig: config });
+      
+      // If agent is running, restart with new config
+      const { isRunning } = await chrome.storage.local.get(['isRunning']);
+      if (isRunning) {
+        await this.stopAgent();
+        await this.startAgent(config);
+      }
+      
       return { success: true, message: 'Configuration updated successfully' };
     } catch (error) {
       console.error('Error updating config:', error);
@@ -432,76 +475,6 @@ class BackgroundTwitterAgent {
     }
   }
 
-  async claudeGenerate(apiKey, topic, retries = 3, delay = 2000) {
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        console.log(`Testing Claude API (attempt ${attempt}/${retries})...`);
-        
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'x-api-key': apiKey,
-            'Content-Type': 'application/json',
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true'
-          },
-          body: JSON.stringify({
-            model: 'claude-3-sonnet-20240229',
-            max_tokens: 150,
-            temperature: 0.7,
-            messages: [{
-              role: 'user',
-              content: this.tweetPrompts[Math.floor(Math.random() * this.tweetPrompts.length)].replace('topic', topic)
-            }]
-          })
-        });
-
-        console.log('API Response status:', response.status);
-
-        if (response.status === 529) {
-          // Overloaded - wait longer before retry
-          if (attempt < retries) {
-            const backoffDelay = delay * Math.pow(2, attempt - 1); // Exponential backoff
-            console.log(`API overloaded, waiting ${backoffDelay}ms before retry...`);
-            await new Promise(resolve => setTimeout(resolve, backoffDelay));
-            continue;
-          }
-        }
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('API Error:', errorText);
-          throw new Error(`Claude API error: ${response.status} - ${errorText}`);
-        }
-
-        const data = await response.json();
-        let tweet = data.content[0].text.trim();
-        // it the tweet is over 280 characters, keep only 280 characters
-        if (tweet.length > 280) {
-          tweet = tweet.slice(0, 280);
-          console.log('Tweet is over 280 characters, keeping only 280 characters:', tweet);
-        }
-        
-        console.log('Generated tweet:', tweet);
-        
-        return {
-          success: true,
-          tweet: tweet,
-          topic: topic,
-          message: 'Claude API test successful'
-        };
-      } catch (error) {
-        if (attempt === retries) {
-          console.error('Error testing Claude API after all retries:', error);
-          return { success: false, error: error.message };
-        }
-        console.log(`Attempt ${attempt} failed, retrying...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  }
-
-  // NEW: Main method to post tweet via tab automation
   async postTweetViaTab(content) {
     try {
       console.log('Background: Starting tweet posting via WebContents');
@@ -595,15 +568,15 @@ class BackgroundTwitterAgent {
       }
 
       // Get current AI configuration
-      const aiModel = agentConfig.ai?.model || 'claude';
-      const apiKey = agentConfig.ai?.apiKeys?.[aiModel] || agentConfig.anthropicApiKey;
+      const aiModel = agentConfig.ai?.model;
+      const apiKey = agentConfig.ai?.apiKeys?.[aiModel];
       
       if (!apiKey) {
         console.error('No API key found');
         return { success: false, error: `${aiModel} API key not configured` };
       }
 
-      const topics = agentConfig.topics || ['Technology'];
+      const topics = agentConfig.topics;
       const randomTopic = topics[Math.floor(Math.random() * topics.length)];
       
       // Check if there's already an API attempt in progress
@@ -716,121 +689,6 @@ class BackgroundTwitterAgent {
     });
   }
 
-  // New method to handle background fetch with wake lock
-  async performBackgroundFetch(url, options) {
-    try {
-      // Request wake lock if available
-      let wakeLock = null;
-      if ('wakeLock' in navigator) {
-        try {
-          wakeLock = await navigator.wakeLock.request('screen');
-        } catch (error) {
-          console.log('Wake lock request failed:', error);
-        }
-      }
-
-      try {
-        const response = await fetch(url, {
-          ...options,
-          keepalive: true,
-          signal: options.signal
-        });
-        return response;
-      } finally {
-        // Release wake lock if acquired
-        if (wakeLock) {
-          try {
-            await wakeLock.release();
-          } catch (error) {
-            console.log('Wake lock release failed:', error);
-          }
-        }
-      }
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  // Enhanced keep-alive mechanism
-  async keepAlive() {
-    try {
-      const { isRunning } = await chrome.storage.local.get(['isRunning']);
-      if (!isRunning) {
-        console.log('Background: Agent not running, skipping keep-alive operations');
-        return;
-      }
-      
-      if (!this.keepAliveInterval) {
-        this.keepAliveInterval = setInterval(async () => {
-          try {
-            const { isRunning: stillRunning } = await chrome.storage.local.get(['isRunning']);
-            if (!stillRunning) {
-              console.log('Background: Agent stopped, clearing keep-alive interval');
-              clearInterval(this.keepAliveInterval);
-              this.keepAliveInterval = null;
-              return;
-            }
-            
-            // Perform a lightweight operation to keep the service worker active
-            await chrome.storage.local.get(['isRunning']);
-
-            // Request wake lock if available
-            if ('wakeLock' in navigator) {
-              try {
-                const wakeLock = await navigator.wakeLock.request('screen');
-                setTimeout(() => wakeLock.release(), 1000);
-              } catch (error) {
-                // Ignore wake lock errors
-              }
-            }
-
-            // Keep the service worker active with a simple ping
-            try {
-              await chrome.runtime.sendMessage({ action: 'PING' });
-            } catch (error) {
-              // Ignore ping errors
-            }
-
-            // Additional keep-alive: Create a temporary alarm and clear it
-            try {
-              const tempAlarmName = `keep-alive-${Date.now()}`;
-              await chrome.alarms.create(tempAlarmName, { delayInMinutes: 0.01 });
-              setTimeout(() => {
-                chrome.alarms.clear(tempAlarmName).catch(() => {});
-              }, 100);
-            } catch (error) {
-              // Ignore alarm errors
-            }
-          } catch (error) {
-            console.log('Keep alive operation failed:', error);
-          }
-        }, 10000);
-      }
-    } catch (error) {
-      console.log('Error in keepAlive:', error);
-    }
-  }
-
-  // NEW: Additional method to ensure service worker stays active
-  async ensureServiceWorkerActive() {
-    try {
-      // Create a persistent alarm that never fires but keeps the service worker alive
-      await chrome.alarms.create('persistent-keep-alive', {
-        delayInMinutes: 525600 // 1 year - effectively never
-      });
-
-      // Set up periodic wake-up alarms
-      await chrome.alarms.create('wake-up-check', {
-        delayInMinutes: 1,
-        periodInMinutes: 5 // Check every 5 minutes
-      });
-
-      console.log('Background: Service worker keep-alive mechanisms activated');
-    } catch (error) {
-      console.error('Background: Error setting up service worker keep-alive:', error);
-    }
-  }
-
   async shouldCheckTweet() {
     const now = Date.now();
     if (now - this.lastCheckTime < this.minCheckInterval) {
@@ -896,7 +754,7 @@ class BackgroundTwitterAgent {
 
       const now = Date.now();
       const lastTweetTime = localData.lastTweetTime || 0;
-      const intervalMs = (config.settings?.interval || 240) * 60 * 1000;
+      const intervalMs = (config.settings?.interval) * 60 * 1000;
 
       console.log('Background: Checking tweet schedule:', {
         now,
@@ -935,61 +793,23 @@ class BackgroundTwitterAgent {
   }
 
   startPeriodicChecks(intervalMinutes) {
-    // Clear any existing interval
-    if (this.checkInterval) {
-      clearInterval(this.checkInterval);
-    }
-
-    // Convert minutes to milliseconds
+    // Clear ALL intervals
+    if (this.checkInterval) clearInterval(this.checkInterval);
+    
     const intervalMs = intervalMinutes * 60 * 1000;
     
-    // Start periodic checks
+    // Only use one interval based on config
     this.checkInterval = setInterval(async () => {
-      console.log('Background: Periodic check triggered');
-      try {
-        // First check if agent is still running
-        const { isRunning } = await chrome.storage.local.get(['isRunning']);
-        if (!isRunning) {
-          console.log('Background: Agent not running, clearing interval');
-          clearInterval(this.checkInterval);
-          this.checkInterval = null;
-          return;
-        }
-        
-        // Ensure service worker stays active
-        this.keepAlive();
-        
-        // Only proceed if not already processing
-        if (!this.isProcessing) {
-          await this.checkAndPostTweet();
-        }
-      } catch (error) {
-        console.error('Background: Error in periodic check:', error);
+      const { isRunning } = await chrome.storage.local.get(['isRunning']);
+      if (!isRunning) {
+        clearInterval(this.checkInterval);
+        return;
+      }
+      
+      if (!this.isProcessing) {
+        await this.checkAndPostTweet();
       }
     }, intervalMs);
-
-    // Also set up a more frequent check (every minute) to catch up if we missed any
-    const frequentCheckInterval = setInterval(async () => {
-      try {
-        // First check if agent is still running
-        const { isRunning } = await chrome.storage.local.get(['isRunning']);
-        if (!isRunning) {
-          console.log('Background: Agent not running, clearing frequent check interval');
-          clearInterval(frequentCheckInterval);
-          return;
-        }
-        
-        // Ensure service worker stays active
-        this.keepAlive();
-        
-        // Only proceed if not already processing
-        if (!this.isProcessing) {
-          await this.checkAndPostTweet();
-        }
-      } catch (error) {
-        console.error('Background: Error in frequent check:', error);
-      }
-    }, 60000); // Check every minute
   }
 
   // NEW: Method for manual tweet generation and posting (doesn't require agent to be running)
@@ -1005,15 +825,15 @@ class BackgroundTwitterAgent {
       }
 
       // Get current AI configuration
-      const aiModel = config.agentConfig.ai?.model || 'claude';
-      const apiKey = config.agentConfig.ai?.apiKeys?.[aiModel] || config.agentConfig.anthropicApiKey;
+      const aiModel = config.agentConfig.ai?.model;
+      const apiKey = config.agentConfig.ai?.apiKeys?.[aiModel];
       
       if (!apiKey) {
         console.error('Background: No API key found for manual tweet');
         return { success: false, error: `${aiModel} API key not configured` };
       }
 
-      const topics = config.agentConfig.topics || ['Technology'];
+      const topics = config.agentConfig.topics;
       const randomTopic = topics[Math.floor(Math.random() * topics.length)];
       
       console.log('Background: Generating tweet about:', randomTopic, 'using', aiModel);
@@ -1059,102 +879,216 @@ class BackgroundTwitterAgent {
     }
   }
 
+  // Claude API methods
+  async claudeGenerate(apiKey, topic, retries = 3, delay = 2000) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        console.log(`Testing Claude API (attempt ${attempt}/${retries})...`);
+        
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'x-api-key': apiKey,
+            'Content-Type': 'application/json',
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+          },
+          body: JSON.stringify({
+            model: 'claude-3-5-haiku-latest',
+            max_tokens: 150,
+            temperature: 0.7,
+            messages: [{
+              role: 'user',
+              content: this.tweetPrompts[Math.floor(Math.random() * this.tweetPrompts.length)].replace('topic', topic)
+            }]
+          })
+        });
+
+        console.log('API Response status:', response.status);
+
+        if (response.status === 529) {
+          // Overloaded - wait longer before retry
+          if (attempt < retries) {
+            const backoffDelay = delay * Math.pow(2, attempt - 1); // Exponential backoff
+            console.log(`API overloaded, waiting ${backoffDelay}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, backoffDelay));
+            continue;
+          }
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('API Error:', errorText);
+          throw new Error(`Claude API error: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        let tweet = data.content[0].text.trim();
+        // it the tweet is over 280 characters, keep only 280 characters
+        if (tweet.length > 280) {
+          tweet = tweet.slice(0, 280);
+          console.log('Tweet is over 280 characters, keeping only 280 characters:', tweet);
+        }
+        
+        console.log('Generated tweet:', tweet);
+        
+        return {
+          success: true,
+          tweet: tweet,
+          topic: topic,
+          message: 'Claude API test successful'
+        };
+      } catch (error) {
+        if (attempt === retries) {
+          console.error('Error testing Claude API after all retries:', error);
+          return { success: false, error: error.message };
+        }
+        console.log(`Attempt ${attempt} failed, retrying...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
   // OpenAI API methods
-  async openaiGenerate(apiKey, topic = 'Artificial Intelligence') {
-    try {
-      console.log('Testing OpenAI API from background script...');
-      console.log('Topic:', topic);
-      console.log('API Key present:', !!apiKey);
-      
-      if (!apiKey) {
-        throw new Error('API key is required');
+  async openaiGenerate(apiKey, topic , retries = 3, delay = 2000) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        console.log(`Testing OpenAI API (attempt ${attempt}/${retries})...`);
+        console.log('Topic:', topic);
+        
+        if (!apiKey) {
+          throw new Error('API key is required');
+        }
+
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'gpt-4',
+            max_tokens: 150,
+            temperature: 0.7,
+            messages: [{
+              role: 'user',
+              content: this.tweetPrompts[Math.floor(Math.random() * this.tweetPrompts.length)].replace('topic', topic)
+            }]
+          })
+        });
+
+        console.log('API Response status:', response.status);
+
+        if (response.status === 429) { // Rate limit for OpenAI
+          if (attempt < retries) {
+            const backoffDelay = delay * Math.pow(2, attempt - 1);
+            console.log(`API rate limited, waiting ${backoffDelay}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, backoffDelay));
+            continue;
+          }
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('API Error:', errorText);
+          throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        let tweet = data.choices[0].message.content.trim();
+        
+        if (tweet.length > 280) {
+          tweet = tweet.slice(0, 280);
+          console.log('Tweet is over 280 characters, keeping only 280 characters:', tweet);
+        }
+        
+        console.log('Generated tweet via OpenAI:', tweet);
+        
+        return {
+          success: true,
+          tweet: tweet,
+          topic: topic,
+          message: 'OpenAI API test successful'
+        };
+      } catch (error) {
+        if (attempt === retries) {
+          console.error('Error testing OpenAI API after all retries:', error);
+          return { success: false, error: error.message };
+        }
+        console.log(`Attempt ${attempt} failed, retrying...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'gpt-4',
-          max_tokens: 150,
-          temperature: 0.7,
-          messages: [{
-            role: 'user',
-            content: this.tweetPrompts[Math.floor(Math.random() * this.tweetPrompts.length)].replace('topic', topic)
-          }]
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
-      }
-
-      const data = await response.json();
-      const tweet = data.choices[0].message.content.trim();
-      
-      console.log('Generated tweet via OpenAI:', tweet);
-      
-      return {
-        success: true,
-        tweet: tweet,
-        topic: topic,
-        message: 'OpenAI API test successful'
-      };
-    } catch (error) {
-      console.error('Error testing OpenAI API:', error);
-      return { success: false, error: error.message };
     }
   }
 
   // Gemini API methods
-  async geminiGenerate(apiKey, topic = 'Artificial Intelligence') {
-    try {
-      console.log('Testing Gemini API from background script...');
-      console.log('Topic:', topic);
-      console.log('API Key present:', !!apiKey);
-      
-      if (!apiKey) {
-        throw new Error('API key is required');
-      }
+  async geminiGenerate(apiKey, topic , retries = 3, delay = 2000) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        console.log(`Testing Gemini API (attempt ${attempt}/${retries})...`);
+        console.log('Topic:', topic);
+        
+        if (!apiKey) {
+          throw new Error('API key is required');
+        }
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: this.tweetPrompts[Math.floor(Math.random() * this.tweetPrompts.length)].replace('topic', topic)
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+        
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: this.tweetPrompts[Math.floor(Math.random() * this.tweetPrompts.length)].replace('topic', topic)
+              }]
             }]
-          }]
-        })
-      });
+          })
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+        console.log('API Response status:', response.status);
+
+        if (response.status === 429) { // Rate limit for Gemini
+          if (attempt < retries) {
+            const backoffDelay = delay * Math.pow(2, attempt - 1);
+            console.log(`API rate limited, waiting ${backoffDelay}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, backoffDelay));
+            continue;
+          }
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('API Error:', errorText);
+          throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        let tweet = data.candidates[0].content.parts[0].text.trim();
+        
+        if (tweet.length > 280) {
+          tweet = tweet.slice(0, 280);
+          console.log('Tweet is over 280 characters, keeping only 280 characters:', tweet);
+        }
+        
+        console.log('Generated tweet via Gemini:', tweet);
+        
+        return {
+          success: true,
+          tweet: tweet,
+          topic: topic,
+          message: 'Gemini API test successful'
+        };
+      } catch (error) {
+        if (attempt === retries) {
+          console.error('Error testing Gemini API after all retries:', error);
+          return { success: false, error: error.message };
+        }
+        console.log(`Attempt ${attempt} failed, retrying...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
-
-      const data = await response.json();
-      const tweet = data.candidates[0].content.parts[0].text.trim();
-      
-      console.log('Generated tweet via Gemini:', tweet);
-      
-      return {
-        success: true,
-        tweet: tweet,
-        topic: topic,
-        message: 'Gemini API test successful'
-      };
-    } catch (error) {
-      console.error('Error testing Gemini API:', error);
-      return { success: false, error: error.message };
     }
   }
 
@@ -1417,6 +1351,15 @@ class BackgroundTwitterAgent {
       return false;
     }
   }
+
+  async clearAgentAlarms() {
+    const alarms = await chrome.alarms.getAll();
+    for (const alarm of alarms) {
+      if (alarm.name !== ALARMS.KEEP_ALIVE) {
+        await chrome.alarms.clear(alarm.name);
+      }
+    }
+  }
 }
 
 // Initialize the background agent
@@ -1424,13 +1367,3 @@ console.log('Background script loading...');
 // eslint-disable-next-line no-unused-vars
 const backgroundAgent = new BackgroundTwitterAgent();
 console.log('Background agent initialized');
-
-chrome.alarms.create("keepAlive", { periodInMinutes: 0.1 });
-console.log("⏰ Created keepAlive alarm");
-
-// Handle alarms
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === "keepAlive") {
-    console.log("🟢 Service Worker Active:", new Date().toISOString());
-  }
-});
