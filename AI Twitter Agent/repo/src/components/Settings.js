@@ -171,7 +171,7 @@ function Settings({ onConfigUpdate }) {
             <span role="img" aria-label="twitter">🕊️</span> Twitter Credentials
           </h3>
           <div className="form-group">
-            <label className="form-label">Username/Email</label>
+            <label className="form-label">Username</label>
             <input
               type="text"
               className="form-input"

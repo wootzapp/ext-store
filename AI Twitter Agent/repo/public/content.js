@@ -255,7 +255,7 @@ class TwitterContentScript {
       if (!window.location.href.includes('compose')) {
         console.log('Content: Navigating to compose page...');
         window.location.href = 'https://x.com/compose/post';
-        await this.sleep(4000); // Wait for navigation
+        await this.sleep(6000); // Wait for navigation
       }
 
       // Wait for compose page to load
@@ -265,6 +265,7 @@ class TwitterContentScript {
       // Find and focus tweet textarea
       const textArea = await this.findTweetTextarea();
       if (!textArea) {
+        console.log('Content: Tweet textarea not found');
         const result = {
           success: false,
           error: 'Tweet textarea not found',
@@ -287,23 +288,29 @@ class TwitterContentScript {
       if (!currentContent || !currentContent.includes(content.substring(0, 20))) {
         console.warn('Content: Content not set properly, trying alternative method...');
         await this.setTweetContentAlternative(textArea, content);
+        await this.sleep(2000);
+      }
+      console.log('Content: Assuming content is set properly');
+
+      let postButton = null;
+      for(let i = 0; i < 3; i++) {
+        postButton = await this.findPostButton();
+        if (!postButton) {
+          console.log('Content: Post button not found');
+          const result = {
+            success: false,
+            error: 'Post button not found',
+            posted: false
+          };
+          this.sendTweetResult(result);
+          return result;
+        }
         await this.sleep(1000);
       }
-
-      // Find and click post button
-      const postButton = await this.findPostButton();
-      if (!postButton) {
-        const result = {
-          success: false,
-          error: 'Post button not found',
-          posted: false
-        };
-        this.sendTweetResult(result);
-        return result;
-      }
-
+      
       // Check if post button is enabled
       if (postButton.disabled || postButton.getAttribute('aria-disabled') === 'true') {
+        console.log('Content: Post button is disabled');
         const result = {
           success: false,
           error: 'Post button is disabled - content may be invalid',
@@ -313,33 +320,113 @@ class TwitterContentScript {
         return result;
       }
 
-      console.log('Content: Clicking post button...');
+      // Set up navigation detection before clicking
+      console.log('Content: Setting up navigation detection...');
+      const navigationPromise = new Promise((resolve) => {
+        const handleNavigation = () => {
+          console.log('Content: Navigation detected after post button click');
+          window.removeEventListener('beforeunload', handleNavigation);
+          resolve(true);
+        };
+        
+        window.addEventListener('beforeunload', handleNavigation);
+        
+        // Fallback timeout in case navigation event doesn't fire
+        setTimeout(() => {
+          console.log('Content: Navigation detection timeout');
+          window.removeEventListener('beforeunload', handleNavigation);
+          resolve(false);
+        }, 10000); // 10 second timeout
+      });
+
+      // Click post button and track navigation
+      console.log('Content: Clicking post button and waiting for navigation...');
       postButton.click();
 
-      // Wait for posting to complete
-      await this.sleep(4000);
+      // Wait for navigation or timeout
+      const didNavigate = await navigationPromise;
+      console.log('Content: Navigation status:', { didNavigate });
 
-      // Verify success
-      const success = await this.verifyTweetPosted();
-      
-      const result = {
-        success: success,
-        message: success ? 'Tweet posted successfully via content script' : 'Tweet posting could not be verified',
-        posted: success,
-        content: content
-      };
+      if (didNavigate) {
+        // If we detected navigation, assume success after additional verification
+        const verificationResult = await this.verifyTweetPosted();
+        console.log('Content: Post-navigation verification:', { verificationResult });
 
-      console.log('Content: Tweet posting result:', result);
-      this.sendTweetResult(result);
-      return result;
-      
+        const result = {
+          success: verificationResult,
+          message: verificationResult ? 
+            'Tweet posted successfully - navigation confirmed' : 
+            'Navigation detected but tweet verification failed',
+          posted: verificationResult,
+          content: content,
+          timestamp: Date.now(),
+          verificationDetails: {
+            navigationDetected: true,
+            contentCleared: verificationResult
+          }
+        };
+
+        console.log('Content: Sending final result after navigation:', result);
+        this.sendTweetResult(result);
+        return result;
+      } else {
+        // No navigation detected - check if tweet was still posted
+        console.log('Content: No navigation detected, performing additional verification...');
+        
+        // Wait a bit longer for any delayed effects
+        await this.sleep(5000);
+        
+        const manualVerification = await this.verifyTweetPosted();
+        console.log('Content: Manual verification result:', { manualVerification });
+
+        // Check current URL - we might have navigated without detecting it
+        const isOnHomePage = window.location.href.includes('/home');
+        console.log('Content: Current URL check:', { 
+          url: window.location.href,
+          isOnHomePage 
+        });
+
+        const result = {
+          success: manualVerification || isOnHomePage,
+          message: manualVerification ? 
+            'Tweet posted successfully - verified without navigation' :
+            isOnHomePage ? 
+              'Tweet likely posted - on home page' :
+              'Tweet posting status uncertain - no navigation or verification',
+          posted: manualVerification || isOnHomePage,
+          content: content,
+          timestamp: Date.now(),
+          verificationDetails: {
+            navigationDetected: false,
+            contentCleared: manualVerification,
+            onHomePage: isOnHomePage
+          }
+        };
+
+        console.log('Content: Sending final result without navigation:', result);
+        this.sendTweetResult(result);
+        return result;
+      }
+
     } catch (error) {
-      console.error('Content: Error posting tweet:', error);
+      console.error('Content: Error during tweet posting:', {
+        error: error.message,
+        stack: error.stack,
+        phase: 'post-button-click',
+        url: window.location.href
+      });
+      
       const result = {
         success: false,
         error: error.message,
-        posted: false
+        posted: false,
+        errorDetails: {
+          type: error.name,
+          stack: error.stack,
+          url: window.location.href
+        }
       };
+      
       this.sendTweetResult(result);
       return result;
     }
@@ -384,23 +471,31 @@ class TwitterContentScript {
       'div[contenteditable="true"]'
     ];
 
-    for (const selector of selectors) {
-      const element = document.querySelector(selector);
-      if (element && this.isElementVisible(element)) {
-        console.log('Content: Found textarea with selector:', selector);
-        return element;
+    for(let i = 0; i < 5; i++) {
+      for (const selector of selectors) {
+        const element = document.querySelector(selector);
+        console.log('Content: Finding textarea with selector:', selector);
+        if (element && this.isElementVisible(element)) {
+          console.log('Content: Found textarea with selector:', selector);
+          return element;
+        }
       }
+      await this.sleep(1000);
     }
 
     // Wait and try again
-    await this.sleep(2000);
-    
-    for (const selector of selectors) {
-      const element = document.querySelector(selector);
-      if (element) {
-        console.log('Content: Found textarea on retry with selector:', selector);
-        return element;
+    await this.sleep(1000);
+
+    for(let i = 0; i < 5; i++) {
+      for (const selector of selectors) {
+        const element = document.querySelector(selector);
+        console.log('Content: Finding textarea with selector:', selector);
+        if (element) {
+          console.log('Content: Found textarea on retry with selector:', selector);
+          return element;
+        }
       }
+      await this.sleep(1000);
     }
 
     return null;
@@ -409,40 +504,102 @@ class TwitterContentScript {
   // NEW: Set tweet content with improved method
   async setTweetContent(textArea, content) {
     try {
+      console.log('Content: Starting to set tweet content', {
+        contentLength: content.length,
+        textAreaExists: !!textArea,
+        textAreaVisible: this.isElementVisible(textArea)
+      });
+
       // Focus the textarea
       textArea.focus();
       textArea.click();
+      console.log('Content: Textarea focused and clicked');
       
       // Clear existing content
+      const initialContent = textArea.textContent || textArea.innerHTML || textArea.value || '';
+      console.log('Content: Initial content length:', initialContent.length);
+      
       textArea.textContent = '';
       textArea.innerHTML = '';
       if (textArea.value !== undefined) {
         textArea.value = '';
       }
+      console.log('Content: Cleared existing content');
 
       // Method 1: Direct assignment
+      console.log('Content: Attempting direct content assignment...');
       textArea.textContent = content;
       textArea.dispatchEvent(new Event('input', { bubbles: true }));
       
       await this.sleep(500);
       
+      let currentContent = textArea.textContent || textArea.innerHTML || textArea.value || '';
+      console.log('Content: After direct assignment:', {
+        success: currentContent === content,
+        expectedLength: content.length,
+        actualLength: currentContent.length
+      });
+      
       // Method 2: execCommand if available
       if (document.execCommand) {
+        console.log('Content: Attempting execCommand method...');
         textArea.focus();
         document.execCommand('selectAll');
         document.execCommand('insertText', false, content);
+        
+        currentContent = textArea.textContent || textArea.innerHTML || textArea.value || '';
+        console.log('Content: After execCommand:', {
+          success: currentContent === content,
+          expectedLength: content.length,
+          actualLength: currentContent.length
+        });
+      } else {
+        console.log('Content: execCommand not available, skipping method 2');
       }
       
       // Method 3: Simulate typing for complex cases
-      await this.simulateTyping(textArea, content);
+      if (currentContent !== content) {
+        console.log('Content: Previous methods incomplete, attempting typing simulation...');
+        await this.simulateTyping(textArea, content);
+        
+        currentContent = textArea.textContent || textArea.innerHTML || textArea.value || '';
+        console.log('Content: After typing simulation:', {
+          success: currentContent === content,
+          expectedLength: content.length,
+          actualLength: currentContent.length
+        });
+      }
       
-      // Dispatch events
+      // Final verification and events
+      console.log('Content: Dispatching final events...');
       textArea.dispatchEvent(new Event('input', { bubbles: true }));
       textArea.dispatchEvent(new Event('change', { bubbles: true }));
       textArea.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
       
+      const finalContent = textArea.textContent || textArea.innerHTML || textArea.value || '';
+      console.log('Content: Final content verification:', {
+        success: finalContent === content,
+        expectedLength: content.length,
+        actualLength: finalContent.length,
+        matches: finalContent === content
+      });
+      
+      if (finalContent !== content) {
+        throw new Error('Failed to set content correctly after all methods');
+      }
+      
     } catch (error) {
-      console.error('Content: Error setting tweet content:', error);
+      console.error('Content: Error setting tweet content:', {
+        error: error.message,
+        type: error.name,
+        stack: error.stack,
+        contentLength: content.length,
+        textAreaState: {
+          exists: !!textArea,
+          visible: textArea ? this.isElementVisible(textArea) : false,
+          currentContent: textArea ? (textArea.textContent || textArea.innerHTML || textArea.value || '').length : 0
+        }
+      });
       throw error;
     }
   }
@@ -450,30 +607,92 @@ class TwitterContentScript {
   // NEW: Alternative content setting method
   async setTweetContentAlternative(textArea, content) {
     try {
+      console.log('Content: Starting alternative content setting method', {
+        contentLength: content.length,
+        textAreaExists: !!textArea,
+        textAreaVisible: this.isElementVisible(textArea)
+      });
+
       textArea.focus();
+      console.log('Content: Textarea focused');
       
       // Use InputEvent if supported
       if (typeof InputEvent !== 'undefined') {
+        console.log('Content: Attempting InputEvent method...');
         textArea.dispatchEvent(new InputEvent('beforeinput', {
           inputType: 'insertText',
           data: content,
           bubbles: true
         }));
+        
+        let currentContent = textArea.textContent || textArea.innerHTML || textArea.value || '';
+        console.log('Content: After InputEvent:', {
+          success: currentContent === content,
+          expectedLength: content.length,
+          actualLength: currentContent.length
+        });
+      } else {
+        console.log('Content: InputEvent not supported, skipping method');
       }
       
       // Set content directly
+      console.log('Content: Attempting direct content setting...');
       textArea.textContent = content;
       textArea.innerHTML = content;
       
+      let directContent = textArea.textContent || textArea.innerHTML || textArea.value || '';
+      console.log('Content: After direct setting:', {
+        success: directContent === content,
+        expectedLength: content.length,
+        actualLength: directContent.length
+      });
+      
       // Use clipboard API as fallback
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(content);
-        textArea.focus();
-        document.execCommand('paste');
+        console.log('Content: Attempting clipboard method...');
+        try {
+          await navigator.clipboard.writeText(content);
+          textArea.focus();
+          document.execCommand('paste');
+          
+          let clipboardContent = textArea.textContent || textArea.innerHTML || textArea.value || '';
+          console.log('Content: After clipboard paste:', {
+            success: clipboardContent === content,
+            expectedLength: content.length,
+            actualLength: clipboardContent.length
+          });
+        } catch (clipboardError) {
+          console.warn('Content: Clipboard operation failed:', {
+            error: clipboardError.message,
+            type: clipboardError.name
+          });
+        }
+      } else {
+        console.log('Content: Clipboard API not available, skipping method');
       }
       
+      // Final verification
+      const finalContent = textArea.textContent || textArea.innerHTML || textArea.value || '';
+      console.log('Content: Alternative method final result:', {
+        success: finalContent === content,
+        expectedLength: content.length,
+        actualLength: finalContent.length,
+        matches: finalContent === content
+      });
+      
     } catch (error) {
-      console.warn('Content: Alternative content setting failed:', error);
+      console.error('Content: Error in alternative content setting:', {
+        error: error.message,
+        type: error.name,
+        stack: error.stack,
+        contentLength: content.length,
+        textAreaState: {
+          exists: !!textArea,
+          visible: textArea ? this.isElementVisible(textArea) : false,
+          currentContent: textArea ? (textArea.textContent || textArea.innerHTML || textArea.value || '').length : 0
+        }
+      });
+      // Don't throw since this is a fallback method
     }
   }
 
@@ -538,42 +757,70 @@ class TwitterContentScript {
 
   // NEW: Verify tweet was posted
   async verifyTweetPosted() {
-    // Method 1: Check if we're redirected away from compose
-    await this.sleep(2000);
-    
-    if (!window.location.href.includes('compose')) {
-      console.log('Content: Redirected away from compose page - likely posted');
-      return true;
-    }
+    try {
+      console.log('Content: Starting tweet verification...');
+      
+      // Method 1: Check if we're redirected away from compose
+      const currentUrl = window.location.href;
+      const redirectedAway = !currentUrl.includes('compose');
+      console.log('Content: URL verification:', {
+        currentUrl,
+        redirectedAway
+      });
 
-    // Method 2: Check if textarea is cleared
-    const textArea = document.querySelector('[data-testid="tweetTextarea_0"]');
-    if (textArea) {
-      const content = this.getTweetContent(textArea);
-      if (!content || content.trim() === '') {
-        console.log('Content: Textarea cleared - likely posted');
+      if (redirectedAway) {
+        console.log('Content: Redirected away from compose page - likely posted');
         return true;
       }
-    }
 
-    // Method 3: Look for success indicators
-    const successIndicators = [
-      '[data-testid="toast"]',
-      '[role="alert"]',
-      '.toast',
-      '[aria-live="polite"]'
-    ];
-
-    for (const selector of successIndicators) {
-      const element = document.querySelector(selector);
-      if (element && element.textContent.toLowerCase().includes('tweet')) {
-        console.log('Content: Found success indicator');
-        return true;
+      // Method 2: Check if textarea is cleared
+      const textArea = document.querySelector('[data-testid="tweetTextarea_0"]');
+      if (textArea) {
+        const content = this.getTweetContent(textArea);
+        const isCleared = !content || content.trim() === '';
+        console.log('Content: Textarea verification:', {
+          hasTextArea: true,
+          content: content ? content.substring(0, 20) + '...' : 'empty',
+          isCleared
+        });
+        
+        if (isCleared) {
+          console.log('Content: Textarea cleared - likely posted');
+          return true;
+        }
+      } else {
+        console.log('Content: Textarea verification: textarea not found');
       }
-    }
 
-    console.log('Content: Could not verify tweet posting');
-    return false;
+      // Method 3: Look for success indicators
+      const successIndicators = [
+        '[data-testid="toast"]',
+        '[role="alert"]',
+        '.toast',
+        '[aria-live="polite"]'
+      ];
+
+      for (const selector of successIndicators) {
+        const element = document.querySelector(selector);
+        if (element && element.textContent.toLowerCase().includes('tweet')) {
+          console.log('Content: Found success indicator:', {
+            selector,
+            text: element.textContent
+          });
+          return true;
+        }
+      }
+
+      console.log('Content: No success indicators found');
+      return false;
+
+    } catch (error) {
+      console.error('Content: Error during tweet verification:', {
+        error: error.message,
+        stack: error.stack
+      });
+      return false;
+    }
   }
 
   // NEW: Check if element is visible

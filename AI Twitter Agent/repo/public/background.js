@@ -281,8 +281,6 @@ class BackgroundTwitterAgent {
         } catch (error) {
           console.error('Background: Error handling wake-up check alarm:', error);
         }
-      } else if (alarm.name === ALARMS.KEEP_ALIVE) {
-        console.log('Background: Keep-alive alarm triggered');
       }
     });
 
@@ -306,11 +304,15 @@ class BackgroundTwitterAgent {
 
       // Clear only agent-related alarms
       await this.clearAgentAlarms();
-      
-      // Create tweet generator alarm
+
+      // Create tweet generator alarm - trigger 20 seconds before the interval
+      const intervalInSeconds = config.settings.interval * 60;
+      const targetSeconds = Math.max(intervalInSeconds - 20, 10); // Minimum 10 seconds
+      const targetMinutes = targetSeconds / 60;
+
       await chrome.alarms.create(ALARMS.TWEET_GENERATOR, {
-        delayInMinutes: 1,
-        periodInMinutes: config.settings.interval
+        delayInMinutes: targetMinutes,
+        periodInMinutes: config.settings.interval,
       });
 
       // Create wake-up check alarm
@@ -475,9 +477,10 @@ class BackgroundTwitterAgent {
     }
   }
 
-  async postTweetViaTab(content) {
+  async postTweetViaTab(content, retryCount = 0, maxAttempts = 2) {
     try {
       console.log('Background: Starting tweet posting via WebContents');
+      console.log('Background: Starting tweet posting attempt', { retryCount });
       console.log('Background: Tweet content:', content);
 
       // First check if we have Twitter credentials
@@ -495,14 +498,18 @@ class BackgroundTwitterAgent {
       const loginStatus = await this.checkLoginStatusInWebContents();
 
       if (!loginStatus.success || !loginStatus.loggedIn) {
-        console.log('Background: Not logged in, performing login...');
-        const loginResult = await this.performLoginInVisibleTab();
-        if (!loginResult.success) {
-          return { 
-            success: false, 
-            error: 'Login failed: ' + loginResult.error, 
-            posted: false 
-          };
+        console.log('Background: Not logged in, checking login status again...');
+        const loginStatus2 = await this.checkLoginStatusInWebContents();
+        if (!loginStatus2.success || !loginStatus2.loggedIn) {
+          console.log('Background: Not logged in, performing login...');
+          const loginResult = await this.performLoginInVisibleTab();
+          if (!loginResult.success) {
+            return { 
+              success: false, 
+              error: 'Login failed: ' + loginResult.error, 
+              posted: false 
+            };
+          }
         }
       }
 
@@ -511,19 +518,40 @@ class BackgroundTwitterAgent {
 
       return new Promise((resolve) => {
         const timeout = setTimeout(async () => {
-          await this.destroyTwitterWebContents();
-          resolve({
-            success: false,
-            error: 'Timeout waiting for tweet posting',
-            posted: false
-          });
-        }, 60000);
+          // await this.destroyTwitterWebContents();
+          if (retryCount < maxAttempts) {
+            // Check if agent is still running before retry
+            const { isRunning } = await chrome.storage.local.get(['isRunning']);
+            if (!isRunning) {
+              console.log('Background: Agent stopped, aborting retry');
+              resolve({
+                success: false,
+                error: 'Agent stopped',
+                posted: false
+              });
+              return;
+            }
+            console.log('Background: Tweet posting timeout, retrying...', {
+              attempt: retryCount + 1
+            });
+            resolve(this.postTweetViaTab(content, retryCount + 1));
+          } else {
+            resolve({
+              success: false,
+              error: 'Timeout waiting for tweet posting after all retries',
+              posted: false
+            });
+          }
+        }, 90000);
 
         const messageListener = async (request) => {
-          console.log('Background: Received message:', request.action);
+          console.log('Background: Received message during tweet posting:', {
+            action: request.action,
+            timestamp: new Date().toISOString()
+          });
           
           if (request.action === 'CONTENT_SCRIPT_READY') {
-            // Send tweet - we know we're logged in
+            console.log('Background: Content script ready, sending tweet content...');
             chrome.tabs.sendMessage(this.webContentsId, {
               action: 'POST_TWEET',
               content: content
@@ -531,8 +559,69 @@ class BackgroundTwitterAgent {
           } else if (request.action === 'TWEET_RESULT') {
             clearTimeout(timeout);
             chrome.runtime.onMessage.removeListener(messageListener);
-            await this.destroyTwitterWebContents();
-            resolve(request.result);
+            
+            // Enhanced result verification
+            const tweetResult = request.result;
+            console.log('Background: Received tweet result:', {
+              success: tweetResult.success,
+              posted: tweetResult.posted,
+              message: tweetResult.message,
+              verificationDetails: tweetResult.verificationDetails
+            });
+
+            if (tweetResult.success && tweetResult.posted) {
+              // Only log success if both flags are true and we have verification
+              if (tweetResult.verificationDetails?.navigationDetected || 
+                  tweetResult.verificationDetails?.contentCleared ||
+                  tweetResult.verificationDetails?.onHomePage) {
+                console.log('Background: Tweet posted successfully with verification:', {
+                  navigationDetected: tweetResult.verificationDetails?.navigationDetected,
+                  contentCleared: tweetResult.verificationDetails?.contentCleared,
+                  onHomePage: tweetResult.verificationDetails?.onHomePage
+                });
+              } else {
+                console.warn('Background: Tweet marked as posted but without verification details');
+                tweetResult.success = false;
+                tweetResult.message = 'Tweet status uncertain - no verification';
+              }
+            } else {
+              console.error('Background: Tweet posting failed:', {
+                error: tweetResult.error,
+                message: tweetResult.message
+              });
+              if (retryCount < maxAttempts) {
+                console.log('Background: Tweet posting failed, retrying...', {
+                  attempt: retryCount + 1,
+                  error: tweetResult.error,
+                  message: tweetResult.message
+                });
+                const { isRunning } = await chrome.storage.local.get(['isRunning']);
+                if (!isRunning) {
+                  console.log('Background: Agent stopped, aborting retry');
+                  resolve({
+                    success: false,
+                    error: 'Agent stopped',
+                    posted: false
+                  });
+                  return;
+                }
+                resolve(this.postTweetViaTab(content, retryCount + 1));
+                return;
+              }
+            }
+
+            // Store the result with verification details
+            await chrome.storage.local.set({
+              lastTweetAttempt: {
+                timestamp: Date.now(),
+                success: tweetResult.success,
+                posted: tweetResult.posted,
+                verificationDetails: tweetResult.verificationDetails,
+                error: tweetResult.error
+              }
+            });
+
+            resolve(tweetResult);
           }
         };
 
@@ -541,12 +630,19 @@ class BackgroundTwitterAgent {
 
     } catch (error) {
       console.error('Background: Error in postTweetViaTab:', error);
-      await this.destroyTwitterWebContents();
-      return {
-        success: false,
-        error: error.message,
-        posted: false
-      };
+      if (retryCount < 3) {
+        console.log('Background: Tweet posting error, retrying...', {
+          attempt: retryCount + 1,
+          error: error.message
+        });
+        const { isRunning } = await chrome.storage.local.get(['isRunning']);
+          if (!isRunning) {
+            console.log('Background: Agent stopped, aborting retry');
+            return ;
+          }
+        return this.postTweetViaTab(content, retryCount + 1);
+      }
+      throw error;
     }
   }
 
@@ -614,7 +710,7 @@ class BackgroundTwitterAgent {
       if (result && result.success) {
         console.log('Scheduled tweet generated:', result.tweet);
         
-        // Store the tweet for posting in case service worker is suspended
+        // Store the tweet for posting
         await chrome.storage.local.set({
           pendingTweet: {
             content: result.tweet,
@@ -625,18 +721,32 @@ class BackgroundTwitterAgent {
         
         // Post via tab automation
         const postResult = await this.postTweetViaTab(result.tweet);
-        console.log('Background: Scheduled tweet posting result:', postResult);
-        
-        // Clear pending tweet if successful
-        if (postResult.success) {
+        console.log('Background: Tweet posting attempt completed:', {
+          success: postResult.success,
+          posted: postResult.posted,
+          hasVerification: !!postResult.verificationDetails
+        });
+
+        if (postResult.success && postResult.posted) {
+          console.log('Background: Scheduled tweet posted successfully');
+          this.lastTweetTime = Date.now(); // This ensures next interval starts from successful attempt
+          await chrome.storage.local.set({ lastTweetTime: this.lastTweetTime });
           await chrome.storage.local.remove(['pendingTweet']);
+        } else {
+          console.error('Background: Scheduled tweet posting failed or unverified:', {
+            error: postResult.error,
+            message: postResult.message,
+            verificationDetails: postResult.verificationDetails
+          });
+          console.error('Background: All retry attempts failed');
         }
         
         return {
-          success: true,
+          success: postResult.success && postResult.posted,
           tweet: result.tweet,
-          posted: postResult.success,
-          postError: postResult.success ? null : postResult.error
+          posted: postResult.posted,
+          postError: postResult.error,
+          verificationDetails: postResult.verificationDetails
         };
       } else {
         console.error('Failed to generate scheduled tweet:', result?.error || 'Unknown error');
@@ -1147,7 +1257,7 @@ class BackgroundTwitterAgent {
       return new Promise((resolve) => {
         const checkTimeout = setTimeout(async () => {
           console.log('Background: Login check timeout');
-          await this.destroyTwitterWebContents();
+          // await this.destroyTwitterWebContents();
           resolve({
             success: false,
             error: 'Login check timeout',
@@ -1166,7 +1276,7 @@ class BackgroundTwitterAgent {
 
               clearTimeout(checkTimeout);
               chrome.runtime.onMessage.removeListener(messageListener);
-              await this.destroyTwitterWebContents();
+              // await this.destroyTwitterWebContents();
 
               // Cache the login status
               await chrome.storage.local.set({
@@ -1186,7 +1296,7 @@ class BackgroundTwitterAgent {
               console.error('Background: Error during login check:', error);
               clearTimeout(checkTimeout);
               chrome.runtime.onMessage.removeListener(messageListener);
-              await this.destroyTwitterWebContents();
+              // await this.destroyTwitterWebContents();
               resolve({
                 success: false,
                 error: error.message,
@@ -1201,7 +1311,7 @@ class BackgroundTwitterAgent {
 
     } catch (error) {
       console.error('Background: Error in checkLoginStatusInWebContents:', error);
-      await this.destroyTwitterWebContents();
+      // await this.destroyTwitterWebContents();
       return {
         success: false,
         error: error.message,
