@@ -74608,7 +74608,67 @@ var __defProp = Object.defineProperty,
         return (await HF.post("/app/ins/task/specs", { type: e })).data;
       }
       async parseWebUrl(e) {
-        return (await HF.post("/app/ins/parse", e)).data;
+        console.log("Sidepanel: 🚀 OJ.parseWebUrl CALLED");
+        console.log("Sidepanel: 📤 Parse API request payload:", {
+          user_id: e.user_id,
+          url: e.url,
+          env: e.env,
+          titleLength: e.title?.length || 0,
+          contentLength: e.content?.length || 0,
+          timezone: e.timezone,
+          hasAllRequiredFields: !!(e.user_id && e.url && e.env),
+        });
+
+        const result = await HF.post("/app/ins/parse", e);
+
+        console.log("Sidepanel: 📥 Parse API raw response:", {
+          hasResult: !!result,
+          hasData: !!result?.data,
+          resultKeys: result ? Object.keys(result) : "No result",
+          dataKeys: result?.data ? Object.keys(result.data) : "No data",
+          fullResponse: result,
+        });
+
+        const apiData = result.data;
+
+        console.log("Sidepanel: 🔍 Parse API data analysis:", {
+          hasApiData: !!apiData,
+          apiDataType: typeof apiData,
+          success: apiData?.success,
+          errorCode: apiData?.errorCode,
+          status: apiData?.status,
+          dataStatus: apiData?.data?.status,
+          info: apiData?.data?.info,
+          url: apiData?.data?.url,
+          htmlType: apiData?.data?.html_type,
+        });
+
+        // Critical status logging
+        if (apiData) {
+          if (apiData.data && apiData.data.status === 1) {
+            console.log(
+              "Sidepanel: ✅ Parse API SUCCESS - data.status === 1 - CONTENT RECOGNIZED"
+            );
+          } else if (apiData.data && apiData.data.status === 0) {
+            console.log(
+              "Sidepanel: ⚠️ Parse API status === 0 - CONTENT NOT RECOGNIZED FOR POINTS"
+            );
+            console.log("Sidepanel: 📋 Status 0 details:", {
+              info: apiData.data.info,
+              reason: "Content did not match required criteria",
+            });
+          } else {
+            console.log("Sidepanel: ❓ Parse API unclear status:", {
+              dataStatus: apiData.data?.status,
+              success: apiData.success,
+              errorCode: apiData.errorCode,
+            });
+          }
+        } else {
+          console.log("Sidepanel: ❌ Parse API returned no data");
+        }
+
+        return apiData;
       }
       async postTermsOfUse() {
         return (await HF.post("/app/ins/agree")).data;
@@ -74803,16 +74863,75 @@ var __defProp = Object.defineProperty,
         console.log("TJ: Claim result:", claimResult);
 
         if (claimResult && claimResult.success) {
+          // Extract and update UI with values from claim API response
+          if (claimResult.data) {
+            console.log(
+              "TJ: Updating UI with claim API response data:",
+              claimResult.data
+            );
+
+            // Update UI with values from claim API response
+            if (claimResult.data.today_reward_points !== undefined) {
+              NJ.rewardInfo.today_reward_points =
+                claimResult.data.today_reward_points;
+              console.log(
+                "TJ: Updated today_reward_points from API:",
+                claimResult.data.today_reward_points
+              );
+            }
+
+            if (claimResult.data.total_reward_points !== undefined) {
+              NJ.rewardInfo.total_reward_points =
+                claimResult.data.total_reward_points;
+              console.log(
+                "TJ: Updated total_reward_points from API:",
+                claimResult.data.total_reward_points
+              );
+            }
+
+            if (claimResult.data.today_max_points !== undefined) {
+              // Store today_max_points for UI display
+              NJ.rewardInfo.today_max_points =
+                claimResult.data.today_max_points;
+              console.log(
+                "TJ: Updated today_max_points from API:",
+                claimResult.data.today_max_points
+              );
+            }
+          } else {
+            // Fallback to old behavior if no data in response
+            NJ.rewardInfo.today_reward_points = actualTodayPoints;
+            console.log(
+              "TJ: No data in claim response, using fallback:",
+              actualTodayPoints
+            );
+          }
+
           // Reset current points via background handler
           const resetResponse = await chrome.runtime.sendMessage({
             id: "reset-claimed-points",
           });
 
           if (resetResponse && resetResponse.success) {
-            // Update local state
-            NJ.rewardInfo.today_reward_points = actualTodayPoints;
-
             console.log("TJ: Claim successful, points reset via background");
+            console.log("TJ: Final UI values:", {
+              today_reward_points: NJ.rewardInfo.today_reward_points,
+              total_reward_points: NJ.rewardInfo.total_reward_points,
+              today_max_points: NJ.rewardInfo.today_max_points,
+            });
+
+            // Update React state to trigger UI re-render with new values
+            NJ.setState((prevState) => ({
+              ...prevState,
+              rewardInfo: {
+                ...prevState.rewardInfo,
+                today_reward_points: NJ.rewardInfo.today_reward_points,
+                total_reward_points: NJ.rewardInfo.total_reward_points,
+                today_max_points: NJ.rewardInfo.today_max_points,
+              },
+            }));
+
+            console.log("TJ: UI state updated after claim success");
 
             return claimResult;
           } else {
@@ -75030,11 +75149,55 @@ var __defProp = Object.defineProperty,
             var e, t, n, r, i, a, l, u;
             if (FJ) return;
             if (zJ.page_type === $J.SEARCH) {
-              if (!(null == (e = zJ.tag) ? void 0 : e.url))
+              const searchUrl = null == (e = zJ.tag) ? void 0 : e.url;
+              console.log(
+                "Sidepanel: SEARCH mode - Starting navigation process"
+              );
+              console.log("Sidepanel: Search config:", {
+                pageType: zJ.page_type,
+                tagConfig: zJ.tag,
+                searchUrl: searchUrl,
+                tabId: null == (t = v.current) ? void 0 : t.id,
+              });
+
+              if (!searchUrl) {
+                console.error(
+                  "Sidepanel: SEARCH URL is empty - cannot proceed"
+                );
                 return oD.error("The tag url is empty."), void o(!1);
-              await chrome.tabs.update(
-                null == (t = v.current) ? void 0 : t.id,
-                { url: null == (n = zJ.tag) ? void 0 : n.url }
+              }
+
+              console.log(
+                "Sidepanel: Executing navigation script to search URL:",
+                searchUrl
+              );
+              console.log(
+                "Sidepanel: Target tab ID:",
+                null == (t = v.current) ? void 0 : t.id
+              );
+
+              await chrome.scripting.executeScript({
+                target: { tabId: null == (t = v.current) ? void 0 : t.id },
+                func: (url) => {
+                  console.log(
+                    "[CONTENT_SCRIPT] SEARCH Navigation - Navigating via window.location to:",
+                    url
+                  );
+                  console.log(
+                    "[CONTENT_SCRIPT] Current URL before navigation:",
+                    window.location.href
+                  );
+                  console.log(
+                    "[CONTENT_SCRIPT] Navigation timestamp:",
+                    new Date().toISOString()
+                  );
+                  window.location.href = url;
+                },
+                args: [searchUrl],
+              });
+
+              console.log(
+                "Sidepanel: Search navigation script executed successfully"
               );
               var d = 6e3 + Math.floor(1e3 * Math.random());
               if ((await HJ(d), FJ)) return void (FJ = !1);
@@ -75196,22 +75359,117 @@ var __defProp = Object.defineProperty,
                   1 * Math.floor(6e3 + 4e3 * Math.random()),
                 n = zJ.page_type === $J.POST ? "2" : "3";
               !(async function (e, t, n, r, i, a) {
-                if (!r || 0 === r.length)
+                console.log(
+                  "Sidepanel: TASK mode - Starting task automation process"
+                );
+                console.log("Sidepanel: Task automation config:", {
+                  tabId: e,
+                  postTimeout: t,
+                  profileTimeout: n,
+                  tasks: r,
+                  pageType: i,
+                  htmlType: a,
+                  totalTasks: r ? r.length : 0,
+                });
+
+                if (!r || 0 === r.length) {
+                  console.error(
+                    "Sidepanel: Task list is empty - cannot proceed"
+                  );
                   return oD.info("The task list is empty."), void o(!1);
+                }
+
+                console.log(
+                  "Sidepanel: Processing tasks from API. Total tasks:",
+                  r.length
+                );
+                console.log(
+                  "Sidepanel: Task URLs:",
+                  r.map((task, index) => ({
+                    taskIndex: index,
+                    url: task.url,
+                    taskData: task,
+                  }))
+                );
+
                 let s = 0;
+                const firstTaskUrl = r[0].url;
+
+                console.log(
+                  "Sidepanel: Starting with first task URL:",
+                  firstTaskUrl
+                );
+                console.log("Sidepanel: First task data:", r[0]);
+                console.log(
+                  "Sidepanel: Executing navigation script for task 0 to:",
+                  firstTaskUrl
+                );
+
                 if (
-                  (await chrome.tabs.update(e, { url: r[0].url }),
+                  (await chrome.scripting.executeScript({
+                    target: { tabId: e },
+                    func: (url, taskIndex, totalTasks) => {
+                      console.log(
+                        "[CONTENT_SCRIPT] TASK Navigation - Task",
+                        taskIndex + 1,
+                        "of",
+                        totalTasks,
+                        "- Navigating via window.location to:",
+                        url
+                      );
+                      console.log(
+                        "[CONTENT_SCRIPT] Current URL before navigation:",
+                        window.location.href
+                      );
+                      console.log(
+                        "[CONTENT_SCRIPT] Task navigation timestamp:",
+                        new Date().toISOString()
+                      );
+                      console.log("[CONTENT_SCRIPT] Task URL details:", {
+                        taskIndex: taskIndex,
+                        url: url,
+                        userAgent: navigator.userAgent,
+                        currentDomain: window.location.hostname,
+                      });
+                      window.location.href = url;
+                    },
+                    args: [firstTaskUrl, s, r.length],
+                  }),
                   await HJ(1 * Math.floor(6e3 + 4e3 * Math.random())),
                   "2" === i ? C(e, a) : w(e, a),
                   s++,
                   FJ)
                 )
                   return;
+
+                console.log(
+                  "Sidepanel: First task processed, setting up interval for remaining tasks"
+                );
+                console.log(
+                  "Sidepanel: Interval timing:",
+                  "2" === i ? t + 5e3 : n + 3e3,
+                  "ms"
+                );
+
                 g.current = setInterval(
                   async () => {
-                    if (FJ) clearInterval(g.current);
-                    else {
-                      if (s >= r.length)
+                    if (FJ) {
+                      console.log(
+                        "Sidepanel: Crawl stopped flag detected, clearing interval"
+                      );
+                      clearInterval(g.current);
+                    } else {
+                      if (s >= r.length) {
+                        console.log(
+                          "Sidepanel: All tasks completed! Processed",
+                          s,
+                          "out of",
+                          r.length,
+                          "tasks"
+                        );
+                        console.log(
+                          "Sidepanel: Sending update-completed-link-list message to fetch more tasks"
+                        );
                         return (
                           clearInterval(g.current),
                           await HJ(2e3),
@@ -75219,10 +75477,80 @@ var __defProp = Object.defineProperty,
                             id: "update-completed-link-list",
                           })
                         );
-                      await chrome.tabs.update(e, { url: r[s].url }),
-                        await HJ(1 * Math.floor(6e3 + 4e3 * Math.random())),
-                        "2" === i ? C(e, a) : w(e, a),
-                        s++;
+                      }
+
+                      const currentTaskUrl = r[s].url;
+                      console.log(
+                        "Sidepanel: Processing task",
+                        s + 1,
+                        "of",
+                        r.length
+                      );
+                      console.log(
+                        "Sidepanel: Current task URL:",
+                        currentTaskUrl
+                      );
+                      console.log("Sidepanel: Current task data:", r[s]);
+                      console.log(
+                        "Sidepanel: Executing navigation script for task",
+                        s,
+                        "to:",
+                        currentTaskUrl
+                      );
+
+                      await chrome.scripting.executeScript({
+                        target: { tabId: e },
+                        func: (url, taskIndex, totalTasks) => {
+                          console.log(
+                            "[CONTENT_SCRIPT] TASK Navigation - Task",
+                            taskIndex + 1,
+                            "of",
+                            totalTasks,
+                            "- Navigating via window.location to:",
+                            url
+                          );
+                          console.log(
+                            "[CONTENT_SCRIPT] Current URL before navigation:",
+                            window.location.href
+                          );
+                          console.log(
+                            "[CONTENT_SCRIPT] Task navigation timestamp:",
+                            new Date().toISOString()
+                          );
+                          console.log("[CONTENT_SCRIPT] Task URL details:", {
+                            taskIndex: taskIndex,
+                            url: url,
+                            userAgent: navigator.userAgent,
+                            currentDomain: window.location.hostname,
+                            referrer: document.referrer,
+                          });
+                          window.location.href = url;
+                        },
+                        args: [currentTaskUrl, s, r.length],
+                      });
+
+                      console.log(
+                        "Sidepanel: Navigation script executed for task",
+                        s + 1
+                      );
+                      console.log(
+                        "Sidepanel: Waiting for delay before processing..."
+                      );
+
+                      await HJ(1 * Math.floor(6e3 + 4e3 * Math.random()));
+
+                      console.log(
+                        "Sidepanel: Delay completed, executing content extraction for task",
+                        s + 1
+                      );
+                      "2" === i ? C(e, a) : w(e, a);
+                      s++;
+
+                      console.log(
+                        "Sidepanel: Task",
+                        s,
+                        "completed, moving to next task"
+                      );
                     }
                   },
                   "2" === i ? t + 5e3 : n + 3e3
@@ -75279,6 +75607,154 @@ var __defProp = Object.defineProperty,
             return { tasks: [] };
           }
           break;
+        case "submit-content-via-sidepanel":
+          // Background content submission failed, try through sidepanel
+          try {
+            console.log(
+              "Sidepanel: Background requested content submission fallback"
+            );
+            const contentData = e.data;
+
+            // DEDUPLICATION CHECK: Check if this URL has already been submitted
+            const urlKey = `${contentData.url}_${contentData.env}`;
+            const storage = await chrome.storage.local.get([
+              "submittedUrlsSession",
+            ]);
+            const submittedUrls = new Set(storage.submittedUrlsSession || []);
+
+            if (submittedUrls.has(urlKey)) {
+              console.log(
+                "Sidepanel: ⚠️ FALLBACK BLOCKED - URL already submitted:",
+                contentData.url
+              );
+              return {
+                success: true,
+                shouldAddPoints: false,
+                reason: "URL already submitted in this session",
+                isDuplicate: true,
+              };
+            }
+
+            // Get auth info for the submission
+            const authStorage = await chrome.storage.local.get("auth");
+            if (!authStorage.auth || !authStorage.auth.uid) {
+              console.log(
+                "Sidepanel: No auth available for fallback submission"
+              );
+              return { success: false, error: "No auth available" };
+            }
+
+            // Use the same submission method as sidepanel normally uses
+            const submissionPayload = {
+              user_id: authStorage.auth.uid,
+              title: contentData.title,
+              content: contentData.content,
+              url: contentData.url,
+              timezone: contentData.timezone,
+              env: String(contentData.env), // Ensure string
+            };
+
+            console.log("Sidepanel: Fallback submission payload:", {
+              user_id: submissionPayload.user_id,
+              url: submissionPayload.url,
+              env: submissionPayload.env,
+              titleLength: submissionPayload.title?.length || 0,
+              contentLength: submissionPayload.content?.length || 0,
+            });
+
+            const submissionResult = await OJ.parseWebUrl(submissionPayload);
+
+            // Mark URL as submitted after successful API call
+            submittedUrls.add(urlKey);
+            await chrome.storage.local.set({
+              submittedUrlsSession: Array.from(submittedUrls),
+            });
+
+            console.log("Sidepanel: 🔍 PARSING API RESULT FOR POINTS DECISION");
+            console.log("Sidepanel: 📊 Raw API result analysis:", {
+              hasResult: !!submissionResult,
+              resultType: typeof submissionResult,
+              success: submissionResult?.success,
+              status: submissionResult?.status,
+              hasData: !!submissionResult?.data,
+              dataStatus: submissionResult?.data?.status,
+              dataInfo: submissionResult?.data?.info,
+              fullResult: submissionResult,
+            });
+
+            console.log(
+              "Sidepanel: 📋 FALLBACK SUBMISSION RESULT:",
+              submissionResult
+            );
+
+            // Detailed status checking with points decision logging
+            let shouldAddPoints = false;
+            let statusDecision = "unknown";
+
+            if (submissionResult) {
+              if (submissionResult.data && submissionResult.data.status === 1) {
+                shouldAddPoints = true;
+                statusDecision = "data.status === 1 - POINTS SHOULD BE ADDED";
+                console.log("Sidepanel: 🎯 STATUS CHECK: " + statusDecision);
+              } else if (
+                submissionResult.data &&
+                submissionResult.data.status === 0
+              ) {
+                shouldAddPoints = false;
+                statusDecision =
+                  "data.status === 0 - NO POINTS SHOULD BE ADDED";
+                console.log("Sidepanel: 🚫 STATUS CHECK: " + statusDecision);
+              } else if (submissionResult.status === 1) {
+                shouldAddPoints = true;
+                statusDecision = "result.status === 1 - POINTS SHOULD BE ADDED";
+                console.log("Sidepanel: 🎯 STATUS CHECK: " + statusDecision);
+              } else if (submissionResult.success === true) {
+                shouldAddPoints = false; // Conservative approach
+                statusDecision =
+                  "result.success === true but no status:1 - NO POINTS (conservative)";
+                console.log("Sidepanel: ⚠️ STATUS CHECK: " + statusDecision);
+              } else {
+                shouldAddPoints = false;
+                statusDecision = "No valid success indicators - NO POINTS";
+                console.log("Sidepanel: ❌ STATUS CHECK: " + statusDecision);
+              }
+            } else {
+              shouldAddPoints = false;
+              statusDecision = "No result from API - NO POINTS";
+              console.log("Sidepanel: 💥 STATUS CHECK: " + statusDecision);
+            }
+
+            console.log("Sidepanel: 🎯 FINAL POINTS DECISION FOR FALLBACK:", {
+              shouldAddPoints: shouldAddPoints,
+              statusDecision: statusDecision,
+              env: submissionPayload.env,
+              url: submissionPayload.url,
+              resultStatus: submissionResult?.status,
+              dataStatus: submissionResult?.data?.status,
+              resultSuccess: submissionResult?.success,
+            });
+
+            if (
+              submissionResult &&
+              (submissionResult.status === 1 || submissionResult.success)
+            ) {
+              console.log("Sidepanel: ✅ FALLBACK SUBMISSION SUCCESSFUL");
+              console.log(
+                "Sidepanel: 💰 Points will be handled by background script"
+              );
+              return { success: true, result: submissionResult };
+            } else {
+              console.log("Sidepanel: ❌ FALLBACK SUBMISSION FAILED");
+              console.log(
+                "Sidepanel: 🚫 No points will be added for this submission"
+              );
+              return { success: false, result: submissionResult };
+            }
+          } catch (error) {
+            console.error("Sidepanel: ❌ Fallback submission error:", error);
+            return { success: false, error: error.message };
+          }
+          break;
       }
     }
     async function x() {
@@ -75313,32 +75789,22 @@ var __defProp = Object.defineProperty,
 
         await (async function () {
           const { url: e, id: t } = v.current;
-          e &&
-            (null == e ? void 0 : e.indexOf("https://app.codatta.io")) > -1 &&
-            (await chrome.tabs.update(t, { url: "https://www.google.com" }),
-            await HJ(1 * Math.floor(3e3 + 1e3 * Math.random())));
-          e && -1 === e.indexOf("https://www.instagram.com")
-            ? (await chrome.tabs.update(t, {
-                url: "https://www.instagram.com",
-              }),
-              await HJ(1 * Math.floor(4e3 + 5e3 * Math.random())))
-            : (await chrome.tabs.reload(t),
-              await HJ(1 * Math.floor(4e3 + 5e3 * Math.random())));
-          await chrome.scripting.executeScript({
-            target: { tabId: t },
-            func: () => {
-              const e = document.querySelector("#loginForm"),
-                t = document.querySelectorAll('a[href^="/accounts/login"'),
-                n = document.querySelector(
-                  '[aria-label="申诉"], [aria-label="Appeal"]'
-                );
-              e || t.length > 0
-                ? chrome.runtime.sendMessage({ id: "ins-login" })
-                : n
-                ? chrome.runtime.sendMessage({ id: "ins-appeal" })
-                : chrome.runtime.sendMessage({ id: "ins-ready" });
-            },
+
+          // NEW: Instead of navigating to google.com then instagram.com,
+          // let the background handle the WebContent login check
+          console.log(
+            "Sidepanel: Letting background handle WebContent login check"
+          );
+
+          // Send start-automation message to background to trigger WebContent login check
+          chrome.runtime.sendMessage({
+            id: "start-automation",
+            tabId: t,
+            config: n,
           });
+
+          // No longer need the old navigation logic - background will handle it
+          return;
         })();
       } catch (t) {
         (FJ = !0), a(null == (e = v.current) ? void 0 : e.id, g.current);
@@ -75494,12 +75960,72 @@ var __defProp = Object.defineProperty,
                       );
                     if (1 === u)
                       return void (await (async function () {
+                        console.log("Sidepanel: 🎯 Starting claim process...");
+
+                        // ENHANCED DEBUGGING: Verify submissions before claiming
+                        console.log(
+                          "Sidepanel: 🔍 Verifying content submissions before claim..."
+                        );
+                        try {
+                          const verificationResult = await new Promise(
+                            (resolve) => {
+                              chrome.runtime.sendMessage(
+                                {
+                                  id: "verify-submissions",
+                                },
+                                resolve
+                              );
+                            }
+                          );
+
+                          console.log(
+                            "Sidepanel: 📊 Submission verification:",
+                            verificationResult
+                          );
+
+                          if (
+                            verificationResult.verified &&
+                            verificationResult.recentSubmissions > 0
+                          ) {
+                            console.log(
+                              "Sidepanel: ✅ Found",
+                              verificationResult.recentSubmissions,
+                              "recent submissions"
+                            );
+                          } else {
+                            console.log(
+                              "Sidepanel: ⚠️ No recent submissions found for claiming"
+                            );
+                          }
+                        } catch (verifyError) {
+                          console.log(
+                            "Sidepanel: ❌ Could not verify submissions:",
+                            verifyError
+                          );
+                        }
+
+                        console.log("Sidepanel: 📡 Making claim API call...");
                         const e = await TJ.claimPotins();
-                        if ("PASSED" !== e.verify_result)
+                        console.log("Sidepanel: 📄 Claim API response:", e);
+                        console.log(
+                          "Sidepanel: 🔍 Verify result:",
+                          e.verify_result
+                        );
+
+                        if ("PASSED" !== e.verify_result) {
+                          console.error(
+                            "Sidepanel: ❌ Claim FAILED - verify_result:",
+                            e.verify_result
+                          );
+                          console.error(
+                            "Sidepanel: This means content was not properly submitted to backend for claiming"
+                          );
                           return void oD.info(
                             e.message ||
-                              "Claim failed. Please try again or try again later."
+                              "Claim failed. Content submissions may not have been registered properly. Please try again or try again later."
                           );
+                        }
+                        console.log("Sidepanel: ✅ Claim SUCCESS");
                         await TJ.queryRewards(),
                           await TJ.setTodayRewardPoints(
                             p * c.each_record_point
@@ -76716,21 +77242,37 @@ var __defProp = Object.defineProperty,
         console.log("Sidepanel: Background response:", response);
 
         if (response && response.success && response.data) {
-          const { isRunning, completedCount } = response.data;
+          const { isRunning, completedCount, stopFlag, isPaused } =
+            response.data;
           console.log("Sidepanel: Background automation state:", {
             isRunning,
             completedCount,
+            stopFlag,
+            isPaused,
           });
 
-          // Sync UI state with background state
-          s(isRunning); // Set loading state to match background
+          // CRITICAL: Only sync UI to running state if automation is actually running and not stopped/paused
+          if (stopFlag || isPaused || !isRunning) {
+            console.log(
+              "Sidepanel: Automation is stopped/paused - setting UI to stopped state"
+            );
+            s(false); // Set loading state to false (automation stopped)
+            backgroundTakeOver = false; // Reset background takeover flag
+          } else if (isRunning) {
+            console.log(
+              "Sidepanel: Automation is running - setting UI to running state"
+            );
+            s(true); // Set loading state to true (automation running)
+            backgroundTakeOver = true; // Background is handling automation
+          }
+
           if (typeof completedCount === "number") {
             f(completedCount); // Set completed count
           }
 
           console.log(
             "Sidepanel: UI state updated - loading:",
-            isRunning,
+            isRunning && !stopFlag && !isPaused,
             "completedCount:",
             completedCount
           );
@@ -76825,22 +77367,118 @@ var __defProp = Object.defineProperty,
         case "crawl-error":
           s(!1);
           const t = (await m()) ?? 0;
-          chrome.tabs.update(t, { url: window.location.href }),
+          chrome.scripting.executeScript({
+            target: { tabId: t },
+            func: (url) => {
+              console.log(
+                "[CONTENT_SCRIPT] Navigating via window.location to:",
+                url
+              );
+              window.location.href = url;
+            },
+            args: [window.location.href],
+          }),
             oD.error("Your data submission has failed.");
           break;
         case "parse-web":
           !(async function (e) {
             const t = await m();
             try {
+              console.log("Sidepanel: 🔍 PROCESSING parse-web MESSAGE");
+              console.log("Sidepanel: 📋 Parse-web data:", e);
+
               const n = await chrome.storage.local.get("auth"),
-                r = await OJ.parseWebUrl(
-                  Object.assign({ user_id: n.auth.uid }, e)
+                parsePayload = Object.assign({ user_id: n.auth.uid }, e);
+
+              console.log("Sidepanel: 📤 PARSE-WEB API CALL");
+              console.log("Sidepanel: 📋 Parse-web payload:", {
+                user_id: parsePayload.user_id,
+                url: parsePayload.url,
+                env: parsePayload.env,
+                titleLength: parsePayload.title?.length || 0,
+                contentLength: parsePayload.content?.length || 0,
+                fullPayload: parsePayload,
+              });
+
+              const r = await OJ.parseWebUrl(parsePayload);
+
+              console.log("Sidepanel: 🔍 PARSE-WEB API RESULT ANALYSIS");
+              console.log("Sidepanel: 📊 Raw parse-web result:", {
+                hasResult: !!r,
+                resultType: typeof r,
+                success: r?.success,
+                status: r?.status,
+                hasData: !!r?.data,
+                dataStatus: r?.data?.status,
+                dataInfo: r?.data?.info,
+                selectPosts: r?.select_posts?.length || 0,
+                fullResult: r,
+              });
+
+              // Log points decision for parse-web
+              let shouldAddPoints = false;
+              let statusDecision = "unknown";
+
+              if (r) {
+                if (r.data && r.data.status === 1) {
+                  shouldAddPoints = true;
+                  statusDecision = "data.status === 1 - POINTS SHOULD BE ADDED";
+                  console.log(
+                    "Sidepanel: 🎯 PARSE-WEB STATUS CHECK: " + statusDecision
+                  );
+                } else if (r.data && r.data.status === 0) {
+                  shouldAddPoints = false;
+                  statusDecision =
+                    "data.status === 0 - NO POINTS SHOULD BE ADDED";
+                  console.log(
+                    "Sidepanel: 🚫 PARSE-WEB STATUS CHECK: " + statusDecision
+                  );
+                } else if (r.status === 1) {
+                  shouldAddPoints = true;
+                  statusDecision =
+                    "result.status === 1 - POINTS SHOULD BE ADDED";
+                  console.log(
+                    "Sidepanel: 🎯 PARSE-WEB STATUS CHECK: " + statusDecision
+                  );
+                } else if (r.success === true) {
+                  shouldAddPoints = false; // Conservative approach
+                  statusDecision =
+                    "result.success === true but no status:1 - NO POINTS (conservative)";
+                  console.log(
+                    "Sidepanel: ⚠️ PARSE-WEB STATUS CHECK: " + statusDecision
+                  );
+                } else {
+                  shouldAddPoints = false;
+                  statusDecision = "No valid success indicators - NO POINTS";
+                  console.log(
+                    "Sidepanel: ❌ PARSE-WEB STATUS CHECK: " + statusDecision
+                  );
+                }
+              } else {
+                shouldAddPoints = false;
+                statusDecision = "No result from API - NO POINTS";
+                console.log(
+                  "Sidepanel: 💥 PARSE-WEB STATUS CHECK: " + statusDecision
                 );
+              }
+
+              console.log("Sidepanel: 🎯 FINAL PARSE-WEB POINTS DECISION:", {
+                shouldAddPoints: shouldAddPoints,
+                statusDecision: statusDecision,
+                env: parsePayload.env,
+                url: parsePayload.url,
+                resultStatus: r?.status,
+                dataStatus: r?.data?.status,
+                resultSuccess: r?.success,
+                note: "Parse-web is typically for content exploration, not submission",
+              });
+
               chrome.tabs.sendMessage(t ?? 0, {
                 id: "parse-web-result",
                 list: r.select_posts ?? [],
               });
             } catch (n) {
+              console.error("Sidepanel: ❌ PARSE-WEB ERROR:", n);
               chrome.tabs.sendMessage(t ?? 0, {
                 id: "parse-web-result",
                 list: [],
@@ -76925,12 +77563,30 @@ var __defProp = Object.defineProperty,
           }
         }, 2000); // Sync points every 2 seconds during automation
 
+        // Add window focus/visibility event listeners for immediate sync
+        const handleFocus = () => {
+          console.log("Sidepanel: Window focused - syncing automation state");
+          syncWithBackgroundAutomation();
+        };
+        
+        const handleVisibilityChange = () => {
+          if (!document.hidden) {
+            console.log("Sidepanel: Document visible - syncing automation state");
+            syncWithBackgroundAutomation();
+          }
+        };
+        
+        window.addEventListener("focus", handleFocus);
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
         null == (e = u.current) || e.addEventListener("scroll", y);
 
         return () => {
           var e;
           clearInterval(syncInterval); // Clear the sync interval
           clearInterval(pointsSyncInterval); // Clear the points sync interval
+          window.removeEventListener("focus", handleFocus);
+          document.removeEventListener("visibilitychange", handleVisibilityChange);
           null == (e = u.current) || e.removeEventListener("scroll", y),
             chrome.runtime.onMessage.removeListener(g);
         };
@@ -76963,14 +77619,23 @@ var __defProp = Object.defineProperty,
                         },
                       }),
                       t && clearInterval(t),
-                      // Send pause signal to background to stop automation completely
+                      // Send both pause and stop signals to background to completely stop automation
                       chrome.runtime.sendMessage({
                         id: "pause-crawl",
-                      }),
-                      chrome.runtime.sendMessage({
-                        id: "update-completed-link-list",
-                        data: { isBreak: n },
                       });
+                    chrome.runtime.sendMessage({
+                      id: "stop-automation",
+                    });
+                    // Reset background takeover flag
+                    backgroundTakeOver = false;
+                    console.log(
+                      "Sidepanel: Stop button pressed - automation stopped completely"
+                    );
+                    // REMOVED: Do not send update-completed-link-list after pausing as it can restart automation
+                    // chrome.runtime.sendMessage({
+                    //   id: "update-completed-link-list",
+                    //   data: { isBreak: n },
+                    // });
                   },
                 }),
                 Z.jsx(VJ, { taskKey: l }, l),

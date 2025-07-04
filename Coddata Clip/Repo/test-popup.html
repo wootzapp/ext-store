@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test Popup</title>
+    <style>
+      body {
+        width: 400px;
+        min-height: 200px;
+        margin: 0;
+        padding: 20px;
+        font-family: Arial, sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Test Popup</h1>
+    <p>This is a test popup to verify basic functionality.</p>
+    <button id="testBtn">Test Button</button>
+    
+    <script>
+      document.getElementById('testBtn').addEventListener('click', () => {
+        alert('Test button clicked!');
+      });
+      console.log('Test popup loaded successfully');
+    </script>
+  </body>
+</html>

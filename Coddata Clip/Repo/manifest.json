@@ -17,7 +17,8 @@
       "24": "assets/images/logo.png",
       "32": "assets/images/logo.png"
     },
-    "default_title": "codatta"
+    "default_title": "codatta",
+    "default_popup": "sidepanel-views/index.html"
   },
   "content_scripts": [
     {
@@ -28,11 +29,13 @@
       "js": ["authenticator.js"],
       "matches": ["*://app.codatta.io/*", "*://codatta.io/*"],
       "run_at": "document_idle"
+    },
+    {
+      "js": ["instagram-automation.js"],
+      "matches": ["*://www.instagram.com/*", "*://instagram.com/*"],
+      "run_at": "document_idle"
     }
   ],
-  "side_panel": {
-    "default_path": "sidepanel-views/index.html"
-  },
   "web_accessible_resources": [
     {
       "resources": ["assets/*", "signin.js", "browser-icon.js", "test-automation.html"],
@@ -43,12 +46,12 @@
     "matches": ["<all_urls>"]
   },
   "permissions": [
-    "sidePanel",
     "activeTab",
     "storage",
     "contextMenus",
     "scripting",
-    "webRequest"
+    "webRequest",
+    "wootz"
   ],
   "host_permissions": ["<all_urls>"],
   "background": {

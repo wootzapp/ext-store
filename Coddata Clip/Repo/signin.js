@@ -58267,8 +58267,8 @@ var __defProp = Object.defineProperty,
                         if (a === hB.browser) {
                           if (null == (r = Cj()) || !r.hasFocus()) return;
                           s.startsWith("https://") || s.startsWith("http://")
-                            ? window.open(s, "_blank", "noreferrer noopener")
-                            : window.open(s, "_self", "noreferrer noopener");
+                            ? chrome.tabs.create({ url: s })
+                            : chrome.tabs.create({ url: s });
                         } else
                           a === hB.reactNative &&
                             typeof (null == global ? void 0 : global.Linking) <
