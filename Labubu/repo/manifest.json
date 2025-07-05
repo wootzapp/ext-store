@@ -1,0 +1,29 @@
+{
+    "manifest_version": 3,
+    "name": "Labubu Extension",
+    "version": "1.0.0",
+    "description": "A Chrome extension for Labubu",
+    "permissions": [
+        "tabs",
+        "activeTab",
+        "wootz",
+        "storage"
+    ],
+    "host_permissions": [
+        "https://popmart.com/*"
+    ],
+    "action": {
+        "default_popup": "popup.html",
+        "default_title": "Labubu"
+    },
+    "content_scripts": [
+        {
+            "matches": ["<all_urls>"],
+            "js": ["content.js"],
+            "run_at": "document_end"
+        }
+    ],
+    "background": {
+        "service_worker": "background.js"
+    }
+}
