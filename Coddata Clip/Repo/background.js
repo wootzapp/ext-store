@@ -386,37 +386,20 @@
                       chrome.runtime.lastError.message
                     );
                     console.log(
-                      "Background: 🔄 Retrying login check or falling back to tab method"
+                      "Background: ❌ Login check failed, cannot start automation without Instagram login"
                     );
 
-                    // FOR DEBUGGING: Force continue with WebContent automation even if login check fails
-                    console.log(
-                      "Background: 🔧 DEBUG MODE: Forcing WebContent automation despite login check failure"
-                    );
-                    console.log(
-                      "Background: 🔄 Attempting to continue with WebContent automation anyway..."
-                    );
+                    // Stop automation - login check failed
+                    automationState.isRunning = false;
+                    automationState.stopFlag = true;
+                    await saveAutomationState("login-check-failed");
 
-                    try {
-                      await continueWithWebContentAutomation(data.config || {});
-                      console.log(
-                        "Background: ✅ WebContent automation started despite login check failure"
-                      );
-                      sendResponse({
-                        success: true,
-                        message:
-                          "Automation started with WebContent (debug mode)",
-                      });
-                    } catch (error) {
-                      console.log(
-                        "Background: ❌ Failed to start WebContent automation, falling back to tab method"
-                      );
-                      handleInstagramNotLoggedIn(data.config || {});
-                      sendResponse({
-                        success: true,
-                        message: "Automation started with tab fallback method",
-                      });
-                    }
+                    sendResponse({
+                      success: false,
+                      error:
+                        "Instagram login check failed. Please log into Instagram first.",
+                      message: "Login required - automation stopped",
+                    });
                     return;
                   }
 
@@ -436,27 +419,21 @@
                       "Background: ❌ Instagram not logged in or no response"
                     );
                     console.log(
-                      "Background: 🔄 DEBUG: Proceeding with automation anyway"
+                      "Background: ❌ Stopping automation - Instagram login required"
                     );
 
-                    // DEBUG: For testing, continue with automation even if not logged in
-                    try {
-                      await continueWithWebContentAutomation(data.config || {});
-                      sendResponse({
-                        success: true,
-                        message:
-                          "Automation started with WebContent (debug mode - login bypassed)",
-                      });
-                    } catch (error) {
-                      console.log(
-                        "Background: ❌ WebContent automation failed, using tab fallback"
-                      );
-                      handleInstagramNotLoggedIn(data.config || {});
-                      sendResponse({
-                        success: true,
-                        message: "Automation started with tab fallback method",
-                      });
-                    }
+                    // Stop automation - user not logged in
+                    automationState.isRunning = false;
+                    automationState.stopFlag = true;
+                    await saveAutomationState("instagram-not-logged-in");
+
+                    sendResponse({
+                      success: false,
+                      error:
+                        "Instagram login required. Please log into Instagram first.",
+                      message: "Login required - automation stopped",
+                    });
+                    return;
                   }
                 }
               );
@@ -467,24 +444,21 @@
               result?.error || "Unknown error"
             );
 
-            // Fallback to direct automation without WebContent
+            // Stop automation - WebContent creation failed and we cannot verify login
             console.log(
-              "Background: 🔄 Falling back to direct automation without WebContent"
+              "Background: ❌ Cannot proceed without WebContent - login verification required"
             );
-            try {
-              await continueWithWebContentAutomation(data.config || {});
-              sendResponse({
-                success: true,
-                message:
-                  "Automation started with direct method (WebContent creation failed)",
-              });
-            } catch (error) {
-              console.log(
-                "Background: ❌ Direct automation also failed:",
-                error
-              );
-              sendResponse({ success: false, error: error.message });
-            }
+
+            automationState.isRunning = false;
+            automationState.stopFlag = true;
+            await saveAutomationState("webcontent-creation-failed");
+
+            sendResponse({
+              success: false,
+              error:
+                "Failed to create WebContent for Instagram. Please try again.",
+              message: "WebContent creation failed - automation stopped",
+            });
           }
         }
       );
