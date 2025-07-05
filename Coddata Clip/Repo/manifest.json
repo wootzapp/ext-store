@@ -1,6 +1,4 @@
 {
-"update_url": "https://clients2.google.com/service/update2/crx",
-
   "manifest_version": 3,
   "name": "Codatta Clip",
   "version": "1.2.1",
@@ -22,28 +20,51 @@
   },
   "content_scripts": [
     {
-      "js": ["browser-icon.js"],
-      "matches": ["<all_urls>"]
+      "js": [
+        "browser-icon.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     },
     {
-      "js": ["authenticator.js"],
-      "matches": ["*://app.codatta.io/*", "*://codatta.io/*"],
+      "js": [
+        "authenticator.js"
+      ],
+      "matches": [
+        "*://app.codatta.io/*",
+        "*://codatta.io/*"
+      ],
       "run_at": "document_idle"
     },
     {
-      "js": ["instagram-automation.js"],
-      "matches": ["*://www.instagram.com/*", "*://instagram.com/*"],
+      "js": [
+        "instagram-automation.js"
+      ],
+      "matches": [
+        "*://www.instagram.com/*",
+        "*://instagram.com/*"
+      ],
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["assets/*", "signin.js", "browser-icon.js", "test-automation.html"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "assets/*",
+        "signin.js",
+        "browser-icon.js",
+        "test-automation.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "externally_connectable": {
-    "matches": ["<all_urls>"]
+    "matches": [
+      "<all_urls>"
+    ]
   },
   "permissions": [
     "activeTab",
@@ -53,7 +74,9 @@
     "webRequest",
     "wootz"
   ],
-  "host_permissions": ["<all_urls>"],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "background": {
     "service_worker": "background.js"
   }
