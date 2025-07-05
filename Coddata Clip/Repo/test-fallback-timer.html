@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Fallback Timer Logic</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        .scenario {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Fallback Timer Logic Test</h1>
+        <p>This test simulates the fallback timer behavior when API returns 0 tasks to verify automation continues running.</p>
+        
+        <div class="status info">
+            <strong>Test Status:</strong> Ready to run
+        </div>
+        
+        <button onclick="testScenario1()">Scenario 1: API Returns 0 Tasks</button>
+        <button onclick="testScenario2()">Scenario 2: API Error</button>
+        <button onclick="testScenario3()">Scenario 3: Mixed Results</button>
+        <button onclick="clearLog()">Clear Log</button>
+        
+        <h3>Expected Behavior After Fix:</h3>
+        <div class="scenario">
+            <h4>✅ CORRECT Behavior (After Fix):</h4>
+            <ul>
+                <li>When API returns 0 tasks: <strong>Automation stays RUNNING</strong></li>
+                <li>Fallback timer continues checking every 30 seconds</li>
+                <li>No "automation stopped" messages</li>
+                <li>State: isRunning=true, stopFlag=false</li>
+            </ul>
+        </div>
+        
+        <div class="scenario">
+            <h4>❌ INCORRECT Behavior (Before Fix):</h4>
+            <ul>
+                <li>When API returns 0 tasks: <strong>Automation STOPS completely</strong></li>
+                <li>Fallback timer gets cleared</li>
+                <li>"NO NEW TASKS AVAILABLE - STOPPING AUTOMATION" message</li>
+                <li>State: isRunning=false, stopFlag=true</li>
+            </ul>
+        </div>
+        
+        <h3>Test Log:</h3>
+        <div id="testLog" class="log">Test log will appear here...\n</div>
+    </div>
+
+    <script>
+        let testLog = document.getElementById('testLog');
+        let automationState = {
+            isRunning: false,
+            stopFlag: false,
+            fallbackTimerId: null,
+            lastTaskCompletionTime: null,
+            webContentTasks: [],
+            currentTaskIndex: 0
+        };
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}\n`;
+            testLog.textContent += logEntry;
+            testLog.scrollTop = testLog.scrollHeight;
+            
+            // Update status
+            const statusDiv = document.querySelector('.status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.innerHTML = `<strong>Test Status:</strong> ${message}`;
+        }
+        
+        function clearLog() {
+            testLog.textContent = 'Test log cleared...\n';
+            automationState = {
+                isRunning: false,
+                stopFlag: false,
+                fallbackTimerId: null,
+                lastTaskCompletionTime: null,
+                webContentTasks: [],
+                currentTaskIndex: 0
+            };
+        }
+        
+        // Mock fallback timer
+        function startAutomationFallbackTimer() {
+            log('🔄 Starting automation fallback timer');
+            if (automationState.fallbackTimerId) {
+                clearInterval(automationState.fallbackTimerId);
+            }
+            
+            automationState.fallbackTimerId = setInterval(() => {
+                if (!automationState.isRunning || automationState.stopFlag) {
+                    log('❌ Fallback timer - automation not running, clearing timer', 'warning');
+                    clearInterval(automationState.fallbackTimerId);
+                    automationState.fallbackTimerId = null;
+                    return;
+                }
+                
+                log('⏰ Fallback timer check - automation still running');
+                // Simulate API call for new tasks
+                simulateApiCall();
+            }, 5000); // 5 seconds for testing (instead of 30)
+        }
+        
+        function simulateApiCall() {
+            log('🌐 Simulating API call for new tasks...');
+            
+            // Simulate random API responses
+            const responses = [
+                { tasks: [], message: "0 tasks returned" },
+                { tasks: [{ url: "https://instagram.com/new-task-1" }], message: "1 task returned" },
+                { error: "API error", message: "API failed" }
+            ];
+            
+            const response = responses[Math.floor(Math.random() * responses.length)];
+            
+            setTimeout(() => {
+                handleApiResponse(response);
+            }, 1000);
+        }
+        
+        function handleApiResponse(response) {
+            log(`📥 API Response: ${response.message}`);
+            
+            if (response.error) {
+                log('⚠️ API Error - but keeping automation alive for retry', 'warning');
+                // With fix: automation continues
+                // Without fix: automation would stop
+                return;
+            }
+            
+            if (response.tasks && response.tasks.length > 0) {
+                log(`✅ ${response.tasks.length} new tasks received - processing`, 'success');
+                automationState.webContentTasks = response.tasks;
+                automationState.currentTaskIndex = 0;
+                // Process tasks...
+            } else {
+                // This is the critical test case
+                log('⏳ 0 tasks returned - TESTING BEHAVIOR:', 'info');
+                
+                // FIXED BEHAVIOR: Keep automation running
+                log('✅ FIXED: Keeping automation alive for retry', 'success');
+                log('🔄 Automation continues running - fallback timer will retry');
+                
+                // Update completion time to reset inactivity counter
+                automationState.lastTaskCompletionTime = Date.now();
+                
+                // DON'T stop automation
+                // automationState.isRunning = false; // OLD BEHAVIOR - REMOVED
+                // automationState.stopFlag = true;   // OLD BEHAVIOR - REMOVED
+                
+                log('📊 Current state: isRunning=' + automationState.isRunning + ', stopFlag=' + automationState.stopFlag);
+            }
+        }
+        
+        function testScenario1() {
+            log('🧪 === SCENARIO 1: API Returns 0 Tasks ===', 'info');
+            
+            // Start automation
+            automationState.isRunning = true;
+            automationState.stopFlag = false;
+            automationState.webContentTasks = [];
+            
+            log('🚀 Starting automation simulation');
+            log('📊 Initial state: isRunning=' + automationState.isRunning + ', stopFlag=' + automationState.stopFlag);
+            
+            startAutomationFallbackTimer();
+            
+            // Force a 0-task response after 2 seconds
+            setTimeout(() => {
+                log('🎯 Forcing 0-task API response to test behavior');
+                handleApiResponse({ tasks: [], message: "0 tasks returned (forced)" });
+            }, 2000);
+        }
+        
+        function testScenario2() {
+            log('🧪 === SCENARIO 2: API Error ===', 'info');
+            
+            automationState.isRunning = true;
+            automationState.stopFlag = false;
+            
+            log('🚀 Starting automation simulation');
+            startAutomationFallbackTimer();
+            
+            // Force an API error after 2 seconds
+            setTimeout(() => {
+                log('🎯 Forcing API error to test behavior');
+                handleApiResponse({ error: "Network timeout", message: "API error (forced)" });
+            }, 2000);
+        }
+        
+        function testScenario3() {
+            log('🧪 === SCENARIO 3: Mixed Results ===', 'info');
+            
+            automationState.isRunning = true;
+            automationState.stopFlag = false;
+            
+            log('🚀 Starting automation simulation with mixed responses');
+            startAutomationFallbackTimer();
+            
+            // Simulate a sequence of different responses
+            const responses = [
+                { tasks: [], message: "0 tasks (1st call)" },
+                { tasks: [], message: "0 tasks (2nd call)" },
+                { tasks: [{ url: "https://instagram.com/task-1" }], message: "1 task found!" },
+                { tasks: [], message: "0 tasks (after completion)" }
+            ];
+            
+            responses.forEach((response, index) => {
+                setTimeout(() => {
+                    log(`🎯 Forcing response ${index + 1}: ${response.message}`);
+                    handleApiResponse(response);
+                }, (index + 1) * 3000);
+            });
+        }
+        
+        // Initialize
+        log('🔧 Test environment initialized. Ready to run scenarios.');
+        log('📋 Key test: When API returns 0 tasks, automation should continue running (not stop).');
+    </script>
+</body>
+</html>

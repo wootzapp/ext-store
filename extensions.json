@@ -104,6 +104,23 @@
       "updated_at": "2025-02-26T15:00:00Z"
     },
     {
+      "id": "doklnekkemmhclakfekoccilofpdcncb",
+      "name": "Coddata Clip",
+      "description": "Turn Your Intelligence into AI",
+      "version": "1.0.0",
+      "author": "Wootzapp Team",
+      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Coddata%20Clip/COddata.crx",
+      "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Coddata%20Clip/Repo/assets/images/logo.png",
+      "github_url": "https://github.com/wootzapp/ext-store/tree/main/Coddata%20Clip/Repo",
+      "tags": [
+        "Rewards",
+        "AI", 
+        "Instagram"
+      ],
+      "created_at": "2025-02-26T15:00:00Z",
+      "updated_at": "2025-02-26T15:00:00Z"
+    },
+    {
       "id": "mafnkcehjhddilcnhlnkbcbelilbifhm",
       "name": "ZK Proofing",
       "description": "An extension to generate cryptographic proofs for zk-SNARKs.",
