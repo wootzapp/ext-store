@@ -58,6 +58,11 @@ class TwitterContentScript {
           this.postTweet(request.content).then(sendResponse);
           return true;
 
+        // case 'VERIFY_TWEET_POSTED':
+        //   console.log('Content: VERIFY_TWEET action received');
+        //   this.verifyTweetPosted(request.content).then(sendResponse);
+        //   return true;
+
         default:
           console.log('Content: Unknown action:', request.action);
           sendResponse({ success: false, error: 'Unknown action' });
@@ -255,7 +260,7 @@ class TwitterContentScript {
       if (!window.location.href.includes('compose')) {
         console.log('Content: Navigating to compose page...');
         window.location.href = 'https://x.com/compose/post';
-        await this.sleep(6000); // Wait for navigation
+        await this.sleep(5000); // Wait for navigation
       }
 
       // Wait for compose page to load
@@ -281,14 +286,14 @@ class TwitterContentScript {
       await this.setTweetContent(textArea, content);
 
       // Wait for content to be processed
-      await this.sleep(2000);
+      await this.sleep(1000);
 
       // Verify content was set
       const currentContent = this.getTweetContent(textArea);
       if (!currentContent || !currentContent.includes(content.substring(0, 20))) {
         console.warn('Content: Content not set properly, trying alternative method...');
         await this.setTweetContentAlternative(textArea, content);
-        await this.sleep(2000);
+        await this.sleep(1000);
       }
       console.log('Content: Assuming content is set properly');
 
@@ -320,93 +325,55 @@ class TwitterContentScript {
         return result;
       }
 
-      // Set up navigation detection before clicking
-      console.log('Content: Setting up navigation detection...');
-      const navigationPromise = new Promise((resolve) => {
-        const handleNavigation = () => {
-          console.log('Content: Navigation detected after post button click');
-          window.removeEventListener('beforeunload', handleNavigation);
-          resolve(true);
-        };
-        
-        window.addEventListener('beforeunload', handleNavigation);
-        
-        // Fallback timeout in case navigation event doesn't fire
-        setTimeout(() => {
-          console.log('Content: Navigation detection timeout');
-          window.removeEventListener('beforeunload', handleNavigation);
-          resolve(false);
-        }, 10000); // 10 second timeout
-      });
-
-      // Click post button and track navigation
-      console.log('Content: Clicking post button and waiting for navigation...');
+      console.log('Content: Post button ready, proceeding to click...');
       postButton.click();
 
-      // Wait for navigation or timeout
-      const didNavigate = await navigationPromise;
-      console.log('Content: Navigation status:', { didNavigate });
+      await this.sleep(2000);
 
-      if (didNavigate) {
-        // If we detected navigation, assume success after additional verification
-        const verificationResult = await this.verifyTweetPosted();
-        console.log('Content: Post-navigation verification:', { verificationResult });
-
+      const isOnHomePage = window.location.href.includes('/home');
+      if (isOnHomePage) {
+        console.log('Content: Successfully navigated to home page');
         const result = {
-          success: verificationResult,
-          message: verificationResult ? 
-            'Tweet posted successfully - navigation confirmed' : 
-            'Navigation detected but tweet verification failed',
-          posted: verificationResult,
+          success: true,
+          message: 'Tweet posted successfully - redirected to home',
+          posted: true,
           content: content,
           timestamp: Date.now(),
           verificationDetails: {
             navigationDetected: true,
-            contentCleared: verificationResult
+            onHomePage: true
           }
         };
-
-        console.log('Content: Sending final result after navigation:', result);
-        this.sendTweetResult(result);
-        return result;
-      } else {
-        // No navigation detected - check if tweet was still posted
-        console.log('Content: No navigation detected, performing additional verification...');
-        
-        // Wait a bit longer for any delayed effects
-        await this.sleep(5000);
-        
-        const manualVerification = await this.verifyTweetPosted();
-        console.log('Content: Manual verification result:', { manualVerification });
-
-        // Check current URL - we might have navigated without detecting it
-        const isOnHomePage = window.location.href.includes('/home');
-        console.log('Content: Current URL check:', { 
-          url: window.location.href,
-          isOnHomePage 
-        });
-
-        const result = {
-          success: manualVerification || isOnHomePage,
-          message: manualVerification ? 
-            'Tweet posted successfully - verified without navigation' :
-            isOnHomePage ? 
-              'Tweet likely posted - on home page' :
-              'Tweet posting status uncertain - no navigation or verification',
-          posted: manualVerification || isOnHomePage,
-          content: content,
-          timestamp: Date.now(),
-          verificationDetails: {
-            navigationDetected: false,
-            contentCleared: manualVerification,
-            onHomePage: isOnHomePage
-          }
-        };
-
-        console.log('Content: Sending final result without navigation:', result);
+        console.log('Content: Sending successful result:', result);
         this.sendTweetResult(result);
         return result;
       }
+
+      console.log('Content: Performing post-click verification...');
+      const verificationResult = await this.verifyTweetPosted();
+      console.log('Content: Verification result:', { verificationResult });
+
+      const finalUrlCheck = window.location.href.includes('/home');
+
+      const result = {
+        success: verificationResult || finalUrlCheck,
+        message: verificationResult ? 
+          'Tweet posted successfully - content verified' : 
+          finalUrlCheck ?
+            'Tweet posted successfully - on home page' :
+            'Tweet status uncertain',
+        posted: verificationResult || finalUrlCheck,
+        content: content,
+        timestamp: Date.now(),
+        verificationDetails: {
+          contentCleared: verificationResult,
+          onHomePage: finalUrlCheck
+        }
+      };
+
+      console.log('Content: Sending final result:', result);
+      this.sendTweetResult(result);
+      return result;
 
     } catch (error) {
       console.error('Content: Error during tweet posting:', {
@@ -471,17 +438,17 @@ class TwitterContentScript {
       'div[contenteditable="true"]'
     ];
 
-    for(let i = 0; i < 5; i++) {
-      for (const selector of selectors) {
-        const element = document.querySelector(selector);
-        console.log('Content: Finding textarea with selector:', selector);
-        if (element && this.isElementVisible(element)) {
-          console.log('Content: Found textarea with selector:', selector);
-          return element;
-        }
-      }
-      await this.sleep(1000);
-    }
+    // for(let i = 0; i < 5; i++) {
+    //   for (const selector of selectors) {
+    //     const element = document.querySelector(selector);
+    //     console.log('Content: Finding textarea with selector:', selector);
+    //     if (element && this.isElementVisible(element)) {
+    //       console.log('Content: Found textarea with selector:', selector);
+    //       return element;
+    //     }
+    //   }
+    //   await this.sleep(1000);
+    // }
 
     // Wait and try again
     await this.sleep(1000);
@@ -762,6 +729,12 @@ class TwitterContentScript {
       
       // Method 1: Check if we're redirected away from compose
       const currentUrl = window.location.href;
+
+      if(currentUrl.includes('/home')){
+        console.log('Content: On home page - likely posted');
+        return true;
+      }
+
       const redirectedAway = !currentUrl.includes('compose');
       console.log('Content: URL verification:', {
         currentUrl,

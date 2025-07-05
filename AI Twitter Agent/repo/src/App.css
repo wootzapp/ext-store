@@ -439,52 +439,61 @@
 }
 
 .topic-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: stretch;
-  background: #cfcfcf;
+  position: relative;
+  margin-bottom: 8px;
+  background: transparent;
   border-radius: 10px;
-  padding: 4px;
-  border: 1px solid #858585;
+  padding: 0;
+  border: none;
+}
+
+.topic-input-container {
+  position: relative;
+  display: block;
 }
 
 .topic-input {
-  flex: 1;
-  border: none;
-  background: #f5f5f5 !important;
+  width: 100%;
+  border: 1px solid #858585;
+  background: #ffffff !important;
   padding: 12px 16px;
   font-size: 0.9rem;
   border-radius: 8px;
   margin: 0;
+  box-sizing: border-box;
 }
 
-.topic-input:focus {
-  background: #ffffff;
-  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
-}
-
-.topic-btn {
-  width: 100%;
-  min-width: 0;
-  margin: 0;
-  margin-top: 4px;
-  align-self: center;
-  justify-content: center;
+.topic-delete-btn {
+  position: absolute;
+  right: -5px;
+  top: -5px;
+  transform: none;
+  background: #bbbbbb;
+  border: 1px solid #505050;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
   display: flex;
-  padding: 8px 12px;
-  font-size: 0.85rem;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  font-size: 12px;
+  color: white;
+  transition: all 0.2s ease;
+  z-index: 1;
+  line-height: 1;
 }
 
-.topic-btn:disabled {
-  background: #e2e8f0;
-  color: #9ca3af;
+.topic-delete-btn:disabled {
+  opacity: 0.75;
   cursor: not-allowed;
+  background: #cccccc;
   transform: none;
 }
 
 .add-topic-btn {
-  margin-top: 16px !important;
+  margin-top: 5px !important;
   width: 100%;
   align-self: flex-start;
   display: flex;
@@ -550,7 +559,7 @@
   font-weight: 500;
   text-align: center;
   animation: slideIn 0.3s ease-out;
-  border: 2px solid #000000;
+  border: 1px solid #000000;
 }
 
 .message.success {
@@ -607,7 +616,7 @@
   .submit-btn {
     min-width: 160px;
     height: 44px;
-    font-size: 1.25rem !important;
+    font-size: 1.1rem !important;
   }
   
   .topic-btn {

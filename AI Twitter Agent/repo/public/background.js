@@ -549,8 +549,10 @@ class BackgroundTwitterAgent {
             action: request.action,
             timestamp: new Date().toISOString()
           });
-          
-          if (request.action === 'CONTENT_SCRIPT_READY') {
+
+          let hasReceivedReady = false;
+          if (request.action === 'CONTENT_SCRIPT_READY' && !hasReceivedReady) {
+            hasReceivedReady = true;
             console.log('Background: Content script ready, sending tweet content...');
             chrome.tabs.sendMessage(this.webContentsId, {
               action: 'POST_TWEET',
@@ -570,12 +572,9 @@ class BackgroundTwitterAgent {
             });
 
             if (tweetResult.success && tweetResult.posted) {
-              // Only log success if both flags are true and we have verification
-              if (tweetResult.verificationDetails?.navigationDetected || 
-                  tweetResult.verificationDetails?.contentCleared ||
+              if (tweetResult.verificationDetails?.contentCleared ||
                   tweetResult.verificationDetails?.onHomePage) {
                 console.log('Background: Tweet posted successfully with verification:', {
-                  navigationDetected: tweetResult.verificationDetails?.navigationDetected,
                   contentCleared: tweetResult.verificationDetails?.contentCleared,
                   onHomePage: tweetResult.verificationDetails?.onHomePage
                 });
@@ -622,6 +621,8 @@ class BackgroundTwitterAgent {
             });
 
             resolve(tweetResult);
+          } else {
+            console.log('Request action: ' + request.action);
           }
         };
 

@@ -34,6 +34,12 @@ function Settings({ onConfigUpdate }) {
         throw new Error('Twitter credentials incomplete');
       }
 
+      // Add interval validation
+      const interval = parseInt(localConfig.settings?.interval);
+      if (isNaN(interval) || interval < 5 || interval > 1440) {
+        throw new Error('Tweet interval must be between 5 minutes and 24 hours (1440 minutes)');
+      }
+
       // Save config
       const result = await saveConfig(localConfig);
       
@@ -223,7 +229,7 @@ function Settings({ onConfigUpdate }) {
               <input
                 type="number"
                 className="form-input"
-                min="1"
+                min="5"
                 max="1440"
                 value={localConfig.settings?.interval}
                 onChange={(e) => handleSettingChange('interval', parseInt(e.target.value))}
@@ -238,6 +244,9 @@ function Settings({ onConfigUpdate }) {
                 minutes
               </span>
             </div>
+            <small className="form-help">
+              Minimum 5 minutes, maximum 24 hours (1440 minutes)
+            </small>
           </div>
           
           <div className="form-group">
@@ -263,22 +272,24 @@ function Settings({ onConfigUpdate }) {
           <div className="topics-container">
             {(localConfig.topics || ['']).map((topic, index) => (
               <div key={index} className="topic-group">
-                <input
-                  type="text"
-                  className="form-input topic-input"
-                  value={topic}
-                  onChange={(e) => handleTopicChange(index, e.target.value)}
-                  placeholder="Enter a topic for tweet generation"
-                />
-                <button 
-                  type="button" 
-                  onClick={() => removeTopic(index)}
-                  className="btn btn-small btn-danger topic-btn"
-                  disabled={(localConfig.topics || []).length <= 1}
-                  title="Remove topic"
-                >
-                  <span role="img" aria-label="remove">🗑️</span>
-                </button>
+                <div className="topic-input-container">
+                  <input
+                    type="text"
+                    className="form-input topic-input"
+                    value={topic}
+                    onChange={(e) => handleTopicChange(index, e.target.value)}
+                    placeholder="Enter a topic for tweet generation"
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => removeTopic(index)}
+                    className="topic-delete-btn"
+                    disabled={(localConfig.topics || []).length <= 1}
+                    title="Remove topic"
+                  >
+                    ❌
+                  </button>
+                </div>
               </div>
             ))}
           </div>
