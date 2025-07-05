@@ -502,14 +502,34 @@
 
   async function handleGetCurrentPoints(data, sender, sendResponse) {
     try {
-      const storage = await chrome.storage.local.get(["submittedUrls", "auth"]);
-      const submittedUrls = storage.submittedUrls || [];
-      const points = submittedUrls.length * 5; // 5 points per submission
+      const storage = await chrome.storage.local.get([
+        "currentPoints",
+        "todayPoints",
+        "totalEarning",
+        "successfulSubmissions",
+      ]);
 
+      const currentPoints = storage.currentPoints || 0;
+      const todayPoints = storage.todayPoints || 0;
+      const totalEarning = storage.totalEarning || 0;
+      const successfulSubmissions = storage.successfulSubmissions || [];
+
+      console.log("Background: 📊 Current points data:", {
+        currentPoints,
+        todayPoints,
+        totalEarning,
+        successfulSubmissionsCount: successfulSubmissions.length,
+      });
+
+      // Return format expected by sidepanel: {success: true, data: {...}}
       sendResponse({
         success: true,
-        points: points,
-        submissions: submittedUrls.length,
+        data: {
+          currentPoints: currentPoints,
+          todayPoints: todayPoints,
+          totalEarning: totalEarning,
+          submissions: successfulSubmissions.length,
+        },
       });
     } catch (error) {
       console.error("Background: ❌ Error getting points:", error);
@@ -519,9 +539,68 @@
 
   async function handleResetClaimedPoints(data, sender, sendResponse) {
     try {
-      await chrome.storage.local.remove(["claimedPoints"]);
-      console.log("Background: 🔄 Claimed points reset");
-      sendResponse({ success: true, message: "Claimed points reset" });
+      console.log(
+        "Background: 🔄 Resetting all points data after successful claim"
+      );
+
+      // Clear all points-related storage
+      await chrome.storage.local.remove([
+        "currentPoints",
+        "todayPoints",
+        "totalEarning",
+        "claimedPoints",
+        "lastPointUpdate",
+        "submittedUrls",
+        "submittedUrlsSession",
+        "successfulSubmissions",
+        "recentContentSaves",
+      ]);
+
+      // Reset in-memory tracking
+      successfulSubmissions.clear();
+      submissionPromises.clear();
+      activeWebContentTasks.clear();
+      completedWebContentTasks.clear();
+      activeApiRequests.clear();
+      submissionAttempts.clear();
+      activeContentSubmissions.clear();
+
+      // Initialize fresh points data
+      await chrome.storage.local.set({
+        currentPoints: 0,
+        todayPoints: 0,
+        totalEarning: 0,
+        lastPointUpdate: Date.now(),
+        submittedUrlsSession: [],
+        successfulSubmissions: [],
+        recentContentSaves: [],
+      });
+
+      console.log(
+        "Background: ✅ All points data and submission tracking cleared for new automation"
+      );
+
+      // Notify UI about the reset
+      safeSendMessage({
+        type: "points-updated",
+        data: {
+          currentPoints: 0,
+          todayPoints: 0,
+          totalEarning: 0,
+          pointsReset: true,
+          reason: "claim-completed",
+        },
+      });
+
+      sendResponse({
+        success: true,
+        message: "Points data cleared for new automation",
+        data: {
+          currentPoints: 0,
+          todayPoints: 0,
+          totalEarning: 0,
+        },
+      });
     } catch (error) {
       console.error("Background: ❌ Error resetting claimed points:", error);
       sendResponse({ success: false, error: error.message });
@@ -4947,6 +5026,12 @@
             },
           });
         })();
+        break;
+      case "get-current-points":
+        handleGetCurrentPoints(e, s, t);
+        break;
+      case "reset-claimed-points":
+        handleResetClaimedPoints(e, s, t);
         break;
       default:
         t({ data: "miao?" });
