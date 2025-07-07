@@ -63,17 +63,6 @@ class ContentScript {
           console.log('🟢 Content: Returning current URL:', currentUrl);
           sendResponse({
             url: currentUrl,
-            isLoggedIn: this.isLoggedIn
-          });
-          break;
-          
-        case 'CHECK_LOGIN_STATUS':
-          console.log('🟢 Content: Checking login status');
-          this.checkLoginStatus().then(() => {
-            sendResponse({
-              isLoggedIn: this.isLoggedIn,
-              url: window.location.href
-            });
           });
           break;
           
@@ -93,7 +82,21 @@ class ContentScript {
             });
           });
           break;
-          
+        case 'USER_PROFILE':
+          console.log('🟢 Content: Extracting user profile');
+          this.extractUserProfile().then((profile) => {
+            console.log('🟢 Content: Successfully extracted user profile:', profile);
+            sendResponse({
+              success: true,
+              profile: profile,
+            });
+          }).catch((error) => {
+            sendResponse({
+              success: false,
+              error: error.message,
+            });
+          });
+          return true;
         default:
           console.log('🟢 Content: Unknown message type:', message.type);
           sendResponse({error: 'Unknown message type'});
@@ -103,23 +106,237 @@ class ContentScript {
     });
   }
 
+  async extractUserProfile() {
+    try {
+      console.log('🟢 Content: Extracting user profile');
+      console.log('🟢 Content: Current URL:', window.location.href);
+      console.log('🟢 Content: Page title:', document.title);
+      
+      // Log all elements with class names containing 'user', 'profile', 'avatar', 'name'
+      const allElements = document.querySelectorAll('*');
+      const relevantElements = Array.from(allElements).filter(el => {
+        const className = (el.className || '').toString();
+        const id = (el.id || '').toString();
+        return (className.includes('user') || className.includes('profile') || 
+                className.includes('avatar') || className.includes('name') ||
+                id.includes('user') || id.includes('profile') || 
+                id.includes('avatar') || id.includes('name'));
+      });
+      
+      console.log('🟢 Content: Found relevant elements:', relevantElements.map(el => ({
+        tagName: el.tagName,
+        className: (el.className || '').toString(),
+        id: (el.id || '').toString(),
+        textContent: (el.textContent || '').substring(0, 50)
+      })));
+      
+      // Try multiple selectors for user profile elements
+      const userProfileSelectors = [
+        '.index_userTop__MEym8',
+        '.user-profile',
+        '.account-menu',
+        '.user-menu',
+        '[data-testid="user-menu"]',
+        '.user-info',
+        '.profile-section'
+      ];
+    
+    let userProfile = null;
+    for (const selector of userProfileSelectors) {
+      userProfile = document.querySelector(selector);
+      if (userProfile) {
+        console.log('🟢 Content: Found user profile with selector:', selector);
+        break;
+      }
+    }
+    
+    if (!userProfile) {
+      // If no specific profile element found, try to find avatar and username separately
+      console.log('🟢 Content: No specific user profile element found, searching for individual elements');
+      return this.extractUserProfileFromIndividualElements();
+    }
+    
+    console.log('🟢 Content: User profile element found:', userProfile);
+    
+    // Extract avatar image src
+    const avatarSelectors = [
+      '.index_avatar__k4xgD',
+      '.user-avatar',
+      '.avatar',
+      'img[alt*="avatar"]',
+      'img[alt*="user"]',
+      '.profile-image'
+    ];
+    
+    let avatarUrl = '';
+    for (const selector of avatarSelectors) {
+      const avatarElement = userProfile.querySelector(selector);
+      if (avatarElement) {
+        const img = avatarElement.querySelector('img') || avatarElement;
+        if (img && img.src) {
+          avatarUrl = img.src;
+          console.log('🟢 Content: Found avatar with selector:', selector);
+          break;
+        } else if (avatarElement.style.backgroundImage && avatarElement.style.backgroundImage.startsWith('url(')) {
+          avatarUrl = avatarElement.style.backgroundImage.slice(5, -2);
+          console.log('🟢 Content: Found avatar background with selector:', selector);
+          break;
+        }
+      }
+    }
+    
+    // Extract username - try both selectors
+    const usernameSelectors = [
+      '.index_name__2CdgQ',
+      '.index_nickname__pnxE6'
+    ];
+    
+    let username = '';
+    for (const selector of usernameSelectors) {
+      const usernameElement = userProfile.querySelector(selector);
+      console.log('🟢 Content: Trying username selector:', selector, 'Found:', !!usernameElement);
+              if (usernameElement) {
+          let rawText = usernameElement.textContent || '';
+          console.log('🟢 Content: Username element text:', rawText);
+                      let cleaned = rawText.trim();
+            if (cleaned) {
+              // Split by &nbsp; and take first element, then remove "Sign Out" if present
+              username = cleaned.replace(/sign out/gi, '').trim();
+              console.log('🟢 Content: Found username with selector:', selector, 'Value:', username);
+              break;
+          }
+        }
+    }
+    
+    if (!username) {
+      console.log('🟢 Content: Username not found in profile element, trying individual search');
+      const individualResult = await this.extractUserProfileFromIndividualElements();
+      return {
+        avatar: avatarUrl || individualResult.avatar,
+        username: individualResult.username
+      };
+    }
+    
+    const profile = {
+      avatar: avatarUrl,
+      username: username,
+    };
+    console.log('🟢 Content: Extracted user profile:', profile);
+    return profile;
+    } catch (error) {
+      console.error('🟢 Content: Error extracting user profile:', error);
+      // Return a fallback profile
+      return {
+        avatar: '',
+        username: 'User'
+      };
+    }
+  }
+
+  async extractUserProfileFromIndividualElements() {
+    console.log('🟢 Content: Extracting user profile from individual elements');
+    
+    // Search for avatar anywhere on the page
+    const avatarSelectors = [
+      'img[alt*="avatar"]',
+      'img[alt*="user"]',
+      '.avatar img',
+      '.user-avatar img',
+      '.profile-image img',
+      'img[src*="avatar"]',
+      'img[src*="user"]'
+    ];
+    
+    let avatarUrl = '';
+    for (const selector of avatarSelectors) {
+      const avatarImg = document.querySelector(selector);
+      if (avatarImg && avatarImg.src) {
+        avatarUrl = avatarImg.src;
+        console.log('🟢 Content: Found avatar with selector:', selector);
+        break;
+      }
+    }
+    
+    // Search for username anywhere on the page
+    const usernameSelectors = [
+      '.index_name__2CdgQ',
+      '.index_nickname__pnxE6',
+      '.username',
+      '.user-name',
+      '.profile-name',
+      '.account-name',
+      '[data-testid="username"]',
+      '.user-info .name',
+      '.profile .name'
+    ];
+    
+    let username = '';
+    for (const selector of usernameSelectors) {
+      const usernameElement = document.querySelector(selector);
+      console.log('🟢 Content: Trying individual username selector:', selector, 'Found:', !!usernameElement);
+              if (usernameElement) {
+          console.log('🟢 Content: Individual username element text:', usernameElement.textContent);
+        }
+        if (usernameElement && usernameElement.textContent.trim()) {
+          let rawText = usernameElement.textContent.trim();
+          // Split by &nbsp; and take first element, then remove "Sign Out" if present
+          username = rawText.split('&nbsp;')[0].replace(/sign out/gi, '').trim();
+          console.log('🟢 Content: Found individual username with selector:', selector, 'Value:', username);
+          break;
+        }
+    }
+    
+    // If still no username, try to extract from page title or other common elements
+    if (!username) {
+      const pageTitle = document.title || '';
+      if (pageTitle && (pageTitle.includes('Account') || pageTitle.includes('Profile'))) {
+        // Try to extract username from page title or other elements
+        const possibleUsernameElements = document.querySelectorAll('h1, h2, h3, .title, .heading');
+        for (const element of possibleUsernameElements) {
+          const text = element.textContent?.trim() || '';
+          if (text && text.length > 0 && text.length < 50 && !text.includes('Account') && !text.includes('Profile')) {
+            username = text;
+            console.log('🟢 Content: Found username from general element:', text);
+            break;
+          }
+        }
+      }
+    }
+    
+    // Fallback username if nothing found
+    if (!username) {
+      username = 'User';
+      console.log('🟢 Content: Using fallback username');
+    }
+    
+    const profile = {
+      avatar: avatarUrl,
+      username: username,
+    };
+    console.log('🟢 Content: Extracted user profile from individual elements:', profile);
+    return profile;
+  }
+
   async extractSearchResults(searchQuery) {
     try {
       console.log('🟢 Content: Starting search result extraction');
+      
       
       // Wait for search results to load using the actual Popmart selectors
       console.log('🟢 Content: Waiting for product elements to load...');
       await this.waitForElement('.index_productItemContainer__rDwtr, .product-item, .search-result, [data-testid="product-card"]', 10000);
       console.log('🟢 Content: Product elements found');
+      await this.waitForElement('.ant-tag','.index_tag__E64FE', 10000);
       
       // Look for product cards/items with actual Popmart selectors first
       const productSelectors = [
-        '.index_productItemContainer__rDwtr', // Actual Popmart selector
-        '.product-item',
-        '.search-result',
-        '[data-testid="product-card"]',
-        '.product-card',
-        '.item-card'
+        '[data-pm-exposure-tracker-action="PopMartGlobalWebCommodityCardShow"]',
+        // '.index_productItemContainer__rDwtr', 
+        // '.product-item',
+        // '.search-result',
+        // '[data-testid="product-card"]',
+        // '.product-card',
+        // '.item-card'
       ];
       
       let products = [];
@@ -128,7 +345,7 @@ class ContentScript {
         const elements = document.querySelectorAll(selector);
         console.log('🟢 Content: Found', elements.length, 'elements with selector:', selector);
         if (elements.length > 0) {
-          products = Array.from(elements).slice(0, 5); // Get top 5 results
+          products = Array.from(elements).slice(0, 5); 
           console.log('🟢 Content: Using selector:', selector);
           break;
         }
@@ -142,30 +359,35 @@ class ContentScript {
       console.log('🟢 Content: Processing', products.length, 'products');
       
       const results = products.map((product, index) => {
+        console.log('🟢 Content: Processing product', index + 1);
+        console.log('🟢 Content: Product element:', product);
+        
         // Extract product information using actual Popmart selectors
         const nameElement = product.querySelector('.index_itemTitle__WaT6_, .index_itemSubTitle__mX6v_, .product-name, .item-name, h3, h4, .title');
         const priceElement = product.querySelector('.index_itemPrice__AQoMy, .price, .product-price, .item-price');
         const imageElement = product.querySelector('img');
-        const linkElement = product.querySelector('a');
         
-        // Enhanced availability detection
-        const tagElement = product.querySelector('.index_tag__E64FE, .tag, .status, .availability');
-        let availability = '';
+        // Check stock status using the tag container
         
-        // Check for availability in multiple ways
-        if (tagElement) {
-          availability = tagElement.textContent.trim();
-        } else {
-          // Fallback: search for stock-related text in the entire product div
-          const productText = product.textContent.toLowerCase();
-          if (productText.includes('out of stock') || productText.includes('sold out')) {
-            availability = 'OUT OF STOCK';
-          } else if (productText.includes('in stock') || productText.includes('available')) {
-            availability = 'IN STOCK';
-          } else if (productText.includes('pre-order') || productText.includes('preorder')) {
-            availability = 'PRE-ORDER';
+        const stockTagContainer = product.querySelector('.index_tag__E64FE');
+        console.log('🟢 Content: Stock tag container:', stockTagContainer);
+        let stockStatus = 'Available';
+        if (stockTagContainer) {
+          const stockTag = stockTagContainer.querySelector('.ant-tag');
+          if (stockTag && stockTag.textContent.trim() === 'OUT OF STOCK') {
+            stockStatus = 'Out of Stock';
           }
         }
+        else {
+          stockStatus = 'balle balle';
+        }
+        
+        // Find the link - it's the parent <a> tag that wraps the entire product card
+        const linkElement = product.closest('a') || product.querySelector('a');
+        const link = linkElement?.href || window.location.href;
+        
+        console.log('🟢 Content: Link element found:', linkElement);
+        console.log('🟢 Content: Link URL:', link);
         
         // Get the full product name (subtitle + title)
         const subTitleElement = product.querySelector('.index_itemSubTitle__mX6v_');
@@ -185,17 +407,22 @@ class ContentScript {
           name: fullName,
           price: priceElement?.textContent?.trim() || 'Price not available',
           image: imageElement?.src || imageElement?.getAttribute('data-src') || '',
-          url: linkElement?.href || window.location.href,
-          availability: availability,
-          relevance: index + 1 // Top result has highest relevance
+          url: link,
+          relevance: index + 1,
+          stockStatus: stockStatus,
         };
         
-        console.log('🟢 Content: Extracted product', index + 1, ':', result.name);
-        console.log('🟢 Content: Product details:', {
+        // Add detailed logging for debugging
+        console.log('🟢 Content: Final extracted product', index + 1, ':', {
+          name: result.name,
           price: result.price,
-          availability: result.availability,
-          url: result.url
+          url: result.url,
+          stockStatus: result.stockStatus,
+          hasLink: !!linkElement,
+          linkElement: linkElement,
+          rawHtml: result.rawHtml
         });
+        
         return result;
       });
       
