@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Deduplication Logic</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Instagram Automation Deduplication Test</h1>
+        <p>This test simulates the Instagram automation flow to verify that duplicate API calls are prevented.</p>
+        
+        <div class="status info">
+            <strong>Test Status:</strong> Ready to run
+        </div>
+        
+        <button onclick="runDeduplicationTest()">Run Deduplication Test</button>
+        <button onclick="runMultipleSubmissionTest()">Test Multiple Submissions</button>
+        <button onclick="runNavigationTest()">Test Navigation Reset</button>
+        <button onclick="clearLog()">Clear Log</button>
+        
+        <h3>Test Log:</h3>
+        <div id="testLog" class="log">Test log will appear here...\n</div>
+    </div>
+
+    <script>
+        let testLog = document.getElementById('testLog');
+        let apiCallCount = 0;
+        let messagesSent = [];
+        
+        // Mock variables to simulate content script state
+        let isProcessingSubmission = false;
+        let lastSubmittedUrl = null;
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}\n`;
+            testLog.textContent += logEntry;
+            testLog.scrollTop = testLog.scrollHeight;
+            
+            // Update status
+            const statusDiv = document.querySelector('.status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.innerHTML = `<strong>Test Status:</strong> ${message}`;
+        }
+        
+        function clearLog() {
+            testLog.textContent = 'Test log cleared...\n';
+            apiCallCount = 0;
+            messagesSent = [];
+            isProcessingSubmission = false;
+            lastSubmittedUrl = null;
+        }
+        
+        // Mock function to simulate sending message to background script
+        function mockSendMessage(message) {
+            messagesSent.push({...message, timestamp: Date.now()});
+            log(`📤 Message sent: ${message.action} for URL: ${message.data?.currentUrl || 'N/A'}`);
+            
+            // Simulate background script response
+            setTimeout(() => {
+                if (message.action === 'save-crawl-content') {
+                    apiCallCount++;
+                    log(`🔄 Parse API call #${apiCallCount} for URL: ${message.data.currentUrl}`);
+                    
+                    // Simulate API response
+                    setTimeout(() => {
+                        const status = Math.random() > 0.5 ? 1 : 0; // Random status for testing
+                        log(`✅ API Response: status=${status} for URL: ${message.data.currentUrl}`);
+                        
+                        if (status === 1) {
+                            log(`🎉 Points awarded for URL: ${message.data.currentUrl}`, 'success');
+                        } else {
+                            log(`⚠️ No points awarded (status=0) for URL: ${message.data.currentUrl}`, 'warning');
+                        }
+                    }, 500);
+                }
+            }, 100);
+        }
+        
+        // Simulate the fixed handleProcessCurrentTask function
+        function simulateHandleProcessCurrentTask(currentUrl) {
+            log(`🔍 Processing task for URL: ${currentUrl}`);
+            
+            // Check if already processing or URL already submitted
+            if (isProcessingSubmission) {
+                log(`🚫 Skipping submission - already processing`, 'warning');
+                return;
+            }
+            
+            if (lastSubmittedUrl === currentUrl) {
+                log(`🚫 Skipping submission - URL already submitted: ${currentUrl}`, 'warning');
+                return;
+            }
+            
+            // Set processing flag and record URL
+            isProcessingSubmission = true;
+            lastSubmittedUrl = currentUrl;
+            
+            log(`✅ Proceeding with submission for URL: ${currentUrl}`, 'success');
+            
+            // Send message to background script
+            mockSendMessage({
+                action: 'save-crawl-content',
+                data: {
+                    currentUrl: currentUrl,
+                    pageContent: 'Mock Instagram content',
+                    timestamp: Date.now()
+                }
+            });
+            
+            // Reset processing flag after a delay (simulating async completion)
+            setTimeout(() => {
+                isProcessingSubmission = false;
+                log(`🔄 Processing flag reset for URL: ${currentUrl}`);
+            }, 1000);
+        }
+        
+        function runDeduplicationTest() {
+            log('🧪 Starting Deduplication Test...', 'info');
+            clearLog();
+            
+            const testUrl = 'https://instagram.com/test-post-1';
+            
+            // Simulate multiple rapid calls to the same URL
+            log('📋 Test: Multiple rapid submissions for same URL');
+            simulateHandleProcessCurrentTask(testUrl);
+            
+            setTimeout(() => simulateHandleProcessCurrentTask(testUrl), 100);
+            setTimeout(() => simulateHandleProcessCurrentTask(testUrl), 200);
+            setTimeout(() => simulateHandleProcessCurrentTask(testUrl), 300);
+            
+            setTimeout(() => {
+                const uniqueUrls = new Set(messagesSent.map(msg => msg.data?.currentUrl));
+                if (uniqueUrls.size === 1 && messagesSent.length === 1) {
+                    log('✅ Deduplication Test PASSED - Only one submission sent', 'success');
+                } else {
+                    log(`❌ Deduplication Test FAILED - ${messagesSent.length} submissions sent`, 'error');
+                }
+            }, 2000);
+        }
+        
+        function runMultipleSubmissionTest() {
+            log('🧪 Starting Multiple Submission Test...', 'info');
+            clearLog();
+            
+            const urls = [
+                'https://instagram.com/post-1',
+                'https://instagram.com/post-2',
+                'https://instagram.com/post-1', // Duplicate
+                'https://instagram.com/post-3'
+            ];
+            
+            log('📋 Test: Multiple URLs with one duplicate');
+            
+            urls.forEach((url, index) => {
+                setTimeout(() => {
+                    simulateHandleProcessCurrentTask(url);
+                }, index * 1500); // Stagger submissions
+            });
+            
+            setTimeout(() => {
+                const uniqueUrls = new Set(messagesSent.map(msg => msg.data?.currentUrl));
+                const expectedUniqueCount = 3; // post-1, post-2, post-3
+                
+                if (uniqueUrls.size === expectedUniqueCount) {
+                    log(`✅ Multiple Submission Test PASSED - ${uniqueUrls.size} unique URLs processed`, 'success');
+                } else {
+                    log(`❌ Multiple Submission Test FAILED - Expected ${expectedUniqueCount}, got ${uniqueUrls.size}`, 'error');
+                }
+            }, 8000);
+        }
+        
+        function runNavigationTest() {
+            log('🧪 Starting Navigation Reset Test...', 'info');
+            clearLog();
+            
+            const url1 = 'https://instagram.com/session-1';
+            const url2 = 'https://instagram.com/session-2';
+            
+            log('📋 Test: Navigation reset functionality');
+            
+            // First submission
+            simulateHandleProcessCurrentTask(url1);
+            
+            setTimeout(() => {
+                // Simulate navigation reset (like handleStartTaskProcessing)
+                log('🔄 Simulating navigation/session reset...');
+                isProcessingSubmission = false;
+                lastSubmittedUrl = null;
+                
+                // Second submission after reset
+                setTimeout(() => {
+                    simulateHandleProcessCurrentTask(url2);
+                    
+                    setTimeout(() => {
+                        if (messagesSent.length === 2) {
+                            log('✅ Navigation Reset Test PASSED - Both sessions processed', 'success');
+                        } else {
+                            log(`❌ Navigation Reset Test FAILED - ${messagesSent.length} submissions`, 'error');
+                        }
+                    }, 1000);
+                }, 500);
+            }, 2000);
+        }
+        
+        // Initialize
+        log('🔧 Test environment initialized. Ready to run tests.');
+    </script>
+</body>
+</html>

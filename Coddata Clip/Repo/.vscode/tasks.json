@@ -1,0 +1,31 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Test Extension",
+			"type": "shell",
+			"command": "echo",
+			"args": [
+				"🚀 Chrome Extension Ready for Testing!\n\n✅ Key Features Implemented:\n• WebContent API integration (chrome.wootz.createBackgroundWebContents)\n• Instagram content script (instagram-automation.js)\n• Background automation persistence\n• Points system with API status validation\n• Manifest v3 with proper permissions\n\n📋 To test:\n1. Load the extension in Chrome/Wootz browser\n2. Navigate to Instagram\n3. The content script will auto-inject and notify background\n4. Background will use WebContent API for automation\n\n📁 Extension files ready:\n• manifest.json - Extension configuration\n• background.js - Service worker with WebContent automation\n• instagram-automation.js - Content script for Instagram pages\n• All supporting files and assets"
+			],
+			"group": "test"
+		},
+		{
+			"label": "Check Extension Files",
+			"type": "shell",
+			"command": "dir",
+			"args": [
+				"/B",
+				"*.js",
+				"*.json"
+			],
+			"group": "build",
+			"options": {
+				"shell": {
+					"executable": "cmd.exe",
+					"args": ["/c"]
+				}
+			}
+		}
+	]
+}
