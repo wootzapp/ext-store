@@ -1,0 +1,152 @@
+{
+  "../../../../@crx/manifest": {
+    "file": "assets/crx-manifest.js-D2LQTL4j.js",
+    "name": "crx-manifest.js",
+    "src": "../../../../@crx/manifest",
+    "isEntry": true
+  },
+  "_YTEventReport-DpdmRFme.js": {
+    "file": "assets/YTEventReport-DpdmRFme.js",
+    "name": "YTEventReport",
+    "imports": [
+      "_actions-CxosgIhI.js",
+      "__commonjsHelpers-BosuxZz1.js"
+    ]
+  },
+  "__commonjsHelpers-BosuxZz1.js": {
+    "file": "assets/_commonjsHelpers-BosuxZz1.js",
+    "name": "_commonjsHelpers"
+  },
+  "_actions-CxosgIhI.js": {
+    "file": "assets/actions-CxosgIhI.js",
+    "name": "actions",
+    "imports": [
+      "__commonjsHelpers-BosuxZz1.js"
+    ]
+  },
+  "_api-interceptor.ts-loader-CFWX7_lH.js": {
+    "file": "assets/api-interceptor.ts-loader-CFWX7_lH.js",
+    "src": "_api-interceptor.ts-loader-CFWX7_lH.js"
+  },
+  "_client-D0qgw5AI.js": {
+    "file": "assets/client-D0qgw5AI.js",
+    "name": "client"
+  },
+  "_common-DKP7UT3W.js": {
+    "file": "assets/common-DKP7UT3W.js",
+    "name": "common"
+  },
+  "_index-D91ASeLC.js": {
+    "file": "assets/index-D91ASeLC.js",
+    "name": "index",
+    "imports": [
+      "__commonjsHelpers-BosuxZz1.js",
+      "_client-D0qgw5AI.js"
+    ]
+  },
+  "_index.js-loader-BpU1ihqV.js": {
+    "file": "assets/index.js-loader-BpU1ihqV.js",
+    "src": "_index.js-loader-BpU1ihqV.js"
+  },
+  "_modulepreload-polyfill-B5Qt9EMX.js": {
+    "file": "assets/modulepreload-polyfill-B5Qt9EMX.js",
+    "name": "modulepreload-polyfill"
+  },
+  "_tailwind-9Gnup0x0.css": {
+    "file": "assets/tailwind-9Gnup0x0.css",
+    "src": "_tailwind-9Gnup0x0.css"
+  },
+  "_usePostToIframe-CYLIRhxM.js": {
+    "file": "assets/usePostToIframe-CYLIRhxM.js",
+    "name": "usePostToIframe",
+    "imports": [
+      "__commonjsHelpers-BosuxZz1.js",
+      "_index-D91ASeLC.js"
+    ]
+  },
+  "src/pages/background/index.ts": {
+    "file": "assets/index.ts-DtsNp1K4.js",
+    "name": "index.ts",
+    "src": "src/pages/background/index.ts",
+    "isEntry": true,
+    "imports": [
+      "_actions-CxosgIhI.js",
+      "_YTEventReport-DpdmRFme.js",
+      "__commonjsHelpers-BosuxZz1.js"
+    ]
+  },
+  "src/pages/content/api-interceptor.ts": {
+    "file": "assets/api-interceptor.ts-CEAr-TFA.js",
+    "name": "api-interceptor.ts",
+    "src": "src/pages/content/api-interceptor.ts",
+    "isEntry": true,
+    "imports": [
+      "_common-DKP7UT3W.js",
+      "_actions-CxosgIhI.js",
+      "__commonjsHelpers-BosuxZz1.js"
+    ]
+  },
+  "src/pages/content/index.tsx": {
+    "file": "assets/index.js-Dsl406EO.js",
+    "name": "index.js",
+    "src": "src/pages/content/index.tsx",
+    "isEntry": true,
+    "imports": [
+      "_client-D0qgw5AI.js",
+      "_index-D91ASeLC.js",
+      "_actions-CxosgIhI.js",
+      "_YTEventReport-DpdmRFme.js",
+      "_common-DKP7UT3W.js",
+      "_usePostToIframe-CYLIRhxM.js",
+      "__commonjsHelpers-BosuxZz1.js"
+    ],
+    "css": [
+      "assets/index-Do-CAsR3.css"
+    ]
+  },
+  "src/pages/devtools/index.html": {
+    "file": "assets/index.html-uCku1uVq.js",
+    "name": "index.html",
+    "src": "src/pages/devtools/index.html",
+    "isEntry": true,
+    "imports": [
+      "_modulepreload-polyfill-B5Qt9EMX.js",
+      "_client-D0qgw5AI.js",
+      "__commonjsHelpers-BosuxZz1.js",
+      "_index-D91ASeLC.js"
+    ],
+    "css": [
+      "assets/tailwind-9Gnup0x0.css"
+    ]
+  },
+  "src/pages/options/index.html": {
+    "file": "assets/index.html-ely9j4lI.js",
+    "name": "index.html",
+    "src": "src/pages/options/index.html",
+    "isEntry": true,
+    "imports": [
+      "_modulepreload-polyfill-B5Qt9EMX.js",
+      "_client-D0qgw5AI.js"
+    ],
+    "css": [
+      "assets/index-ClhYHq5J.css"
+    ]
+  },
+  "src/pages/panel/index.html": {
+    "file": "assets/index.html-C0L9F51d.js",
+    "name": "index.html",
+    "src": "src/pages/panel/index.html",
+    "isEntry": true,
+    "imports": [
+      "_modulepreload-polyfill-B5Qt9EMX.js",
+      "_client-D0qgw5AI.js",
+      "_index-D91ASeLC.js",
+      "_usePostToIframe-CYLIRhxM.js",
+      "_actions-CxosgIhI.js",
+      "__commonjsHelpers-BosuxZz1.js"
+    ],
+    "css": [
+      "assets/tailwind-9Gnup0x0.css"
+    ]
+  }
+}
