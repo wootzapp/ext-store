@@ -1,0 +1,83 @@
+{
+  "manifest_version": 3,
+  "name": "Codatta Clip",
+  "version": "1.2.1",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAx9+n3Q7T+yiDpnlYs5tSrPGYl7TLm4S5Tn5Lu7ibJJgKGG/ccxxgHUxfD+41u+wXFoLyv9I22oBWblmgXbbI8dFYx21KP9vFqpiaCEoT54tIfvav2a7aP1nuUC7CGsCnoaN5XbgzKjHEle4telnzK/39/qoUNOKmMTCwGcUN9erRMelsEzIc3BsN7HBHICqS1tfmT7ehVELlqBQ0aSbRE4fJaQ+/3zfyMHrL5YmDkFZ/9ZPx6dTjTnKq3THKUX6JtRqRQ/VhWuMgGOyoJAZrKr1L6K795g7I0H7A6uC5ncdjTeX4b+SvhJlf2qtKQB/MjpsjNN7oufFiy/r/ZPT6EQIDAQAB",
+  "description": "Turn Your Intelligence into AI",
+  "icons": {
+    "16": "assets/images/logo.png",
+    "32": "assets/images/logo.png",
+    "48": "assets/images/logo.png"
+  },
+  "action": {
+    "default_icon": {
+      "16": "assets/images/logo.png",
+      "24": "assets/images/logo.png",
+      "32": "assets/images/logo.png"
+    },
+    "default_title": "codatta",
+    "default_popup": "sidepanel-views/index.html"
+  },
+  "content_scripts": [
+    {
+      "js": [
+        "browser-icon.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    },
+    {
+      "js": [
+        "authenticator.js"
+      ],
+      "matches": [
+        "*://app.codatta.io/*",
+        "*://codatta.io/*"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "js": [
+        "instagram-automation.js"
+      ],
+      "matches": [
+        "*://www.instagram.com/*",
+        "*://instagram.com/*"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "assets/*",
+        "signin.js",
+        "browser-icon.js",
+        "test-automation.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
+  "externally_connectable": {
+    "matches": [
+      "<all_urls>"
+    ]
+  },
+  "permissions": [
+    "activeTab",
+    "storage",
+    "contextMenus",
+    "scripting",
+    "webRequest",
+    "wootz"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}
