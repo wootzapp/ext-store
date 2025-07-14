@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "AI Social Media Agent",
+  "name": "AI Chat Agent",
   "version": "1.0.0",
-  "description": "AI-powered social media automation with chat interface",
+  "description": "AI-powered chat agent",
   "permissions": [
     "storage",
     "alarms",
@@ -19,16 +19,9 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content.js", "buildDomTree.js"],
-      "run_at": "document_end"
-    }
-  ],
   "action": {
     "default_popup": "index.html",
-    "default_title": "AI Social Media Agent"
+    "default_title": "AI Chat Agent"
   },
   "icons": {
     "16": "icons/icon.png",
