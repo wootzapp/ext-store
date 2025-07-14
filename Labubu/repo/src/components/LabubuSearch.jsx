@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaCog } from 'react-icons/fa';
+import ProductDetails from './ProductDetails.jsx';
 
 const LABUBU_EMOJI = "🦊"; // Placeholder for Labubu mascot
 
@@ -16,6 +17,9 @@ const LabubuSearch = ({ onBack, userProfile, onLogout }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showSettings, setShowSettings] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [productDetails, setProductDetails] = useState(null);
+  const [isLoadingProduct, setIsLoadingProduct] = useState(false);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
@@ -47,6 +51,74 @@ const LabubuSearch = ({ onBack, userProfile, onLogout }) => {
       handleSearch();
     }
   };
+
+  const handleProductClick = async (product) => {
+    setSelectedProduct(product);
+    setIsLoadingProduct(true);
+    setError('');
+    
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'OPEN_PRODUCT_DETAILS',
+        url: product.url
+      });
+      
+      if (response.success) {
+        setProductDetails(response.productDetails);
+      } else {
+        setError(response.error || 'Failed to load product details');
+        setSelectedProduct(null);
+      }
+    } catch (error) {
+      setError('Failed to load product details');
+      setSelectedProduct(null);
+    } finally {
+      setIsLoadingProduct(false);
+    }
+  };
+
+  const handleBackToSearch = () => {
+    setSelectedProduct(null);
+    setProductDetails(null);
+    setIsLoadingProduct(false);
+    setError('');
+  };
+
+  const handleNotifyWhenAvailable = async (productDetails) => {
+    // This would implement the notification logic
+    console.log('Setting notification for:', productDetails.name);
+    // You could store this in chrome.storage or send to a backend
+  };
+
+  // Show product details if a product is selected
+  if (selectedProduct && productDetails) {
+    return (
+      <ProductDetails
+        productDetails={productDetails}
+        onBack={handleBackToSearch}
+        onNotifyWhenAvailable={handleNotifyWhenAvailable}
+      />
+    );
+  }
+
+  // Show loading state for product details
+  if (selectedProduct && isLoadingProduct) {
+    return (
+      <motion.div
+        className="w-full min-h-screen bg-gradient-to-br from-[#1a144b] via-[#3a1c71] to-[#6e1e9c] p-4 sm:p-6 font-labubu flex flex-col items-center justify-center"
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.98 }}
+        transition={{ type: 'spring', stiffness: 120 }}
+      >
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-pink-400 border-t-2 border-yellow-400 mb-4"></div>
+          <p className="text-lg text-white font-semibold">Loading product details...</p>
+          <p className="text-sm text-purple-200 mt-2">Please wait while we fetch the product information</p>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
@@ -122,7 +194,10 @@ const LabubuSearch = ({ onBack, userProfile, onLogout }) => {
                   animate="visible"
                   exit="exit"
                   variants={resultVariants}
-                  className="border border-pink-400 rounded-2xl p-3 sm:p-4 bg-white/10 hover:bg-pink-400/10 shadow flex items-start space-x-3 sm:space-x-4 transition-colors"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleProductClick(result)}
+                  className="border border-pink-400 rounded-2xl p-3 sm:p-4 bg-white/10 hover:bg-pink-400/10 shadow flex items-start space-x-3 sm:space-x-4 transition-colors cursor-pointer"
                 >
                   {result.image && (
                     <img
@@ -140,22 +215,10 @@ const LabubuSearch = ({ onBack, userProfile, onLogout }) => {
                       <p className="text-sm sm:text-base text-pink-200 font-semibold">
                         {result.price}
                       </p>
-                      <span className={`px-2 py-1 text-xs rounded-full font-semibold ${
-                        result.stockStatus === 'Out of Stock' 
-                          ? 'bg-red-500/20 text-red-200 border border-red-400/40' 
-                          : 'bg-green-500/20 text-green-200 border border-green-400/40'
-                      }`}>
-                        {result.stockStatus}
-                      </span>
                     </div>
-                    <a
-                      href={result.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs sm:text-sm text-pink-300 hover:text-pink-400 mt-1 inline-block font-labubu"
-                    >
-                      View Product →
-                    </a>
+                    <div className="text-xs sm:text-sm text-pink-300 mt-1 font-labubu">
+                      Click to view details →
+                    </div>
                   </div>
                 </motion.div>
               ))}

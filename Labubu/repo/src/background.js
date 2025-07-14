@@ -373,6 +373,46 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
       return true;
       
+    case 'OPEN_PRODUCT_DETAILS':
+      const productUrl = message.url;
+      console.log('🔵 Background: Opening product details for:', productUrl);
+      
+      chrome.wootz.createBackgroundWebContents(webContentsId, productUrl, (result) => {
+        if (result.success) {
+          console.log('🔵 Background: Product details WebContents created successfully');
+          // Send message to content script to extract product details
+          setTimeout(() => {
+            console.log('🔵 Background: Sending EXTRACT_PRODUCT_DETAILS to content script');
+            chrome.tabs.sendMessage(webContentsId, {
+              type: 'EXTRACT_PRODUCT_DETAILS'
+            }, function(response) {
+              if (chrome.runtime.lastError) {
+                console.error('🔵 Background: Error extracting product details:', chrome.runtime.lastError);
+                sendResponse({ success: false, error: 'Failed to extract product details' });
+                return;
+              }
+              
+              console.log('🔵 Background: Received product details:', response);
+              if (response && response.success) {
+                sendResponse({
+                  success: true,
+                  productDetails: response.productDetails
+                });
+              } else {
+                sendResponse({
+                  success: false,
+                  error: response?.error || 'No product details found'
+                });
+              }
+            });
+          }, 5000);
+        } else {
+          console.log('🔵 Background: Failed to create product details WebContents');
+          sendResponse({ success: false, error: 'Failed to create product details WebContents' });
+        }
+      });
+      return true;
+      
     case 'LOGOUT':
       console.log('🔵 Background: User logged out');
       clearAuthState();
@@ -380,5 +420,91 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       destroyBackgroundWebContents();
       sendResponse({success: true});
       break;
+
+    case 'CHECK_PRODUCT_IN_CART': {
+      const expectedProductName = message.productName;
+      console.log('🔵 Background: [CART] Received CHECK_PRODUCT_IN_CART for product:', expectedProductName);
+      const cartUrl = 'https://www.popmart.com/us/largeShoppingCart';
+      chrome.wootz.createBackgroundWebContents(webContentsId, cartUrl, (result) => {
+        if (result.success) {
+          console.log('🔵 Background: [CART] Cart WebContents created successfully');
+          // Wait for cart page to load
+          setTimeout(() => {
+            console.log('🔵 Background: [CART] Sending EXTRACT_CART_PRODUCTS to content script');
+            chrome.tabs.sendMessage(webContentsId, {
+              type: 'EXTRACT_CART_PRODUCTS',
+              expectedProductName
+            }, function(response) {
+              if (chrome.runtime.lastError) {
+                console.error('🔵 Background: [CART] Error extracting cart products:', chrome.runtime.lastError);
+                sendResponse({ success: false, error: 'Failed to extract cart products' });
+                return;
+              }
+              console.log('🔵 Background: [CART] Received cart products extraction response:', response);
+              sendResponse({ success: true, ...response });
+            });
+          }, 4000); // Wait 4s for cart page to load
+        } else {
+          console.log('🔵 Background: [CART] Failed to create cart WebContents');
+          sendResponse({ success: false, error: 'Failed to create cart WebContents' });
+        }
+      });
+      return true;
+    }
+
+    case 'CLICK_AND_CHECK_CART': {
+      const productUrl = message.url;
+      const productName = message.productName;
+      console.log('🔵 Background: [CART] CLICK_AND_CHECK_CART for product:', productName);
+      console.log('🔵 Background: [CART] Product URL:', productUrl);
+      
+      chrome.wootz.createBackgroundWebContents(webContentsId, productUrl, (result) => {
+        if (result.success) {
+          console.log('🔵 Background: [CART] Product details WebContents created successfully');
+          // Send message to content script to click the Add to Cart button
+          setTimeout(() => {
+            console.log('🔵 Background: [CART] Sending CLICK_ADD_TO_CART to content script');
+            chrome.tabs.sendMessage(webContentsId, {
+              type: 'CLICK_ADD_TO_CART',
+              productName: productName
+            }, function(response) {
+              if (chrome.runtime.lastError) {
+                console.error('🔵 Background: [CART] Error clicking Add to Cart button:', chrome.runtime.lastError);
+                sendResponse({ success: false, error: 'Failed to click Add to Cart button' });
+                return;
+              }
+              
+              console.log('🔵 Background: [CART] Received click response:', response);
+              if (response && response.success) {
+                // After successful click, check the cart
+                setTimeout(() => {
+                  console.log('🔵 Background: [CART] Checking cart after successful click');
+                  chrome.runtime.sendMessage({
+                    type: 'CHECK_PRODUCT_IN_CART',
+                    productName: productName
+                  }, (cartResponse) => {
+                    console.log('🔵 Background: [CART] Cart check response:', cartResponse);
+                    sendResponse({
+                      success: true,
+                      clickSuccess: true,
+                      cartResult: cartResponse
+                    });
+                  });
+                }, 4000); // Wait 4s for cart to update
+              } else {
+                sendResponse({
+                  success: false,
+                  error: response?.error || 'Failed to click Add to Cart button'
+                });
+              }
+            });
+          }, 3000); // Wait 3s for page to load
+        } else {
+          console.log('🔵 Background: [CART] Failed to create product details WebContents');
+          sendResponse({ success: false, error: 'Failed to create product details WebContents' });
+        }
+      });
+      return true;
+    }
   }
 });

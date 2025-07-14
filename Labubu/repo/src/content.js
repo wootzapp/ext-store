@@ -97,6 +97,93 @@ class ContentScript {
             });
           });
           return true;
+          
+        case 'EXTRACT_PRODUCT_DETAILS':
+          console.log('🟢 Content: Extracting product details');
+          this.extractProductDetails().then((productDetails) => {
+            console.log('🟢 Content: Successfully extracted product details:', productDetails);
+            sendResponse({
+              success: true,
+              productDetails: productDetails,
+            });
+          }).catch((error) => {
+            sendResponse({
+              success: false,
+              error: error.message,
+            });
+          });
+          return true;
+        case 'EXTRACT_CART_PRODUCTS':
+          (async () => {
+            const expectedProductName = message.expectedProductName;
+            console.log('🟢 Content: [CART] Extracting cart products. Expected name:', expectedProductName);
+            const cartProducts = [];
+            let found = false;
+            const cartContainer = document.querySelector('.index_contentLeft__OnEFB');
+            if (cartContainer) {
+              const nameNodes = cartContainer.querySelectorAll('.product_productName__TwvLM');
+              nameNodes.forEach(node => {
+                const cartName = node.textContent.trim();
+                cartProducts.push(cartName);
+                console.log('🟢 Content: [CART] Cart product name:', cartName);
+                console.log('🟢 Content: [CART] Product details page name:', expectedProductName);
+                if (cartName === expectedProductName) {
+                  found = true;
+                  console.log('🟢 Content: [CART] Product is AVAILABLE in cart.');
+                } else {
+                  console.log('🟢 Content: [CART] Product is NOT this one.');
+                }
+              });
+              if (!found) {
+                console.log('🟢 Content: [CART] Product is UNAVAILABLE in cart.');
+              }
+            } else {
+              console.warn('🟢 Content: [CART] Cart container not found.');
+            }
+            sendResponse({
+              found,
+              cartProducts
+            });
+          })();
+          return true;
+        case 'CLICK_ADD_TO_CART':
+          (async () => {
+            console.log('🟢 Content: [CART] CLICK_ADD_TO_CART handler triggered.');
+            this.waitForElement('.index_usBtn__2KlEx', 60000).then((addToCart) => {
+              console.log('🟢 Content: [CART] Add to Cart button found:', addToCart);
+
+              let addToCartButton = addToCart.querySelector('.index_usBtn__2KlEx');
+              
+              if (addToCartButton) {
+                console.log('🟢 Content: [CART] Add to Cart button found:', addToCartButton.outerHTML);
+                try {
+                  const wasDisabled = addToCartButton.disabled;
+                  console.log('🟢 Content: [CART] Button disabled:', wasDisabled);
+                  if (!wasDisabled) {
+                    // Dispatch touchend event for mobile
+                    const touchEvent = new Event('touchend', { bubbles: true, cancelable: true });
+                    addToCartButton.dispatchEvent(touchEvent);
+                    console.log('🟢 Content: [CART] Dispatched touchend event on Add to Cart button.');
+                    // Also dispatch click event for fallback/desktop
+                    const clickEvent = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
+                    addToCartButton.dispatchEvent(clickEvent);
+                    console.log('🟢 Content: [CART] Dispatched click event on Add to Cart button.');
+                    sendResponse({ success: true });
+                  } else {
+                    console.warn('🟢 Content: [CART] Add to Cart button is disabled, not clicking.');
+                    sendResponse({ success: false, error: 'Add to Cart button is disabled.' });
+                  }
+                } catch (err) {
+                  console.error('🟢 Content: [CART] Error clicking Add to Cart button:', err);
+                  sendResponse({ success: false, error: err.message });
+                }
+              } else {
+                console.warn('🟢 Content: [CART] Add to Cart button not found.');
+                sendResponse({ success: false, error: 'Add to Cart button not found.' });
+              }
+            });
+          })();
+          return true;
         default:
           console.log('🟢 Content: Unknown message type:', message.type);
           sendResponse({error: 'Unknown message type'});
@@ -326,7 +413,6 @@ class ContentScript {
       console.log('🟢 Content: Waiting for product elements to load...');
       await this.waitForElement('.index_productItemContainer__rDwtr, .product-item, .search-result, [data-testid="product-card"]', 10000);
       console.log('🟢 Content: Product elements found');
-      await this.waitForElement('.ant-tag','.index_tag__E64FE', 10000);
       
       // Look for product cards/items with actual Popmart selectors first
       const productSelectors = [
@@ -378,9 +464,7 @@ class ContentScript {
             stockStatus = 'Out of Stock';
           }
         }
-        else {
-          stockStatus = 'balle balle';
-        }
+
         
         // Find the link - it's the parent <a> tag that wraps the entire product card
         const linkElement = product.closest('a') || product.querySelector('a');
@@ -435,6 +519,172 @@ class ContentScript {
     }
   }
 
+  async extractProductDetails() {
+    try {
+      console.log('🟢 Content: Starting product details extraction');
+      console.log('🟢 Content: Current URL:', window.location.href);
+      console.log('🟢 Content: Page title:', document.title);
+      
+      // Wait for the product container to be available
+      await this.waitForElement('.products_container__T0mpL', 60000);
+      const productContainer = document.querySelector('.products_container__T0mpL');
+      console.log('🟢 Content: Product container found:', productContainer);
+      
+      // Extract product image - look for the main product image in the swiper
+      console.log('🟢 Content: Looking for product image...');
+      let productImage = '';
+      
+      // Try multiple selectors for the product image
+      const imageSelectors = [
+        '.index_imgContainer___mAnP .adm-image-img',
+        '.index_imgContainer___mAnP img',
+        '.adm-swiper-slide-active img',
+        '.index_img__ZPq_y img',
+        '.adm-image-img',
+        '.index_imgContainer___mAnP .adm-image img',
+        '.adm-swiper-slide img',
+        'img[src*="popmart.com"]',
+        'img[alt*="doll"]',
+        'img[alt*="plush"]'
+      ];
+      
+      console.log('🟢 Content: Looking for product images with selectors:', imageSelectors);
+      
+      for (const selector of imageSelectors) {
+        const imageElements = document.querySelectorAll(selector);
+        console.log('🟢 Content: Found', imageElements.length, 'elements with selector:', selector);
+        
+        for (const imageElement of imageElements) {
+          console.log('🟢 Content: Checking image element:', {
+            src: imageElement.src,
+            alt: imageElement.alt,
+            className: imageElement.className,
+            parentClassName: imageElement.parentElement?.className
+          });
+          
+          if (imageElement.src && imageElement.src.includes('popmart.com')) {
+            productImage = imageElement.src;
+            console.log('🟢 Content: Found product image with selector:', selector);
+            console.log('🟢 Content: Image URL:', productImage);
+            break;
+          }
+        }
+        
+        if (productImage) break;
+      }
+      
+      if (!productImage) {
+        console.log('🟢 Content: No product image found with any selector, waiting for images to load...');
+        
+        // Wait for images to load if not found immediately
+        await new Promise((resolve) => {
+          const checkForImages = () => {
+            const allImages = document.querySelectorAll('img[src*="popmart.com"]');
+            console.log('🟢 Content: Found', allImages.length, 'Popmart images after waiting');
+            
+            for (const img of allImages) {
+              if (img.src && img.src.includes('popmart.com') && img.complete) {
+                productImage = img.src;
+                console.log('🟢 Content: Found product image after waiting:', productImage);
+                resolve();
+                return;
+              }
+            }
+            
+            // If no images found after 3 seconds, give up
+            setTimeout(resolve, 3000);
+          };
+          
+          setTimeout(checkForImages, 1000);
+        });
+      }
+      
+      // Extract product name - look for the actual product title
+      console.log('🟢 Content: Looking for product name...');
+      let productName = '';
+      
+      // Try to find the product title in the breadcrumb or other title elements
+      const nameSelectors = [
+        '.index_breadCrumb__dsPae span:last-child',
+        '.index_titleContainer__lPjts .index_title___0OsZ',
+        '.index_titleContainer__lPjts h1',
+        '.index_titleContainer__lPjts h2',
+        '.index_titleContainer__lPjts .index_itemText__2d10b',
+        '.index_titleContainer__lPjts',
+        '.index_titleBlock__stEbJ .index_title___0OsZ',
+        'h1',
+        'h2',
+        '.product-title',
+        '.item-title',
+        '[data-testid="product-title"]',
+        '.product-name'
+      ];
+      
+      for (const selector of nameSelectors) {
+        const nameElement = document.querySelector(selector);
+        console.log('🟢 Content: Checking name selector:', selector, 'Found:', !!nameElement);
+        if (nameElement) {
+          console.log('🟢 Content: Name element text:', nameElement.textContent.trim());
+        }
+        if (nameElement && nameElement.textContent.trim()) {
+          productName = nameElement.textContent.trim();
+          console.log('🟢 Content: Found product name with selector:', selector);
+          console.log('🟢 Content: Product name:', productName);
+          break;
+        }
+      }
+      
+      // If no specific title found, try to extract from breadcrumb
+      if (!productName) {
+        const breadcrumbItems = document.querySelectorAll('.index_crumbItem__Ne_lT');
+        if (breadcrumbItems.length > 0) {
+          const lastBreadcrumb = breadcrumbItems[breadcrumbItems.length - 1];
+          const breadcrumbText = lastBreadcrumb.textContent.trim();
+          if (breadcrumbText && breadcrumbText !== 'HOME' && breadcrumbText !== '/') {
+            productName = breadcrumbText;
+            console.log('🟢 Content: Using breadcrumb text as product name:', productName);
+          }
+        }
+      }
+      
+      let productPrice = '';
+      const priceSelectors = [
+        '.index_itemPrice__AQoMy',
+        '.price',
+        '.product-price',
+        '.item-price'
+      ];
+      
+      for (const selector of priceSelectors) {
+        const priceElement = document.querySelector(selector);
+        if (priceElement && priceElement.textContent.trim()) {
+          productPrice = priceElement.textContent.trim();
+          console.log('🟢 Content: Found product price with selector:', selector);
+          console.log('🟢 Content: Product price:', productPrice);
+          break;
+        }
+      }
+      
+      const productDetails = {
+        name: productName || 'Product',
+        image: productImage,
+        price: productPrice,
+        availabilityStatus: 'Unknown', // This will be updated by the cart check
+        url: window.location.href
+      };
+      
+      console.log('🟢 Content: Extracted product details:', productDetails);
+      return productDetails;
+      
+    } catch (error) {
+      console.error('🟢 Content: Error extracting product details:', error);
+      throw error;
+    }
+  }
+  async getDOMContent(element) {
+    const serializer = new XMLSerializer();
+    return serializer.serializeToString(element);
+}
   async waitForElement(selector, timeout = 5000) {
     console.log('🟢 Content: Waiting for element:', selector);
     return new Promise((resolve, reject) => {
