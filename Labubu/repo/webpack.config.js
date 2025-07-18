@@ -30,6 +30,18 @@ module.exports = {
             }
         ]
     },
+    optimization: {
+        splitChunks: {
+            chunks: 'all',
+            cacheGroups: {
+                vendor: {
+                    test: /[\\/]node_modules[\\/]/,
+                    name: 'vendors',
+                    chunks: 'all',
+                }
+            }
+        }
+    },
     resolve: {
         extensions: ['.jsx', '.js']
     },
@@ -42,7 +54,8 @@ module.exports = {
         new CopyWebpackPlugin({
             patterns: [
                 { from: 'manifest.json', to: 'manifest.json' },
-                { from: 'src/popup/popup.css', to: 'popup.css' }
+                { from: 'src/popup/popup.css', to: 'popup.css' },
+                { from: 'src/assets/icon.png', to: 'icon.png' }
             ]
         })
     ]

@@ -2,19 +2,33 @@
     "manifest_version": 3,
     "name": "Labubu Extension",
     "version": "1.0.0",
-    "description": "A Chrome extension for Labubu",
+    "description": "A Chrome extension for Labubu automation",
+    "icons": {
+        "16": "icon.png",
+        "32": "icon.png",
+        "48": "icon.png",
+        "128": "icon.png"
+    },
     "permissions": [
         "tabs",
         "activeTab",
         "wootz",
-        "storage"
+        "storage",
+        "notifications"
     ],
     "host_permissions": [
-        "https://popmart.com/*"
+        "https://popmart.com/*",
+        "https://generativelanguage.googleapis.com/*"
     ],
     "action": {
         "default_popup": "popup.html",
-        "default_title": "Labubu"
+        "default_title": "Labubu",
+        "default_icon": {
+            "16": "icon.png",
+            "32": "icon.png",
+            "48": "icon.png",
+            "128": "icon.png"
+        }
     },
     "content_scripts": [
         {

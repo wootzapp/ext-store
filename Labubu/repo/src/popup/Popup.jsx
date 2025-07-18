@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import LabubuSearch from "../components/LabubuSearch.jsx";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { FaBolt, FaLock, FaGift } from 'react-icons/fa';
+
 
 const LABUBU_EMOJI = "🦊";
 
@@ -44,6 +45,11 @@ const Popup = () => {
           console.log('🟡 Popup: Authentication failed');
           setAuthStatus('failed');
           setShowLoginPrompt(true);
+          break;
+
+        case 'BACKGROUND_ADDED_TO_CART':
+          console.log('🟡 Popup: Product added to cart in background:', message.productName);
+          // You could show a toast or update the UI here
           break;
       }
     };
@@ -136,53 +142,49 @@ const Popup = () => {
           <h1 className="text-2xl font-extrabold text-white mt-2 text-center">Labubu Extension</h1>
           <p className="text-base text-purple-200 mt-1 text-center">Your playful Popmart helper!</p>
         </div>
-        <AnimatePresence mode="wait">
-          {authStatus === 'loading' && (
-            <motion.div
-              key="loading"
-              className="mt-4 text-center z-10"
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              variants={statusVariants}
-            >
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-pink-400 border-t-2 border-yellow-400"></div>
-              <p className="text-sm text-purple-200 mt-2 font-semibold">Checking authentication...</p>
-            </motion.div>
-          )}
-          {showLoginPrompt && (
-            <motion.div
-              key="login-prompt"
-              className="mt-4 p-4 bg-gradient-to-r from-pink-500/20 to-purple-500/20 border border-pink-400/40 rounded-xl z-10"
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              variants={statusVariants}
-            >
-              <div className="text-center">
-                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center">
-                  <span className="text-2xl">🔐</span>
-                </div>
-                <h3 className="text-lg font-bold text-white mb-2">Login Required</h3>
-                <p className="text-sm text-purple-200 mb-4">Please login to Popmart to continue using the Labubu extension.</p>
-                <div className="flex gap-3 justify-center">
-                  <button
-                    onClick={handleOpenLoginTab}
-                    className="px-6 py-2 bg-gradient-to-r from-pink-500 to-purple-500 text-white text-sm rounded-lg shadow hover:from-pink-600 hover:to-purple-600 transition-all duration-200 font-semibold"
-                  >
-                    Login to Popmart
-                  </button>
-                  <button
-                    onClick={handleRetryAuth}
-                    className="px-4 py-2 bg-gray-600 text-white text-sm rounded-lg shadow hover:bg-gray-700 transition-all duration-200 font-semibold"
-                  >
-                    Retry Check
-                  </button>
-                </div>
+        {authStatus === 'loading' && (
+          <motion.div
+            key="loading"
+            className="mt-4 text-center z-10"
+            initial="hidden"
+            animate="visible"
+            variants={statusVariants}
+          >
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-pink-400 border-t-2 border-yellow-400"></div>
+            <p className="text-sm text-purple-200 mt-2 font-semibold">Checking authentication...</p>
+          </motion.div>
+        )}
+        {showLoginPrompt && (
+          <motion.div
+            key="login-prompt"
+            className="mt-4 p-4 bg-gradient-to-r from-pink-500/20 to-purple-500/20 border border-pink-400/40 rounded-xl z-10"
+            initial="hidden"
+            animate="visible"
+            variants={statusVariants}
+          >
+            <div className="text-center">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center">
+                <span className="text-2xl">🔐</span>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <h3 className="text-lg font-bold text-white mb-2">Login Required</h3>
+              <p className="text-sm text-purple-200 mb-4">Please login to Popmart to continue using the Labubu extension.</p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={handleOpenLoginTab}
+                  className="px-6 py-2 bg-gradient-to-r from-pink-500 to-purple-500 text-white text-sm rounded-lg shadow hover:from-pink-600 hover:to-purple-600 transition-all duration-200 font-semibold"
+                >
+                  Login to Popmart
+                </button>
+                <button
+                  onClick={handleRetryAuth}
+                  className="px-4 py-2 bg-gray-600 text-white text-sm rounded-lg shadow hover:bg-gray-700 transition-all duration-200 font-semibold"
+                >
+                  Retry Check
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
         <div className="mt-8 z-10 relative w-full">
           <button
             onClick={handleCheckAuth}
