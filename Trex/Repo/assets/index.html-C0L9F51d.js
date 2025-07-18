@@ -9,7 +9,7 @@ console.log("[TREX Popup] 🚀 Initializing popup interface");
 console.log("[TREX Popup] 📱 Running in popup mode instead of sidepanel");
 const Y = "Loading",
   v = 0,
-  U = 1920,
+  U = 1080,
   B = 1920,
   b = { g: "@lottiefiles/toolkit-js 0.63.1", tc: "#ffffff" },
   j = JSON.parse(
@@ -334,163 +334,50 @@ function u0() {
         o == null || o.addEventListener("load", p),
         chrome.storage.onChanged.addListener(T),
         chrome.runtime.onMessage.addListener((t, y, r) => {
-          var i, l, f, h, S, u, g, R, P, w, I, A, N, L;
-          if (
-            (t.type ===
-              "TREX_RESPONSE_TYPE_GET_ACTIVE_WALLET_ADDRESS_TO_PANEL" &&
-              ((i = document.getElementById("trex-iframe").contentWindow) ==
-                null ||
-                i.postMessage(
-                  {
-                    type: "TREX_RESPONSE_TYPE_GET_ACTIVE_WALLET_ADDRESS",
-                    data: t.payload,
-                  },
-                  "*"
-                ),
-              r({ success: !0 })),
-            t.type === "TREX_RESPONSE_TYPE_GET_INSTALLED_WALLETS_TO_PANEL" &&
-              ((l = document.getElementById("trex-iframe").contentWindow) ==
-                null ||
-                l.postMessage(
-                  {
-                    type: "TREX_RESPONSE_TYPE_GET_INSTALLED_WALLETS",
-                    data: t.payload,
-                  },
-                  "*"
-                ),
-              r({ success: !0 })),
-            t.type === "TREX_RESPONSE_TYPE_GET_GAS_PRICE_TO_PANEL" &&
-              ((f = document.getElementById("trex-iframe").contentWindow) ==
-                null ||
-                f.postMessage(
-                  { type: "TREX_RESPONSE_TYPE_GET_GAS_PRICE", data: t.payload },
-                  "*"
-                ),
-              r({ success: !0 })),
-            t.type === "TREX_RESPONSE_TYPE_SWITCH_CHAIN_TO_PANEL" &&
-              ((h = document.getElementById("trex-iframe").contentWindow) ==
-                null ||
-                h.postMessage(
-                  { type: "TREX_RESPONSE_TYPE_SWITCH_CHAIN", data: t.payload },
-                  "*"
-                ),
-              r({ success: !0 })),
-            t.type ===
-              "TREX_RESPONSE_TYPE_GET_ACTIVE_WALLET_CONNECTION_STATUS_TO_PANEL" &&
-              ((S = document.getElementById("trex-iframe").contentWindow) ==
-                null ||
-                S.postMessage(
-                  {
-                    type: "TREX_RESPONSE_TYPE_GET_ACTIVE_WALLET_CONNECTION_STATUS",
-                    data: t.payload,
-                  },
-                  "*"
-                ),
-              r({ success: !0 })),
-            t.type === "TREX_RESPONSE_TYPE_WAIT_FOR_RECEIPT_TO_PANEL" &&
-              ((u = document.getElementById("trex-iframe").contentWindow) ==
-                null ||
-                u.postMessage(
-                  {
-                    type: "TREX_RESPONSE_TYPE_WAIT_FOR_RECEIPT",
-                    data: t.payload,
-                  },
-                  "*"
-                ),
-              r({ success: !0 })),
-            t.type === "TREX_RESPONSE_TYPE_SEND_TRANSACTION_TO_PANEL" &&
-              ((g = document.getElementById("trex-iframe").contentWindow) ==
-                null ||
-                g.postMessage(
-                  {
-                    type: "TREX_RESPONSE_TYPE_SEND_TRANSACTION",
-                    data: t.payload,
-                  },
-                  "*"
-                ),
-              r({ success: !0 })),
-            t.type === "TREX_RESPONSE_TYPE_ESTIMATE_GAS_TO_PANEL" &&
-              ((R = document.getElementById("trex-iframe").contentWindow) ==
-                null ||
-                R.postMessage(
-                  { type: "TREX_RESPONSE_TYPE_ESTIMATE_GAS", data: t.payload },
-                  "*"
-                ),
-              r({ success: !0 })),
-            t.type === "TREX_RESPONSE_TYPE_BALANCE_FROM_BG" &&
-              ((P = document.getElementById("trex-iframe").contentWindow) ==
-                null ||
-                P.postMessage(
-                  { type: "TREX_RESPONSE_TYPE_BALANCE", data: t.payload },
-                  "*"
-                ),
-              r({ success: !0 })),
-            t.type === "trex_extension_install_wallet_login_error_from_bg" &&
-              ((w = document.getElementById("trex-iframe").contentWindow) ==
-                null ||
-                w.postMessage(
-                  {
-                    type: "trex_extension_install_wallet_login_error_from_pannel",
-                    data: t.payload,
-                  },
-                  "*"
-                ),
-              r({ success: !0 }),
-              chrome.runtime.sendMessage({ type: _.TrexLoginOut })),
-            t.type ===
-              "trex_extension_install_wallet_login_from_content_loading" &&
-              ((I = document.getElementById("trex-iframe").contentWindow) ==
-                null ||
-                I.postMessage(
-                  {
-                    type: "trex_extension_install_wallet_login_from_pannel_loading",
-                    data: t.payload,
-                  },
-                  "*"
-                ),
-              r({ success: !0 })),
-            t.type === "trex_extension_get_InstallWallet_response" &&
-              ((A = document.getElementById("trex-iframe").contentWindow) ==
-                null ||
-                A.postMessage(
-                  {
-                    type: "trex_extension_get_InstallWallet_response",
-                    data: t.payload,
-                  },
-                  "*"
-                ),
-              r({ success: !0 })),
-            t.type === M.ContentClaimReward)
-          ) {
-            const s = document.getElementById("trex-iframe");
-            return (
-              s &&
-                s.contentWindow &&
-                ((N = s == null ? void 0 : s.contentWindow) == null ||
-                  N.postMessage(
-                    {
-                      type: "extensiontoiframe_trex_claim",
-                      data: t.payload || {},
-                    },
-                    "*"
-                  )),
-              setTimeout(() => {
-                r({ success: !0 });
-              }, 0),
-              !0
+          // Handle Twitter automation messages from background
+          if (t.type === "TREX_TWITTER_LOGIN_REQUIRED") {
+            console.log(
+              "🐦 [TREX Automation] Received Twitter login required message"
             );
+
+            // Stop the automation UI using stored state
+            if (t.stopAutomation) {
+              console.log(
+                "🛑 [TREX Automation] Stopping automation UI due to login requirement"
+              );
+
+              // Update stored state and UI
+              chrome.storage.local.set({
+                trex_automation_running: false,
+                trex_automation_stopped: true,
+                trex_twitter_login_required: true,
+              });
+
+              // Update local variable if accessible
+              if (typeof window.setAutomationRunning === "function") {
+                window.setAutomationRunning(false);
+              }
+
+              window.updateToggleAppearance && window.updateToggleAppearance();
+            }
+
+            window.showTwitterLoginPopup && window.showTwitterLoginPopup();
+            return;
           }
-          t.type === M.ContentRrewardUpdate &&
-            ((L = document.getElementById("trex-iframe").contentWindow) ==
-              null ||
-              L.postMessage(
-                {
-                  type: "extensiontoiframe_reward_update",
-                  data: t.payload || {},
-                },
-                "*"
-              ),
-            r({ success: !0 }));
+
+          if (t.type === "TREX_TWITTER_ERROR") {
+            console.log(
+              "❌ [TREX Automation] Received Twitter error:",
+              t.message
+            );
+            // Stop automation and show error
+            isAutomationRunning = false;
+            window.updateToggleAppearance();
+            alert("Twitter automation error: " + t.message);
+            return;
+          }
+
+          // ...existing message handler code...
         }),
         () => {
           o == null || o.removeEventListener("load", p),
@@ -499,16 +386,838 @@ function u0() {
         }
       );
     }, []),
-    d.jsx("iframe", {
-      id: "trex-iframe",
-      src: `${n}/extension`,
+    // Add automation toggle functionality
+    C.useEffect(() => {
+      console.log("🎛️ [TREX Automation] Initializing automation toggle...");
+
+      let isAutomationRunning = false;
+      let isLoggedIn = false;
+
+      // Check stored automation state when popup opens
+      chrome.storage.local.get(
+        [
+          "trex_automation_running",
+          "trex_automation_stopped",
+          "trex_twitter_login_required",
+        ],
+        (result) => {
+          console.log("🔍 [TREX Automation] Checked stored state:", result);
+
+          if (result.trex_automation_running === true) {
+            console.log(
+              "✅ [TREX Automation] Automation is running - updating UI"
+            );
+            isAutomationRunning = true;
+            window.updateToggleAppearance && window.updateToggleAppearance();
+          } else if (result.trex_automation_stopped === true) {
+            console.log(
+              "🛑 [TREX Automation] Automation was stopped - updating UI"
+            );
+            isAutomationRunning = false;
+            window.updateToggleAppearance && window.updateToggleAppearance();
+          }
+
+          if (result.trex_twitter_login_required === true) {
+            console.log(
+              "🐦 [TREX Automation] Twitter login required - showing popup"
+            );
+            window.showTwitterLoginPopup && window.showTwitterLoginPopup();
+          }
+        }
+      );
+
+      // Make functions available globally on window for React to access
+      window.handleToggleClick = async (event) => {
+        console.log(
+          "🎯 [TREX Automation] ====================================="
+        );
+        console.log("🎯 [TREX Automation] BUTTON CLICKED! Event:", event);
+        console.log(
+          "🎯 [TREX Automation] ====================================="
+        );
+        console.log(
+          "🎯 [TREX Automation] Toggle clicked, current state:",
+          isAutomationRunning
+        );
+
+        try {
+          if (isAutomationRunning) {
+            // Stop automation
+            console.log("🛑 [TREX Automation] Stopping Twitter automation...");
+
+            // Stop Twitter automation via background script
+            chrome.runtime.sendMessage(
+              { type: "TREX_STOP_TWITTER_AUTOMATION" },
+              (response) => {
+                console.log("🛑 [TREX Automation] Stop response:", response);
+                isAutomationRunning = false;
+
+                // Update stored state when manually stopping
+                chrome.storage.local.set({
+                  trex_automation_running: false,
+                  trex_automation_stopped: true,
+                  trex_twitter_login_required: false,
+                  trex_last_error: null,
+                });
+
+                window.updateToggleAppearance();
+                console.log("🛑 [TREX Automation] Twitter automation stopped");
+              }
+            );
+          } else {
+            // Try to start automation
+            console.log(
+              "🚀 [TREX Automation] Attempting to start automation..."
+            );
+
+            // Do comprehensive login check before starting
+            console.log("🔍 [TREX Automation] Checking login status...");
+            await window.checkLoginStatus();
+            console.log(
+              "🔍 [TREX Automation] Login status check completed, isLoggedIn:",
+              isLoggedIn
+            );
+
+            if (isLoggedIn) {
+              // User is logged in to TREX - start Twitter automation
+              console.log(
+                "✅ [TREX Automation] TREX auth confirmed, starting Twitter automation..."
+              );
+
+              // Start Twitter automation via background script
+              console.log(
+                "📤 [TREX Automation] Sending start message to background..."
+              );
+              chrome.runtime.sendMessage(
+                { type: "TREX_START_TWITTER_AUTOMATION" },
+                (response) => {
+                  console.log(
+                    "📥 [TREX Automation] Background response:",
+                    response
+                  );
+                  if (response && response.success) {
+                    isAutomationRunning = true;
+
+                    // Clear any stored error states since automation started successfully
+                    chrome.storage.local.set({
+                      trex_automation_running: true,
+                      trex_automation_stopped: false,
+                      trex_twitter_login_required: false,
+                      trex_last_error: null,
+                    });
+
+                    window.updateToggleAppearance();
+                    console.log(
+                      "✅ [TREX Automation] Twitter automation started successfully"
+                    );
+                  } else {
+                    console.log(
+                      "❌ [TREX Automation] Twitter automation failed to start:",
+                      response
+                    );
+                    window.showTwitterLoginPopup();
+                  }
+                }
+              );
+            } else {
+              // User is not logged in - show popup and keep toggle off
+              console.log("❌ [TREX Automation] Not logged in - showing popup");
+              window.showLoginPopup();
+            }
+          }
+        } catch (error) {
+          console.error(
+            "💥 [TREX Automation] Error in handleToggleClick:",
+            error
+          );
+        }
+
+        console.log(
+          "🎯 [TREX Automation] ====================================="
+        );
+        console.log("🎯 [TREX Automation] Button click handler completed");
+        console.log(
+          "🎯 [TREX Automation] ====================================="
+        );
+      };
+
+      // Make automation state setter available globally
+      window.setAutomationRunning = (state) => {
+        console.log(
+          `🔄 [TREX Automation] Setting automation running state to: ${state}`
+        );
+        isAutomationRunning = state;
+      };
+
+      // Make hideLoginPopup available globally
+      window.hideLoginPopup = () => {
+        const loginPopupOverlay = document.getElementById("loginPopupOverlay");
+        if (loginPopupOverlay) {
+          // Add fade-out animation
+          loginPopupOverlay.style.animation = "popupFadeOut 0.2s ease-in";
+
+          // Hide after animation completes
+          setTimeout(() => {
+            loginPopupOverlay.classList.add("hidden");
+            loginPopupOverlay.style.display = "none";
+            loginPopupOverlay.style.visibility = "hidden";
+            loginPopupOverlay.style.opacity = "0";
+          }, 200);
+
+          console.log("✖️ [TREX Automation] Login popup closed");
+        }
+      };
+
+      // Make helper functions available globally too
+      window.showLoginPopup = () => {
+        console.log("🔍 [TREX Automation] Attempting to show login popup...");
+
+        const loginPopupOverlay = document.getElementById("loginPopupOverlay");
+        console.log(
+          "🎯 [TREX Automation] Found popup element:",
+          !!loginPopupOverlay
+        );
+
+        if (loginPopupOverlay) {
+          console.log("🚨 [TREX Automation] Showing login required popup");
+
+          // Remove hidden class AND force display with inline styles
+          loginPopupOverlay.classList.remove("hidden");
+          loginPopupOverlay.style.display = "flex";
+          loginPopupOverlay.style.visibility = "visible";
+          loginPopupOverlay.style.opacity = "1";
+          loginPopupOverlay.style.animation = "popupFadeIn 0.3s ease-out";
+
+          // Add animation to the inner popup
+          const popupContent = loginPopupOverlay.querySelector("div");
+          if (popupContent) {
+            popupContent.style.animation = "popupSlideIn 0.3s ease-out";
+          }
+
+          // Double check that it's visible
+          setTimeout(() => {
+            const computedDisplay =
+              window.getComputedStyle(loginPopupOverlay).display;
+            const isVisible = !loginPopupOverlay.classList.contains("hidden");
+            console.log(
+              "✅ [TREX Automation] Popup visibility confirmed:",
+              isVisible
+            );
+            console.log(
+              "✅ [TREX Automation] Computed display:",
+              computedDisplay
+            );
+          }, 100);
+        } else {
+          console.error(
+            "❌ [TREX Automation] Could not find loginPopupOverlay element!"
+          );
+
+          // Try again after a short delay for React rendering
+          setTimeout(() => {
+            const retryElement = document.getElementById("loginPopupOverlay");
+            if (retryElement) {
+              console.log(
+                "🔄 [TREX Automation] Retry successful - showing popup"
+              );
+              retryElement.classList.remove("hidden");
+              retryElement.style.display = "flex";
+              retryElement.style.visibility = "visible";
+              retryElement.style.opacity = "1";
+              retryElement.style.animation = "popupFadeIn 0.3s ease-out";
+
+              const popupContent = retryElement.querySelector("div");
+              if (popupContent) {
+                popupContent.style.animation = "popupSlideIn 0.3s ease-out";
+              }
+            } else {
+              console.error(
+                "💥 [TREX Automation] Retry failed - popup element still not found"
+              );
+            }
+          }, 500);
+        }
+      };
+
+      window.showTwitterLoginPopup = () => {
+        console.log(
+          "🔍 [TREX Automation] Attempting to show Twitter login popup..."
+        );
+
+        const loginPopupOverlay = document.getElementById("loginPopupOverlay");
+        console.log(
+          "🎯 [TREX Automation] Found popup element:",
+          !!loginPopupOverlay
+        );
+
+        if (loginPopupOverlay) {
+          // Update popup content for Twitter login
+          const popupTitle = loginPopupOverlay.querySelector("h3");
+          const popupMessage = loginPopupOverlay.querySelector("p");
+
+          if (popupTitle) popupTitle.textContent = "Twitter Login Required";
+          if (popupMessage)
+            popupMessage.textContent =
+              "Please log into Twitter (X) to continue automation. This extension needs access to your Twitter account for automated scrolling.";
+
+          console.log(
+            "🐦 [TREX Automation] Showing Twitter login required popup"
+          );
+
+          // Remove hidden class AND force display with inline styles
+          loginPopupOverlay.classList.remove("hidden");
+          loginPopupOverlay.style.display = "flex";
+          loginPopupOverlay.style.visibility = "visible";
+          loginPopupOverlay.style.opacity = "1";
+
+          // Double check that it's visible
+          setTimeout(() => {
+            const computedDisplay =
+              window.getComputedStyle(loginPopupOverlay).display;
+            const isVisible = !loginPopupOverlay.classList.contains("hidden");
+            console.log(
+              "✅ [TREX Automation] Twitter popup visibility confirmed:",
+              isVisible
+            );
+            console.log(
+              "✅ [TREX Automation] Computed display:",
+              computedDisplay
+            );
+          }, 100);
+        } else {
+          console.error(
+            "❌ [TREX Automation] Could not find loginPopupOverlay element for Twitter popup!"
+          );
+
+          // Try again after a short delay for React rendering
+          setTimeout(() => {
+            const retryElement = document.getElementById("loginPopupOverlay");
+            if (retryElement) {
+              console.log(
+                "🔄 [TREX Automation] Twitter popup retry successful"
+              );
+              const popupTitle = retryElement.querySelector("h3");
+              const popupMessage = retryElement.querySelector("p");
+
+              if (popupTitle) popupTitle.textContent = "Twitter Login Required";
+              if (popupMessage)
+                popupMessage.textContent =
+                  "Please log into Twitter (X) to continue automation. This extension needs access to your Twitter account for automated scrolling.";
+
+              retryElement.classList.remove("hidden");
+              retryElement.style.display = "flex";
+              retryElement.style.visibility = "visible";
+              retryElement.style.opacity = "1";
+            } else {
+              console.error(
+                "💥 [TREX Automation] Twitter popup retry failed - element still not found"
+              );
+            }
+          }, 500);
+        }
+      };
+
+      window.updateToggleAppearance = () => {
+        const automationToggle = document.getElementById("automationToggle");
+        const toggleIcon = document.getElementById("toggleIcon");
+        const toggleText = document.getElementById("toggleText");
+
+        if (!automationToggle || !toggleIcon || !toggleText) return;
+
+        // Remove all classes
+        automationToggle.classList.remove("running", "error");
+        toggleIcon.classList.remove("running");
+
+        // Check stored state as backup if local variable seems incorrect
+        chrome.storage.local.get(["trex_automation_running"], (result) => {
+          const storedRunning = result.trex_automation_running === true;
+          const actuallyRunning = isAutomationRunning || storedRunning;
+
+          console.log(
+            `🔍 [TREX Automation] UI State Check - Local: ${isAutomationRunning}, Stored: ${storedRunning}, Final: ${actuallyRunning}`
+          );
+
+          if (actuallyRunning) {
+            automationToggle.classList.add("running");
+            toggleIcon.classList.add("running");
+            toggleText.textContent = "Automation Running";
+            console.log("🟢 [TREX Automation] UI: RUNNING");
+
+            // Sync local variable with stored state
+            isAutomationRunning = true;
+          } else {
+            toggleText.textContent = "Start Automation";
+            console.log("⚪ [TREX Automation] UI: STOPPED");
+
+            // Sync local variable with stored state
+            isAutomationRunning = false;
+          }
+        });
+      };
+
+      // Check if iframe URL indicates login page (CORRECTED LOGIC)
+      const checkIframeURL = () => {
+        return new Promise((resolve) => {
+          try {
+            const iframe = document.getElementById("trex-iframe");
+            if (!iframe) {
+              console.log("⚠️ [TREX Automation] Iframe not found");
+              resolve(false);
+              return;
+            }
+
+            // Get the iframe's current URL
+            let iframeURL = "";
+            try {
+              // Try to get URL directly (may fail due to cross-origin)
+              iframeURL = iframe.contentWindow.location.href;
+            } catch (crossOriginError) {
+              // Fallback: check the src attribute
+              iframeURL = iframe.src || "";
+            }
+
+            console.log("🔗 [TREX Automation] Current iframe URL:", iframeURL);
+
+            // CORRECTED LOGIC: /extension is the LOGIN PAGE
+            // User is logged in if URL does NOT end with /extension
+            const isOnLoginPage =
+              iframeURL.endsWith("/extension") ||
+              iframeURL.includes("/extension?") ||
+              iframeURL.includes("/extension#") ||
+              /\/extension\/?(?:\?.*)?(?:#.*)?$/.test(iframeURL);
+
+            // Check for known logged-in page patterns
+            // SIMPLE LOGIC: If URL ends with /extension → NOT logged in
+            // If URL ends with anything else → User IS logged in
+
+            // User is logged in if NOT on the /extension login page
+            const isLoggedInByURL = !isOnLoginPage;
+
+            console.log(
+              "� [TREX Automation] Is on login page (/extension):",
+              isOnLoginPage
+            );
+            console.log(
+              "🎯 [TREX Automation] Is on known logged-in page:",
+              isOnKnownLoggedInPage
+            );
+            console.log(
+              "✅ [TREX Automation] URL indicates logged in:",
+              isLoggedInByURL
+            );
+
+            resolve(isLoggedInByURL);
+          } catch (error) {
+            console.log(
+              "❌ [TREX Automation] Error checking iframe URL:",
+              error
+            );
+            resolve(false);
+          }
+        });
+      };
+
+      // Check if user is logged in from storage
+      window.checkStorageAuth = () => {
+        return new Promise((resolve) => {
+          chrome.storage.local.get(
+            ["trex_login_data", "trex_auth_data"],
+            (result) => {
+              console.log("📊 [TREX Automation] Storage data:", result);
+
+              const loginData = result.trex_login_data;
+              const authData = result.trex_auth_data;
+
+              // Check if user has valid auth token
+              const hasValidAuth = !!(
+                (loginData && loginData.token && loginData.token.accessToken) ||
+                (authData && authData.token)
+              );
+
+              console.log("🔐 [TREX Automation] Authentication details:");
+              console.log("   📦 Login data exists:", !!loginData);
+              if (loginData) {
+                console.log("   🔑 Login token exists:", !!loginData.token);
+                if (loginData.token) {
+                  console.log(
+                    "   ✅ Access token exists:",
+                    !!loginData.token.accessToken
+                  );
+                }
+              }
+              console.log("   📦 Auth data exists:", !!authData);
+              if (authData) {
+                console.log("   🔑 Auth token exists:", !!authData.token);
+              }
+              console.log("   🎯 Final auth status:", hasValidAuth);
+
+              resolve(hasValidAuth);
+            }
+          );
+        });
+      };
+
+      // Check iframe content for login indicators (ENHANCED)
+      const checkIframeContent = () => {
+        return new Promise((resolve) => {
+          try {
+            const iframe = document.getElementById("trex-iframe");
+            if (!iframe || !iframe.contentWindow) {
+              console.log(
+                "⚠️ [TREX Automation] Iframe not available for content check"
+              );
+              resolve(true); // Assume logged in if can't check
+              return;
+            }
+
+            try {
+              const iframeDoc =
+                iframe.contentDocument || iframe.contentWindow.document;
+              if (iframeDoc) {
+                // More comprehensive login form detection
+                const loginSelectors = [
+                  'input[type="email"]',
+                  'input[type="password"]',
+                  '[data-testid*="login"]',
+                  '[data-testid*="signin"]',
+                  ".login-form",
+                  ".sign-in-form",
+                  ".auth-form",
+                  '[class*="login"]',
+                  '[class*="signin"]',
+                  '[class*="auth"]',
+                  'button[type="submit"]', // Common in login forms
+                ];
+
+                const loginElements = loginSelectors.reduce(
+                  (count, selector) => {
+                    return count + iframeDoc.querySelectorAll(selector).length;
+                  },
+                  0
+                );
+
+                // Check for login-related text content
+                const bodyText = iframeDoc.body
+                  ? iframeDoc.body.innerText.toLowerCase()
+                  : "";
+                const loginTextIndicators = [
+                  "login or sign up",
+                  "sign in",
+                  "sign up",
+                  "create account",
+                  "connect wallet",
+                  "email address",
+                  "password",
+                  "forgot password",
+                ];
+
+                const hasLoginText = loginTextIndicators.some((text) =>
+                  bodyText.includes(text)
+                );
+
+                // Check for logged-in indicators
+                const loggedInIndicators = [
+                  "dashboard",
+                  "profile",
+                  "logout",
+                  "sign out",
+                  "settings",
+                  "account",
+                  "welcome back",
+                  "balance",
+                  "rewards",
+                ];
+
+                const hasLoggedInText = loggedInIndicators.some((text) =>
+                  bodyText.includes(text)
+                );
+
+                const hasLoginContent =
+                  (loginElements > 0 || hasLoginText) && !hasLoggedInText;
+
+                console.log("� [TREX Automation] Content analysis:");
+                console.log("   🔍 Login elements found:", loginElements);
+                console.log("   📝 Has login text:", hasLoginText);
+                console.log("   ✅ Has logged-in text:", hasLoggedInText);
+                console.log("   🚨 Has login content:", hasLoginContent);
+
+                // Return true if NO login content (meaning user is logged in)
+                resolve(!hasLoginContent);
+              } else {
+                console.log(
+                  "📄 [TREX Automation] Cannot access iframe document"
+                );
+                resolve(true); // Assume logged in if can't check
+              }
+            } catch (crossOriginError) {
+              // Cross-origin restrictions - assume valid session
+              console.log(
+                "� [TREX Automation] Cross-origin content check - assuming logged in"
+              );
+              resolve(true);
+            }
+          } catch (error) {
+            console.log(
+              "❌ [TREX Automation] Error checking iframe content:",
+              error
+            );
+            resolve(true); // Assume logged in if error occurs
+          }
+        });
+      };
+
+      // Comprehensive login status check (IMPROVED LOGIC)
+      window.checkLoginStatus = async () => {
+        console.log(
+          "🔍 [TREX Automation] Starting comprehensive login check..."
+        );
+
+        try {
+          // Simple auth check - only check storage auth token
+          const storageAuth = await window.checkStorageAuth();
+
+          console.log("📊 [TREX Automation] Authentication status:");
+          console.log("   🔐 Storage auth token:", storageAuth);
+
+          // SIMPLE LOGIC: Only check if auth token exists in storage
+          const wasLoggedIn = isLoggedIn;
+          isLoggedIn = storageAuth;
+
+          console.log("🎯 [TREX Automation] FINAL LOGIN STATUS:", isLoggedIn);
+
+          // If user was logged in but now isn't, stop automation
+          if (wasLoggedIn && !isLoggedIn && isAutomationRunning) {
+            console.log(
+              "🚨 [TREX Automation] Session expired - stopping automation"
+            );
+            isAutomationRunning = false;
+            window.updateToggleAppearance();
+            window.showSessionExpiredMessage();
+          }
+        } catch (error) {
+          console.log(
+            "❌ [TREX Automation] Error in comprehensive login check:",
+            error
+          );
+          const wasLoggedIn = isLoggedIn;
+          isLoggedIn = false;
+
+          // Stop automation if there was an error and user was previously logged in
+          if (wasLoggedIn && isAutomationRunning) {
+            console.log(
+              "🚨 [TREX Automation] Login check error - stopping automation for safety"
+            );
+            isAutomationRunning = false;
+            window.updateToggleAppearance();
+          }
+        }
+      };
+
+      // Show session expired message
+      window.showSessionExpiredMessage = () => {
+        console.log(
+          "⚠️ [TREX Automation] Session expired - showing notification"
+        );
+        // You could show a toast notification here if needed
+      };
+
+      // Update toggle button appearance
+      const updateToggleAppearance = () => {
+        if (!automationToggle || !toggleIcon || !toggleText) return;
+
+        // Remove all classes
+        automationToggle.classList.remove("running", "error");
+        toggleIcon.classList.remove("running");
+
+        if (isAutomationRunning) {
+          automationToggle.classList.add("running");
+          toggleIcon.classList.add("running");
+          toggleText.textContent = "Automation Running";
+          console.log("🟢 [TREX Automation] UI: RUNNING");
+        } else {
+          toggleText.textContent = "Start Automation";
+          console.log("⚪ [TREX Automation] UI: STOPPED");
+        }
+      };
+
+      // Show login required popup
+      const showLoginPopup = () => {
+        const loginPopupOverlay = document.getElementById("loginPopupOverlay");
+        if (loginPopupOverlay) {
+          console.log("� [TREX Automation] Showing login required popup");
+          loginPopupOverlay.classList.remove("hidden");
+        }
+      };
+
+      // Show Twitter login required popup
+      const showTwitterLoginPopup = () => {
+        const loginPopupOverlay = document.getElementById("loginPopupOverlay");
+        if (loginPopupOverlay) {
+          // Update popup content for Twitter login
+          const popupTitle = loginPopupOverlay.querySelector("h3");
+          const popupMessage = loginPopupOverlay.querySelector("p");
+
+          if (popupTitle) popupTitle.textContent = "Twitter Login Required";
+          if (popupMessage)
+            popupMessage.textContent =
+              "Please log into Twitter (X) to continue automation. This extension needs access to your Twitter account for automated scrolling.";
+
+          console.log(
+            "🐦 [TREX Automation] Showing Twitter login required popup"
+          );
+          loginPopupOverlay.classList.remove("hidden");
+        }
+      };
+
+      // Add CSS styles for automation button states
+      const addAutomationStyles = () => {
+        const styleId = "trex-automation-styles";
+        if (!document.getElementById(styleId)) {
+          const style = document.createElement("style");
+          style.id = styleId;
+          style.textContent = `
+            .automation-toggle.running {
+              background: linear-gradient(135deg, #10b981, #059669) !important;
+              border-color: #10b981 !important;
+              animation: pulse-glow 2s infinite !important;
+            }
+            
+            .automation-toggle.running #toggleIcon {
+              background: #ffffff !important;
+              color: #10b981 !important;
+              animation: spin 2s linear infinite !important;
+            }
+            
+            .automation-toggle.running #toggleIcon::before {
+              content: "⏸" !important;
+            }
+            
+            .automation-toggle:hover {
+              transform: translateY(-1px) !important;
+              box-shadow: 0 4px 8px rgba(99, 102, 241, 0.3) !important;
+            }
+            
+            .automation-toggle.running:hover {
+              box-shadow: 0 4px 8px rgba(16, 185, 129, 0.4) !important;
+            }
+            
+            .automation-toggle.error {
+              background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+              border-color: #ef4444 !important;
+              animation: shake 0.5s ease-in-out !important;
+            }
+            
+            .hidden {
+              display: none !important;
+            }
+            
+            @keyframes pulse-glow {
+              0%, 100% { box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2), 0 0 0 0 rgba(16, 185, 129, 0.7); }
+              50% { box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2), 0 0 0 10px rgba(16, 185, 129, 0); }
+            }
+            
+            @keyframes spin {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+            
+            @keyframes shake {
+              0%, 100% { transform: translateX(0); }
+              25% { transform: translateX(-5px); }
+              75% { transform: translateX(5px); }
+            }
+          `;
+          document.head.appendChild(style);
+        }
+      };
+
+      // Add styles immediately
+      addAutomationStyles();
+
+      console.log(
+        "✅ [TREX Automation] Event handlers attached via React onClick"
+      );
+
+      // Listen for storage changes (when user logs in/out)
+      const handleStorageChange = (changes, namespace) => {
+        if (namespace === "local") {
+          if (changes.trex_login_data || changes.trex_auth_data) {
+            console.log(
+              "🔄 [TREX Automation] Auth data changed, rechecking status"
+            );
+            setTimeout(window.checkLoginStatus, 100);
+
+            // If automation was running and user logs out, stop automation
+            if (isAutomationRunning) {
+              chrome.storage.local.get(
+                ["trex_login_data", "trex_auth_data"],
+                (result) => {
+                  const loginData = result.trex_login_data;
+                  const authData = result.trex_auth_data;
+
+                  const hasValidAuth = !!(
+                    (loginData &&
+                      loginData.token &&
+                      loginData.token.accessToken) ||
+                    (authData && authData.token)
+                  );
+
+                  if (!hasValidAuth) {
+                    isAutomationRunning = false;
+                    isLoggedIn = false;
+                    window.updateToggleAppearance();
+                    console.log(
+                      "🚫 [TREX Automation] User logged out - automation stopped"
+                    );
+                  }
+                }
+              );
+            }
+          }
+        }
+      };
+
+      chrome.storage.onChanged.addListener(handleStorageChange);
+
+      // Periodic session monitoring when automation is running
+      const sessionCheckInterval = setInterval(async () => {
+        if (isAutomationRunning) {
+          console.log("🔄 [TREX Automation] Periodic session check...");
+          await window.checkLoginStatus();
+
+          // If session expired and automation was running, it will be stopped by checkLoginStatus
+        }
+      }, 5000); // Check every 5 seconds when automation is running
+
+      // Initial setup
+      (async () => {
+        await window.checkLoginStatus();
+        window.updateToggleAppearance();
+      })();
+
+      // Cleanup
+      return () => {
+        chrome.storage.onChanged.removeListener(handleStorageChange);
+
+        // Clear the session check interval
+        if (sessionCheckInterval) {
+          clearInterval(sessionCheckInterval);
+        }
+
+        // Stop Twitter automation on cleanup
+        if (isAutomationRunning) {
+          chrome.runtime.sendMessage({ type: "TREX_STOP_TWITTER_AUTOMATION" });
+        }
+
+        console.log("🧹 [TREX Automation] Cleanup completed");
+      };
+    }, []),
+    d.jsx("div", {
       style: {
         width: "100%",
         height: "100vh",
-        border: "none",
-        margin: 0,
-        padding: 0,
-        display: "block",
+        display: "flex",
+        flexDirection: "column",
         position: "fixed",
         top: 0,
         left: 0,
@@ -517,15 +1226,215 @@ function u0() {
         zIndex: 1000,
         backgroundColor: "#ffffff",
       },
-      onLoad: () => {
-        console.log("[TREX Popup] ✅ T-Rex iframe loaded successfully");
-      },
-      onError: (error) => {
-        console.error(
-          "[TREX Popup] ❌ T-Rex iframe failed to load:",
-          error
-        );
-      },
+      children: [
+        d.jsx("div", {
+          style: {
+            position: "relative",
+            width: "100%",
+            height: "100vh",
+            flex: "1 1 auto",
+          },
+          children: [
+            d.jsx("iframe", {
+              id: "trex-iframe",
+              src: `${n}/extension`,
+              style: {
+                width: "100%",
+                height: "100vh",
+                border: "none",
+                margin: 0,
+                padding: 0,
+                display: "block",
+                backgroundColor: "#ffffff",
+              },
+              onLoad: () => {
+                console.log("[TREX Popup] ✅ T-Rex iframe loaded successfully");
+              },
+              onError: (error) => {
+                console.error(
+                  "[TREX Popup] ❌ T-Rex iframe failed to load:",
+                  error
+                );
+              },
+            }),
+            // Automation Control Panel - Bottom Right Overlay
+            d.jsx("div", {
+              style: {
+                position: "fixed",
+                bottom: "20px",
+                right: "20px",
+                zIndex: 10001,
+              },
+              children: [
+                // Automation Toggle Button
+                d.jsx("button", {
+                  id: "automationToggle",
+                  onClick: () =>
+                    window.handleToggleClick && window.handleToggleClick(event),
+                  style: {
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    padding: "12px 24px",
+                    borderRadius: "8px",
+                    border: "2px solid #6366f1",
+                    backgroundColor: "#6366f1",
+                    color: "#ffffff",
+                    fontFamily: "Poppins, sans-serif",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    transition: "all 0.3s ease",
+                    minWidth: "180px",
+                    boxShadow: "0 4px 12px rgba(99, 102, 241, 0.3)",
+                  },
+                  className: "automation-toggle",
+                  children: [
+                    d.jsx("div", {
+                      id: "toggleIcon",
+                      style: {
+                        width: "16px",
+                        height: "16px",
+                        borderRadius: "50%",
+                        backgroundColor: "#ffffff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "10px",
+                      },
+                      children: "▶",
+                    }),
+                    d.jsx("span", {
+                      id: "toggleText",
+                      children: "Start Automation",
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+        }),
+        // Login Required Popup
+        d.jsx("div", {
+          id: "loginPopupOverlay",
+          className: "hidden",
+          style: {
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10002,
+            visibility: "visible",
+            opacity: 1,
+            backdropFilter: "blur(8px)",
+          },
+          children: d.jsx("div", {
+            style: {
+              background: "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",
+              padding: "32px",
+              borderRadius: "20px",
+              boxShadow:
+                "0 25px 50px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1)",
+              maxWidth: "420px",
+              width: "90%",
+              margin: "20px",
+              textAlign: "center",
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+              animation: "popupSlideIn 0.3s ease-out",
+            },
+            children: [
+              // Icon
+              d.jsx("div", {
+                style: {
+                  width: "64px",
+                  height: "64px",
+                  borderRadius: "50%",
+                  background:
+                    "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 24px auto",
+                  boxShadow: "0 8px 20px rgba(102, 126, 234, 0.3)",
+                },
+                children: d.jsx("span", {
+                  style: {
+                    fontSize: "28px",
+                    color: "#ffffff",
+                    fontWeight: "bold",
+                  },
+                  children: "🔐",
+                }),
+              }),
+              // Title
+              d.jsx("h3", {
+                style: {
+                  margin: "0 0 16px 0",
+                  fontSize: "24px",
+                  fontWeight: "700",
+                  color: "#1e293b",
+                  fontFamily:
+                    "Poppins, -apple-system, BlinkMacSystemFont, sans-serif",
+                  letterSpacing: "-0.02em",
+                },
+                children: "Authentication Required",
+              }),
+              // Message
+              d.jsx("p", {
+                style: {
+                  margin: "0 0 32px 0",
+                  fontSize: "16px",
+                  color: "#64748b",
+                  lineHeight: "1.6",
+                  fontFamily:
+                    "Poppins, -apple-system, BlinkMacSystemFont, sans-serif",
+                  fontWeight: "400",
+                },
+                children:
+                  "Please log into T-Rex to start automation. You need to be authenticated to use automated features.",
+              }),
+              // Close Button
+              d.jsx("button", {
+                id: "loginPopupClose",
+                onClick: () => window.hideLoginPopup && window.hideLoginPopup(),
+                style: {
+                  padding: "14px 28px",
+                  borderRadius: "12px",
+                  border: "2px solid #e2e8f0",
+                  backgroundColor: "#ffffff",
+                  color: "#64748b",
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  fontFamily:
+                    "Poppins, -apple-system, BlinkMacSystemFont, sans-serif",
+                  transition: "all 0.2s ease",
+                  minWidth: "120px",
+                  margin: "0 auto",
+                  display: "block",
+                },
+                onMouseOver: (e) => {
+                  e.target.style.borderColor = "#cbd5e1";
+                  e.target.style.backgroundColor = "#f8fafc";
+                  e.target.style.transform = "translateY(-1px)";
+                },
+                onMouseOut: (e) => {
+                  e.target.style.borderColor = "#e2e8f0";
+                  e.target.style.backgroundColor = "#ffffff";
+                  e.target.style.transform = "translateY(0)";
+                },
+                children: "Close",
+              }),
+            ],
+          }),
+        }),
+      ],
     })
   );
 }

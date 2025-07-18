@@ -36,7 +36,8 @@
     "tabs",
     "webRequest",
     "system.display",
-    "storage"
+    "storage",
+    "wootz"
   ],
   "host_permissions": [
     "<all_urls>"

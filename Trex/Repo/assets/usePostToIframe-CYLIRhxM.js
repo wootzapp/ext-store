@@ -17653,16 +17653,16 @@ function getContainerVisibility(t) {
     i = e.height,
     s = window.innerHeight - r,
     n = window.innerHeight + i;
-  
+
   var visibility = s / n;
   console.log("[getContainerVisibility] 📊 Container visibility:", {
     top: r,
     height: i,
     visiblePortion: s,
     totalHeight: n,
-    visibilityRatio: visibility
+    visibilityRatio: visibility,
   });
-  
+
   return visibility;
 }
 
@@ -17675,7 +17675,7 @@ function getContainerCursorPosition(t, e, r) {
     h = i.height,
     o = (e - n) / a,
     f = (r - s) / h;
-  
+
   console.log("[getContainerCursorPosition] 📍 Cursor position:", {
     containerTop: s,
     containerLeft: n,
@@ -17684,9 +17684,9 @@ function getContainerCursorPosition(t, e, r) {
     mouseX: e,
     mouseY: r,
     relativeX: o,
-    relativeY: f
+    relativeY: f,
   });
-  
+
   return { x: o, y: f };
 }
 var useInitInteractivity = function t(e) {
@@ -17694,19 +17694,21 @@ var useInitInteractivity = function t(e) {
       i = e.animationItem,
       s = e.mode,
       n = e.actions;
-    
+
     console.log("[useInitInteractivity] 🔧 Initializing interactivity", {
       mode: s,
       actionsCount: n ? n.length : 0,
       hasAnimationItem: i ? true : false,
-      hasWrapper: r && r.current ? true : false
+      hasWrapper: r && r.current ? true : false,
     });
-    
+
     reactExports.useEffect(
       function () {
         var a = r.current;
         if (!(!a || !i || !n.length)) {
-          console.log("[useInitInteractivity] ▶️ Stopping initial animation to prepare for interactivity mode");
+          console.log(
+            "[useInitInteractivity] ▶️ Stopping initial animation to prepare for interactivity mode"
+          );
           i.stop();
           var h = function () {
               var d = null,
@@ -17827,13 +17829,13 @@ var useInitInteractivity = function t(e) {
       n = s.animationItem,
       a = s.View,
       h = s.animationContainerRef;
-    
+
     console.log("[useLottieInteractivity] ⚙️ Animation details:", {
       hasAnimationItem: n ? true : false,
       hasAnimationContainer: h.current ? true : false,
-      actionsCount: r ? r.length : 0
+      actionsCount: r ? r.length : 0,
     });
-    
+
     return (
       useInitInteractivity({
         actions: r,
@@ -17849,9 +17851,9 @@ var useInitInteractivity = function t(e) {
     console.log("[Lottie] 🎬 Initializing Lottie component", {
       hasInteractivity: e.interactivity ? true : false,
       interactivityMode: e.interactivity?.mode || "none",
-      hasStyle: e.style ? Object.keys(e.style).length > 0 : false
+      hasStyle: e.style ? Object.keys(e.style).length > 0 : false,
     });
-    
+
     var r,
       i,
       s,
@@ -17874,11 +17876,11 @@ var useInitInteractivity = function t(e) {
       E = o.animationContainerRef,
       x = o.animationLoaded,
       A = o.animationItem;
-      
+
     console.log("[Lottie] 🖼️ Animation status:", {
       loaded: x,
       hasAnimationItem: A ? true : false,
-      hasContainer: E?.current ? true : false
+      hasContainer: E?.current ? true : false,
     });
     return (
       reactExports.useEffect(
@@ -17941,29 +17943,37 @@ const postToIframe = (t, e, r) => {
     data: r,
     iframe: t ? "exists" : "null",
   });
-  
+
   return setTimeout(() => {
     var i;
-    console.log("[postToIframe] ⏱️ Timeout elapsed, sending message to iframe", {
-      type: e,
-      hasContentWindow: (t && t.contentWindow) ? true : false
-    });
-    
-    if ((i = t == null ? void 0 : t.contentWindow) == null) {
-      console.warn("[postToIframe] ❌ Failed to send message - contentWindow is null", {
+    console.log(
+      "[postToIframe] ⏱️ Timeout elapsed, sending message to iframe",
+      {
         type: e,
-        data: r
-      });
+        hasContentWindow: t && t.contentWindow ? true : false,
+      }
+    );
+
+    if ((i = t == null ? void 0 : t.contentWindow) == null) {
+      console.warn(
+        "[postToIframe] ❌ Failed to send message - contentWindow is null",
+        {
+          type: e,
+          data: r,
+        }
+      );
       return;
     }
-    
+
     try {
       i.postMessage({ type: e, data: r }, "*");
-      console.log("[postToIframe] ✅ Message successfully sent to iframe", { type: e });
+      console.log("[postToIframe] ✅ Message successfully sent to iframe", {
+        type: e,
+      });
     } catch (error) {
       console.error("[postToIframe] 🔥 Error sending message to iframe", {
         type: e,
-        error: error.message
+        error: error.message,
       });
     }
   }, 500);

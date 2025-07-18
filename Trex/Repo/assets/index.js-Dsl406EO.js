@@ -2593,6 +2593,8 @@ const d2 = new y2(),
       x(this, "isInitialized", !1);
       x(this, "initTimeout", null);
       x(this, "isConnecting", !1);
+      // Store global reference for WebSocket message forwarding
+      window.trexSocketRewardManager = this;
       x(this, "initConnect", () => {
         if (
           (console.log("[SocketRewardManager] 处理用户登录和连接Socket"),
@@ -2601,6 +2603,30 @@ const d2 = new y2(),
           console.log("[SocketRewardManager] 已在初始化中或已初始化，跳过");
           return;
         }
+        
+        // First check if WebSocket is already connected via service worker
+        chrome.runtime.sendMessage(
+          {
+            type: "TREX_WEBSOCKET_STATUS_REQUEST",
+            timestamp: Date.now(),
+          },
+          (response) => {
+            if (chrome.runtime.lastError) {
+              console.log("[SocketRewardManager] Error checking WebSocket status, proceeding with connection");
+              this.proceedWithConnection();
+            } else if (response && response.isConnected) {
+              console.log("[SocketRewardManager] WebSocket already connected, skipping connection request");
+              this.isInitialized = true;
+              this.isConnecting = false;
+            } else {
+              console.log("[SocketRewardManager] WebSocket not connected, proceeding with connection");
+              this.proceedWithConnection();
+            }
+          }
+        );
+      });
+      
+      x(this, "proceedWithConnection", () => {
         (this.isConnecting = !0),
           this.initTimeout && clearTimeout(this.initTimeout),
           (this.initTimeout = setTimeout(() => {
@@ -2633,29 +2659,69 @@ const d2 = new y2(),
         l0();
       });
       x(this, "initNonCriticalServices", () => {
-        d2.initNotices(), U.isConnected() || this.connectWebSocket(), z.start();
+        d2.initNotices(),
+          // Send WebSocket connection request to service worker instead of connecting directly
+          this.requestWebSocketConnection(),
+          z.start();
       });
       x(this, "connectWebSocket", (i = 0) => {
-        if (i >= 3) {
-          console.warn("[SocketRewardManager] WebSocket连接重试次数已达上限");
-          return;
-        }
-        try {
-          U.connect(this.handleRewardMessage);
-        } catch (e) {
-          console.error("[SocketRewardManager] WebSocket连接失败:", e);
-          const r = Math.min(1e3 * Math.pow(2, i), 5e3);
-          setTimeout(() => {
-            this.connectWebSocket(i + 1);
-          }, r);
-        }
+        console.log(
+          "[SocketRewardManager] Delegating WebSocket connection to service worker..."
+        );
+        this.requestWebSocketConnection();
+      });
+      x(this, "requestWebSocketConnection", () => {
+        console.log(
+          "[SocketRewardManager] Requesting WebSocket connection from service worker"
+        );
+        chrome.runtime.sendMessage(
+          {
+            type: "TREX_WEBSOCKET_CONNECT_REQUEST",
+            timestamp: Date.now(),
+          },
+          (response) => {
+            if (chrome.runtime.lastError) {
+              console.error(
+                "[SocketRewardManager] Error requesting WebSocket connection:",
+                chrome.runtime.lastError
+              );
+            } else {
+              console.log(
+                "[SocketRewardManager] WebSocket connection request sent successfully:",
+                response
+              );
+            }
+          }
+        );
       });
       x(this, "onDisconnect", () => {
         console.log("[SocketRewardManager] 处理用户登出"),
           this.initTimeout &&
-            (clearTimeout(this.initTimeout), (this.initTimeout = null)),
-          U.disconnect(),
-          z.stop();
+            (clearTimeout(this.initTimeout), (this.initTimeout = null));
+            
+        // Only disconnect if we're actually connected
+        chrome.runtime.sendMessage(
+          {
+            type: "TREX_WEBSOCKET_STATUS_REQUEST",
+            timestamp: Date.now(),
+          },
+          (response) => {
+            if (response && response.isConnected) {
+              console.log("[SocketRewardManager] WebSocket connected, sending disconnect request");
+              // Send WebSocket disconnect request to service worker instead of direct disconnect
+              chrome.runtime.sendMessage({
+                type: "TREX_WEBSOCKET_DISCONNECT_REQUEST",
+                timestamp: Date.now(),
+              });
+            } else {
+              console.log("[SocketRewardManager] WebSocket already disconnected or not connected");
+            }
+          }
+        );
+        
+        this.isInitialized = false;
+        this.isConnecting = false;
+        z.stop();
       });
       x(this, "handleRewardMessage", (i) => {
         console.log("[SocketRewardManager] 收到奖励消息:", i),
@@ -2684,7 +2750,28 @@ const d2 = new y2(),
           (this.isConnecting = !1);
       });
       x(this, "isManagerInitialized", () => this.isInitialized);
-      x(this, "isWebSocketConnected", () => U.isConnected());
+      x(this, "isWebSocketConnected", () => {
+        // Query service worker for WebSocket connection status instead of checking directly
+        return new Promise((resolve) => {
+          chrome.runtime.sendMessage(
+            {
+              type: "TREX_WEBSOCKET_STATUS_REQUEST",
+              timestamp: Date.now(),
+            },
+            (response) => {
+              if (chrome.runtime.lastError) {
+                console.error(
+                  "[SocketRewardManager] Error checking WebSocket status:",
+                  chrome.runtime.lastError
+                );
+                resolve(false);
+              } else {
+                resolve(response?.isConnected || false);
+              }
+            }
+          );
+        });
+      });
       x(this, "isHeartbeatActive", () => z.getActiveStatus());
       x(this, "isConnectingInProgress", () => this.isConnecting);
     }
@@ -3014,4 +3101,152 @@ try {
     "[TREX Content Script] ❌ Error during content script initialization:",
     t
   );
+}
+
+// Twitter Login Detection Handler for Background Web Content
+if (
+  window.location.hostname === "x.com" ||
+  window.location.hostname === "twitter.com"
+) {
+  console.log(
+    "[TREX Content Script] 🐦 Twitter login detection handler initialized"
+  );
+
+  // Listen for login check requests from service worker
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === "TREX_CHECK_TWITTER_LOGIN_BACKGROUND") {
+      console.log(
+        "[TREX Content Script] 🔍 Received login check request from background"
+      );
+
+      // Check for Twitter login indicators
+      const checkLoginStatus = () => {
+        // Multiple ways to detect Twitter login
+        const loginIndicators = [
+          // Check for logged-in user data in page
+          () =>
+            !!document.querySelector(
+              '[data-testid="SideNav_AccountSwitcher_Button"]'
+            ),
+          () => !!document.querySelector('[data-testid="AppTabBar_Home_Link"]'),
+          () => !!document.querySelector('[aria-label="Home timeline"]'),
+          () => !!document.querySelector('[data-testid="primaryColumn"]'),
+          // Check for auth cookies
+          () => document.cookie.includes("auth_token"),
+          () => document.cookie.includes("ct0"),
+          // Check for user menu
+          () =>
+            !!document.querySelector(
+              '[data-testid="UserAvatar-Container-unknown"]'
+            ),
+          () =>
+            !!document.querySelector(
+              '[role="button"][aria-label*="Account menu"]'
+            ),
+          // Check for compose tweet button
+          () =>
+            !!document.querySelector('[data-testid="SideNav_NewTweet_Button"]'),
+          // Check if we can see the home timeline
+          () => !!document.querySelector('[aria-label*="Timeline"]'),
+        ];
+
+        // If any indicator returns true, user is likely logged in
+        const isLoggedIn = loginIndicators.some((check) => {
+          try {
+            return check();
+          } catch (e) {
+            return false;
+          }
+        });
+
+        console.log("[TREX Content Script] 🔍 Login indicators check:", {
+          indicators: loginIndicators.map((check, i) => {
+            try {
+              return check();
+            } catch {
+              return false;
+            }
+          }),
+          finalResult: isLoggedIn,
+        });
+
+        return isLoggedIn;
+      };
+
+      // Also try the injected script approach
+      let injectedScriptResponded = false;
+      let contentScriptResult = false;
+
+      // Listen for injected script response
+      const injectedListener = (event) => {
+        if (
+          event.data &&
+          event.data.type === "TREX_TWITTER_LOGIN_STATUS_INJECT"
+        ) {
+          console.log(
+            "[TREX Content Script] 📥 Received response from injected script:",
+            event.data.isLoggedIn
+          );
+          injectedScriptResponded = true;
+
+          // Send the final result (prefer injected script result if available)
+          const finalResult = event.data.isLoggedIn || contentScriptResult;
+          sendFinalResponse(finalResult);
+
+          window.removeEventListener("message", injectedListener);
+        }
+      };
+
+      window.addEventListener("message", injectedListener);
+
+      // Function to send final response
+      const sendFinalResponse = (isLoggedIn) => {
+        console.log(
+          "[TREX Content Script] 📤 Sending login status response:",
+          isLoggedIn
+        );
+
+        // Send response back to service worker
+        chrome.runtime.sendMessage({
+          type: "TREX_TWITTER_LOGIN_STATUS_RESPONSE",
+          isLoggedIn: isLoggedIn,
+          timestamp: Date.now(),
+          url: window.location.href,
+          method: injectedScriptResponded
+            ? "injected_script"
+            : "content_script",
+        });
+      };
+
+      // Wait a bit for page to load, then check with content script
+      setTimeout(() => {
+        contentScriptResult = checkLoginStatus();
+
+        // Ask injected script to check as well
+        window.postMessage(
+          {
+            type: "TREX_CHECK_TWITTER_LOGIN_INJECT",
+            timestamp: Date.now(),
+          },
+          "*"
+        );
+
+        // Wait for injected script response, fallback to content script result
+        setTimeout(() => {
+          if (!injectedScriptResponded) {
+            console.log(
+              "[TREX Content Script] 📤 No injected script response, using content script result"
+            );
+            sendFinalResponse(contentScriptResult);
+            window.removeEventListener("message", injectedListener);
+          }
+        }, 2000); // Wait 2 seconds for injected script
+      }, 1000); // Wait 1 second for page elements to load
+
+      // Return true to keep message channel open
+      return true;
+    }
+  });
+
+  console.log("[TREX Content Script] ✅ Twitter login detection handler ready");
 }

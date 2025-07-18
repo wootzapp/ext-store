@@ -6078,25 +6078,41 @@ const z_ = (g, a) => {
   },
   Q_ = (g, a) => {
     console.log("🔥 [TREX-SERVICE] 📤 UPLOADING SOCIAL DATA TO T-REX SERVERS:");
-    console.log("📍 [TREX-SERVICE] Origin URL:", g == null ? void 0 : g.originUrl);
-    console.log("📏 [TREX-SERVICE] Data Size:", g?.response ? g.response.length : 0, "chars");
-    console.log("⏰ [TREX-SERVICE] Upload Timestamp:", new Date().toISOString());
-    
+    console.log(
+      "📍 [TREX-SERVICE] Origin URL:",
+      g == null ? void 0 : g.originUrl
+    );
+    console.log(
+      "📏 [TREX-SERVICE] Data Size:",
+      g?.response ? g.response.length : 0,
+      "chars"
+    );
+    console.log(
+      "⏰ [TREX-SERVICE] Upload Timestamp:",
+      new Date().toISOString()
+    );
+
     // Parse and show data structure
     try {
       if (g?.response) {
         const parsedResponse = JSON.parse(g.response);
-        console.log("📋 [TREX-SERVICE] Data Structure Keys:", Object.keys(parsedResponse));
+        console.log(
+          "📋 [TREX-SERVICE] Data Structure Keys:",
+          Object.keys(parsedResponse)
+        );
         if (parsedResponse.data) {
-          console.log("🎯 [TREX-SERVICE] API Data Keys:", Object.keys(parsedResponse.data));
+          console.log(
+            "🎯 [TREX-SERVICE] API Data Keys:",
+            Object.keys(parsedResponse.data)
+          );
         }
       }
     } catch (e) {
       console.log("⚠️ [TREX-SERVICE] Response not JSON parseable");
     }
-    
+
     console.log("🚀 [TREX-SERVICE] Calling T-Rex API: platformSocialUpload...");
-    
+
     Lt.authProxy.v1
       .platformSocialUpload({
         url: g == null ? void 0 : g.originUrl,
@@ -6107,7 +6123,10 @@ const z_ = (g, a) => {
         console.log("📊 [TREX-SERVICE] Server Response Status: SUCCESS");
         console.log("📋 [TREX-SERVICE] Server Response Data:", i.data);
         console.log("🌐 [TREX-SERVICE] API Endpoint: platformSocialUpload");
-        console.log("⏰ [TREX-SERVICE] Response Timestamp:", new Date().toISOString());
+        console.log(
+          "⏰ [TREX-SERVICE] Response Timestamp:",
+          new Date().toISOString()
+        );
         a({ success: !0, data: i == null ? void 0 : i.data });
       })
       .catch((i) => {
@@ -6115,8 +6134,13 @@ const z_ = (g, a) => {
         console.error("🚨 [TREX-SERVICE] Error Type:", i.name);
         console.error("📝 [TREX-SERVICE] Error Message:", i.message);
         console.error("🔍 [TREX-SERVICE] Full Error Object:", i);
-        console.error("🌐 [TREX-SERVICE] Failed API Endpoint: platformSocialUpload");
-        console.error("⏰ [TREX-SERVICE] Error Timestamp:", new Date().toISOString());
+        console.error(
+          "🌐 [TREX-SERVICE] Failed API Endpoint: platformSocialUpload"
+        );
+        console.error(
+          "⏰ [TREX-SERVICE] Error Timestamp:",
+          new Date().toISOString()
+        );
         a({ success: !1, error: i.message });
       });
   },

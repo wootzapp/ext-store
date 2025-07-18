@@ -66,6 +66,52 @@
                 left: 50%;
                 transform: translate(-50%, -50%);
             }
+            
+            /* Popup Animation Styles */
+            @keyframes popupSlideIn {
+                0% {
+                    opacity: 0;
+                    transform: translateY(-20px) scale(0.95);
+                }
+                100% {
+                    opacity: 1;
+                    transform: translateY(0) scale(1);
+                }
+            }
+            
+            @keyframes popupFadeIn {
+                0% {
+                    opacity: 0;
+                    backdrop-filter: blur(0px);
+                }
+                100% {
+                    opacity: 1;
+                    backdrop-filter: blur(8px);
+                }
+            }
+            
+            @keyframes popupFadeOut {
+                0% {
+                    opacity: 1;
+                    backdrop-filter: blur(8px);
+                }
+                100% {
+                    opacity: 0;
+                    backdrop-filter: blur(0px);
+                }
+            }
+            
+            /* Button hover effects */
+            .popup-button-primary:hover {
+                transform: translateY(-2px) !important;
+                box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4) !important;
+            }
+            
+            .popup-button-secondary:hover {
+                transform: translateY(-1px) !important;
+                border-color: #cbd5e1 !important;
+                background-color: #f8fafc !important;
+            }
         </style>
       <script type="module" crossorigin src="/assets/index.html-C0L9F51d.js"></script>
       <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">

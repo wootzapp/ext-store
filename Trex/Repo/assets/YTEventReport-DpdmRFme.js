@@ -142,7 +142,7 @@ const x0 = class x0 {
     );
     if (he.isConnected())
       try {
-        "requestIdleCallback" in window
+        typeof window !== "undefined" && "requestIdleCallback" in window
           ? (console.log(
               "[SocketHeartReport] 🔄 sendHeartbeat: Using requestIdleCallback for heartbeat"
             ),
@@ -403,7 +403,7 @@ class sr {
       "[WSSock] 🔧 setupEventHandlers: Setting up WebSocket event handlers"
     );
     this.ws &&
-      (      (this.ws.onopen = () => {
+      ((this.ws.onopen = () => {
         console.log(
           "[WSSock] ✅ onopen: WebSocket connection established successfully to URL:",
           this.config.url
@@ -420,7 +420,7 @@ class sr {
         console.log("[WSSock] 📨 onmessage: Received message:", o.data);
         try {
           o.data &&
-            ("requestIdleCallback" in window
+            (typeof window !== "undefined" && "requestIdleCallback" in window
               ? (console.log(
                   "[WSSock] 🔄 onmessage: Using requestIdleCallback for message processing"
                 ),
@@ -467,13 +467,22 @@ class sr {
       const t = o.replace("Message received:", "");
       console.log("[WSSock] 📝 processMessageData: Cleaned message data:", t);
       const e = JSON.parse(t);
-      console.log("[WSSock] 📊 processMessageData: Parsed message object:", e, 
-        "messageType:", e.messageType, 
-        "timestamp:", new Date(e.timestamp).toISOString()
+      console.log(
+        "[WSSock] 📊 processMessageData: Parsed message object:",
+        e,
+        "messageType:",
+        e.messageType,
+        "timestamp:",
+        new Date(e.timestamp).toISOString()
       );
       this.handleMessage(e);
     } catch (t) {
-      console.error("[WSSock] ❌ processMessageData: JSON parsing failed:", t, "Raw data was:", o);
+      console.error(
+        "[WSSock] ❌ processMessageData: JSON parsing failed:",
+        t,
+        "Raw data was:",
+        o
+      );
     }
   }
   handleMessage(o) {
@@ -515,7 +524,9 @@ class sr {
   }
   handleReconnect() {
     if (this.reconnectAttempts >= this.config.maxReconnectAttempts) {
-      console.log("[WSSock] ❌ handleReconnect: Maximum reconnection attempts reached, stopping reconnection attempts");
+      console.log(
+        "[WSSock] ❌ handleReconnect: Maximum reconnection attempts reached, stopping reconnection attempts"
+      );
       return;
     }
     this.reconnectAttempts++,
@@ -586,20 +597,25 @@ class sr {
   }
   flushPendingMessages() {
     var o;
-    console.log("[WSSock] 🔄 flushPendingMessages: Flushing pending messages", 
-      "Pending count:", this.pendingMessages.length,
-      "WebSocket ready state:", (o = this.ws) ? o.readyState : "null"
+    console.log(
+      "[WSSock] 🔄 flushPendingMessages: Flushing pending messages",
+      "Pending count:",
+      this.pendingMessages.length,
+      "WebSocket ready state:",
+      (o = this.ws) ? o.readyState : "null"
     );
-    
+
     if (this.pendingMessages.length !== 0) {
       if (
         (this.batchSendTimer &&
           (clearTimeout(this.batchSendTimer), (this.batchSendTimer = null)),
         ((o = this.ws) == null ? void 0 : o.readyState) !== WebSocket.OPEN)
       ) {
-        console.log("[WSSock] ⚠️ flushPendingMessages: WebSocket not in OPEN state (current state:", 
-          (o = this.ws) ? o.readyState : "null", 
-          "), re-queuing messages"),
+        console.log(
+          "[WSSock] ⚠️ flushPendingMessages: WebSocket not in OPEN state (current state:",
+          (o = this.ws) ? o.readyState : "null",
+          "), re-queuing messages"
+        ),
           this.pendingMessages.forEach((t) => {
             this.addMessageToQueue(t);
           }),
@@ -652,19 +668,32 @@ class sr {
       );
   }
   flushMessageQueue() {
-    console.log("[WSSock] 🔄 flushMessageQueue: Flushing message queue", 
-      "Queue length:", this.messageQueue.length,
-      "Connection status:", this.getStatus()
+    console.log(
+      "[WSSock] 🔄 flushMessageQueue: Flushing message queue",
+      "Queue length:",
+      this.messageQueue.length,
+      "Connection status:",
+      this.getStatus()
     );
     if (this.messageQueue.length === 0) {
-      console.log("[WSSock] ℹ️ flushMessageQueue: Message queue is empty, nothing to flush");
+      console.log(
+        "[WSSock] ℹ️ flushMessageQueue: Message queue is empty, nothing to flush"
+      );
       return;
     }
     const o = [...this.messageQueue];
-    console.log("[WSSock] 📤 flushMessageQueue: Preparing to send", o.length, "queued messages");
+    console.log(
+      "[WSSock] 📤 flushMessageQueue: Preparing to send",
+      o.length,
+      "queued messages"
+    );
     (this.messageQueue = []),
       o.forEach((t, i) => {
-        console.log(`[WSSock] 📤 flushMessageQueue: Sending queued message ${i+1}/${o.length}`);
+        console.log(
+          `[WSSock] 📤 flushMessageQueue: Sending queued message ${i + 1}/${
+            o.length
+          }`
+        );
         this.send(t);
       });
   }
@@ -673,15 +702,19 @@ class sr {
   }
   disconnect() {
     console.log("[WSSock] 🔌 disconnect: Disconnecting WebSocket connection"),
-      this.ws && (
-        console.log("[WSSock] 🔌 disconnect: Closing WebSocket with readyState:", this.ws.readyState),
-        this.ws.close(), 
-        (this.ws = null)
-      ),
+      this.ws &&
+        (console.log(
+          "[WSSock] 🔌 disconnect: Closing WebSocket with readyState:",
+          this.ws.readyState
+        ),
+        this.ws.close(),
+        (this.ws = null)),
       (this.isConnecting = !1),
       (this.reconnectAttempts = 0),
       this.clearMessageQueue(),
-      console.log("[WSSock] 🔌 disconnect: WebSocket connection closed and cleanup complete");
+      console.log(
+        "[WSSock] 🔌 disconnect: WebSocket connection closed and cleanup complete"
+      );
   }
   isConnected() {
     return !!(this.ws && this.ws.readyState === WebSocket.OPEN);
@@ -711,24 +744,41 @@ class sr {
     this.config = { ...this.config, ...o };
   }
   handleWSSockMessages(o, t, e) {
-    console.log("[WSSock] 📨 handleWSSockMessages: Received message type:", o.type, "data:", o.data);
+    console.log(
+      "[WSSock] 📨 handleWSSockMessages: Received message type:",
+      o.type,
+      "data:",
+      o.data
+    );
     switch (o.type) {
       case "WSSOCK_SEND":
-        console.log("[WSSock] 📤 handleWSSockMessages: Handling WSSOCK_SEND message");
+        console.log(
+          "[WSSock] 📤 handleWSSockMessages: Handling WSSOCK_SEND message"
+        );
         return this.handleSendMessage(o.data, e), !0;
       case "WSSOCK_STATUS":
-        console.log("[WSSock] 📊 handleWSSockMessages: Handling WSSOCK_STATUS message");
+        console.log(
+          "[WSSock] 📊 handleWSSockMessages: Handling WSSOCK_STATUS message"
+        );
         return this.handleStatusRequest(e), !0;
       case "WSSOCK_UPDATE_CONFIG":
-        console.log("[WSSock] ⚙️ handleWSSockMessages: Handling WSSOCK_UPDATE_CONFIG message");
+        console.log(
+          "[WSSock] ⚙️ handleWSSockMessages: Handling WSSOCK_UPDATE_CONFIG message"
+        );
         return this.handleUpdateConfig(o.data, e), !0;
       default:
-        console.log("[WSSock] ❓ handleWSSockMessages: Unknown message type:", o.type);
+        console.log(
+          "[WSSock] ❓ handleWSSockMessages: Unknown message type:",
+          o.type
+        );
         return !1;
     }
   }
   handleSendMessage(o, t) {
-    console.log("[WSSock] 📤 handleSendMessage: Attempting to send message:", o);
+    console.log(
+      "[WSSock] 📤 handleSendMessage: Attempting to send message:",
+      o
+    );
     try {
       this.send(o);
       console.log("[WSSock] ✅ handleSendMessage: Message sent successfully");
@@ -743,37 +793,54 @@ class sr {
     try {
       const t = this.getStatus(),
         e = this.isConnected();
-      console.log("[WSSock] 📊 handleStatusRequest: Current status:", t, "isConnected:", e);
-      o({ 
-        success: !0, 
-        status: t, 
-        isConnected: e, 
+      console.log(
+        "[WSSock] 📊 handleStatusRequest: Current status:",
+        t,
+        "isConnected:",
+        e
+      );
+      o({
+        success: !0,
+        status: t,
+        isConnected: e,
         message: "Status retrieved successfully",
         queueLength: this.messageQueue.length,
-        pendingMessages: this.pendingMessages.length
+        pendingMessages: this.pendingMessages.length,
       });
     } catch (t) {
-      console.error("[WSSock] ❌ handleStatusRequest: Error retrieving status:", t);
+      console.error(
+        "[WSSock] ❌ handleStatusRequest: Error retrieving status:",
+        t
+      );
       o({ success: !1, error: t.message || "Failed to retrieve status" });
     }
   }
   handleUpdateConfig(o, t) {
-    console.log("[WSSock] ⚙️ handleUpdateConfig: Updating WebSocket configuration", o);
+    console.log(
+      "[WSSock] ⚙️ handleUpdateConfig: Updating WebSocket configuration",
+      o
+    );
     try {
-      const oldConfig = {...this.config};
+      const oldConfig = { ...this.config };
       this.updateConfig(o);
-      console.log("[WSSock] ✅ handleUpdateConfig: Configuration updated successfully", 
-        "Old:", oldConfig,
-        "New:", this.config
+      console.log(
+        "[WSSock] ✅ handleUpdateConfig: Configuration updated successfully",
+        "Old:",
+        oldConfig,
+        "New:",
+        this.config
       );
-      t({ 
-        success: !0, 
-        message: "Configuration updated successfully", 
+      t({
+        success: !0,
+        message: "Configuration updated successfully",
         oldConfig: oldConfig,
-        newConfig: this.config
+        newConfig: this.config,
       });
     } catch (e) {
-      console.error("[WSSock] ❌ handleUpdateConfig: Error updating configuration:", e);
+      console.error(
+        "[WSSock] ❌ handleUpdateConfig: Error updating configuration:",
+        e
+      );
       t({ success: !1, error: e.message || "Failed to update configuration" });
     }
   }
@@ -1963,8 +2030,12 @@ const $r = (...n) => qt.twCn(xr(n)),
       });
     }),
   Kr = (n) => {
-    const o = (n == null ? void 0 : n.width) || window.screen.width,
-      t = (n == null ? void 0 : n.height) || window.screen.height,
+    const o =
+        (n == null ? void 0 : n.width) ||
+        (typeof window !== "undefined" ? window.screen.width : 1920),
+      t =
+        (n == null ? void 0 : n.height) ||
+        (typeof window !== "undefined" ? window.screen.height : 1080),
       e = navigator.userAgent,
       v = navigator.language,
       x = navigator.platform,
