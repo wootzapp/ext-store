@@ -239,8 +239,6 @@ const CartManager = ({ onBack }) => {
                 <FaClock className="w-10 h-10 text-orange-400" />
               </div>
               <h3 className="text-xl font-bold text-white mb-2">No items in waitlist</h3>
-              <p className="text-purple-300">Items will appear here when out of stock</p>
-              <p className="text-blue-300 text-sm mt-2">Auto-retry system will attempt to add them every 5 minutes</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -274,9 +272,9 @@ const CartManager = ({ onBack }) => {
                           Added: {new Date(product.addedAt).toLocaleDateString()}
                         </p>
                       )}
-                      <div className="flex items-center space-x-1 text-blue-400 mt-2">
-                        <FaSync className="w-3 h-3 animate-spin" />
-                        <span className="text-xs">Auto-retrying every 5 minutes</span>
+                      <div className="flex items-center space-x-2 text-blue-400 mt-2 bg-blue-500/10 rounded-lg px-3 py-2 border border-blue-500/20">
+
+                        <span className="text-xs font-medium">Will be automatically added to cart when back in stock</span>
                       </div>
                     </div>
                   </div>

@@ -1303,7 +1303,7 @@ async function retryAddToCart(productDetails, productPrice, productId) {
                   // Check cart with retry logic
               setTimeout(() => {
                     let cartRetryCount = 0;
-                    const maxCartRetries = 3;
+                    const maxCartRetries = 10;
                     
                     const attemptCartCheck = () => {
                       chrome.wootz.createBackgroundWebContents(cartWebContentsId, `https://m.popmart.com/${countryCode.toLowerCase()}/largeShoppingCart`, (cartResult) => {

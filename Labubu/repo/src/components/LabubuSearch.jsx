@@ -87,7 +87,7 @@ const LabubuSearch = ({ onBack, userProfile, onLogout }) => {
         } else {
           setToast({
             show: true,
-            message: '⏰ Added to waitlist - will notify when available!',
+            message: '⏰ Added to waitlist - will automatically add to cart when available!',
             type: 'info'
           });
         }
