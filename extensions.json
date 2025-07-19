@@ -173,6 +173,23 @@
       "updated_at": "2025-02-26T15:00:00Z"
     },
     {
+      "id": "gckloiljabipmjohgnklademghjaoboa",
+      "name": "Trex",
+      "description": "Get rewards by watching YouTube videos and using Twitter",
+      "version": "1.0.0",
+      "author": "Wootzapp Team",
+      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Trex/dist_chrome.crx",
+      "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Trex/Repo/icon-128.png",
+      "github_url": "https://github.com/wootzapp/ext-store/tree/main/Trex/Repo",
+      "tags": [
+        "Rewards",
+        "YouTube",
+        "Twitter"
+      ],
+      "created_at": "2025-07-12T15:00:02Z",
+      "updated_at": "2025-07-12T15:00:02Z"
+    },
+    {
       "id": "nofldplihhlkcpbejlmccfafcpeejaef",
       "name": "Sapien",
       "description": "Earn rewards by playing games.",

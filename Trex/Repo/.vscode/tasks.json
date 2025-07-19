@@ -1,0 +1,11 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Test T-Rex Extension",
+			"type": "shell",
+			"command": "echo 'T-Rex Chrome Extension WebSocket Stability Improvements Completed:\n\n✅ Reduced monitoring interval from 30s to 15s for better WebSocket maintenance\n✅ Enhanced Twitter data handler with continuous scrolling detection\n✅ Faster WebSocket reconnection for active scrolling sessions (500ms vs 1000ms)\n✅ Proactive WebSocket health checks during automation\n✅ Smart connection management in content script\n✅ Status checking before connection/disconnection requests\n\nThe automation should now maintain stable WebSocket connections for continuous Twitter data transmission during scrolling activities.'",
+			"group": "test"
+		}
+	]
+}

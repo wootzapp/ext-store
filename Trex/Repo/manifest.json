@@ -1,0 +1,105 @@
+{
+  "manifest_version": 3,
+  "name": "Trex",
+  "version": "1.0.0",
+  "description": "description in manifest.json",
+  "options_ui": {
+    "page": "src/pages/options/index.html"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icon-16.png",
+      "19": "icon-19.png",
+      "32": "icon-32.png",
+      "38": "icon-38.png",
+      "48": "icon-48.png",
+      "128": "icon-128.png"
+    },
+    "default_popup": "src/pages/panel/index.html"
+  },
+  "background": {
+    "service_worker": "service-worker-loader.js",
+    "type": "module"
+  },
+  "icons": {
+    "16": "icon-16.png",
+    "19": "icon-19.png",
+    "32": "icon-32.png",
+    "38": "icon-38.png",
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "notifications",
+    "tabs",
+    "webRequest",
+    "system.display",
+    "storage",
+    "wootz"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "js": [
+        "assets/index.js-loader-BpU1ihqV.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ],
+      "css": [
+        "contentStyle.css",
+        "assets/index-Do-CAsR3.css"
+      ]
+    },
+    {
+      "js": [
+        "assets/api-interceptor.ts-loader-CFWX7_lH.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ],
+      "css": [
+        "contentStyle.css"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "devtools_page": "src/pages/devtools/index.html",
+  "web_accessible_resources": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "resources": [
+        "contentStyle.css",
+        "icon-128.png",
+        "icon-32.png",
+        "icon-16.png",
+        "icon-48.png",
+        "icon-popcorn.png",
+        "icon-popcorn-bucket.png",
+        "icon-close.png",
+        "icon-corn.png",
+        "src/assets/img/switch_logo.svg",
+        "src/assets/img/chat-bubble.png",
+        "src/assets/img/lock-open-alt.svg",
+        "x-api-inject.js",
+        "youtube-api-inject.js",
+        "assets/client-D0qgw5AI.js",
+        "assets/index-D91ASeLC.js",
+        "assets/actions-CxosgIhI.js",
+        "assets/YTEventReport-DpdmRFme.js",
+        "assets/common-DKP7UT3W.js",
+        "assets/usePostToIframe-CYLIRhxM.js",
+        "assets/_commonjsHelpers-BosuxZz1.js",
+        "assets/index.js-Dsl406EO.js",
+        "assets/api-interceptor.ts-CEAr-TFA.js"
+      ],
+      "use_dynamic_url": false
+    }
+  ]
+}
