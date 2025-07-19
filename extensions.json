@@ -4,7 +4,7 @@
       "id": "allmdcfldidgeghfoioaaiammdlpmnnk",
       "name": "Artifact",
       "description": "An extension to earn rewards for browsing the web.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "Wootzapp Team",
       "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Artifact/Artifact.crx",
       "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Artifact/repo/public/icons/icon128.png",
@@ -15,13 +15,13 @@
         "Browse"
       ],
       "created_at": "2025-02-26T15:00:00Z",
-      "updated_at": "2025-02-26T15:00:00Z"
+      "updated_at": "2025-05-31T15:00:00Z"
     },
     {
       "id": "fdjkflhcgjnhmbfpbojnalpfmomjggkj",
       "name": "Wootzapp Wallet",
       "description": "Wallet for Ethereum and Solana blockchain networks.",
-      "version": "1.0.0",
+      "version": "1.0.4",
       "author": "Wootzapp Team",
       "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Wootzapp%20Wallet/Wootzapp%20Wallet.crx",
       "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Wootzapp%20Wallet/repo/public/icons/icon128.png",
@@ -33,6 +33,24 @@
       ],
       "created_at": "2025-02-26T15:00:00Z",
       "updated_at": "2025-02-26T15:00:00Z"
+    },
+    {
+      "id": "lldicgmlhdphidpnhgeiibfkifemhgal",
+      "name": "AI Data Scraper",
+      "description": "An extension to earn passive money by scrolling tweets on twitter(X) using AI.",
+      "version": "1.0.0",
+      "author": "Wootzapp Team",
+      "download_url": "https://raw.githubusercontent.com/itskartike910/extensions/main/extensions/ai-data-scraper/ai-data-scraper.crx",
+      "icon_url": "https://raw.githubusercontent.com/itskartike910/extensions/main/extensions/ai-data-scraper/icon.png",
+      "github_url": "https://github.com/itskartike910/extensions/tree/main/extensions/ai-data-scraper",
+      "tags": [
+        "Earn",
+        "Rewards",
+        "AI",
+        "Scraping"
+      ],
+      "created_at": "2025-05-21T12:10:33Z",
+      "updated_at": "2025-05-21T12:10:33Z"
     },
     {
       "id": "gpfellaldmjpgonllcjpjfpodfmgobnk",
@@ -55,7 +73,7 @@
       "id": "kpobgdhknoakgagflffeigaojlglkbhn",
       "name": "Blockmesh Network",
       "description": "BlockMesh Network allows you to generate passive income from your excessive bandwidth.",
-      "version": "0.0.539",
+      "version": "0.0.562",
       "author": "Wootzapp Team",
       "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Blockmesh%20Network/Blockmesh.crx",
       "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Blockmesh%20Network/blockmesh-icon.png",
@@ -86,7 +104,42 @@
       "updated_at": "2025-02-26T15:00:00Z"
     },
     {
-      "id": "oepnbacopffogclidcgdkonkjdhegcmn",
+      "id": "doklnekkemmhclakfekoccilofpdcncb",
+      "name": "Coddata Clip",
+      "description": "Turn Your Intelligence into AI",
+      "version": "1.0.0",
+      "author": "Wootzapp Team",
+      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Coddata%20Clip/COddata.crx",
+      "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Coddata%20Clip/Repo/assets/images/logo.png",
+      "github_url": "https://github.com/wootzapp/ext-store/tree/main/Coddata%20Clip/Repo",
+      "tags": [
+        "Rewards",
+        "AI", 
+        "Instagram"
+      ],
+      "created_at": "2025-02-26T15:00:00Z",
+      "updated_at": "2025-02-26T15:00:00Z"
+    },
+    {
+      "id": "ficjckojhebnoogjmhacgodjcgddphac",
+      "name": "AI Twitter Agent",
+      "description": "An AI Twitter Agent that can post ai generated tweets on your behalf.",
+      "version": "1.0.0",
+      "author": "Wootzapp Team",
+      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/AI%20Twitter%20Agent/AITwitterAgent.crx",
+      "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/AI%20Twitter%20Agent/repo/public/icons/icon.png",
+      "github_url": "https://github.com/wootzapp/ext-store/tree/main/AI%20Twitter%20Agent/repo",
+      "tags": [
+        "AI",
+        "Twitter",
+        "Agent",
+        "Automation"
+      ],
+      "created_at": "2025-07-02T15:00:00Z",
+      "updated_at": "2025-07-02T15:00:00Z"
+    },
+    {
+      "id": "mafnkcehjhddilcnhlnkbcbelilbifhm",
       "name": "ZK Proofing",
       "description": "An extension to generate cryptographic proofs for zk-SNARKs.",
       "version": "1.0.0",
@@ -108,7 +161,7 @@
       "description": "An extension to automate labubu tasks.",
       "version": "1.0.0",
       "author": "Wootzapp Team",
-      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Labubu/Labubu.crx",
+      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Labubu/Labubu_automator.crx",
       "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Labubu/repo/assets/icon.png",
       "github_url": "https://github.com/wootzapp/ext-store/tree/main/Labubu/repo",
       "tags": [
@@ -135,6 +188,23 @@
       ],
       "created_at": "2025-02-26T15:00:00Z",
       "updated_at": "2025-02-26T15:00:00Z"
+    },
+    {
+      "id": "gckloiljabipmjohgnklademghjaoboa",
+      "name": "Trex",
+      "description": "Get rewards by watching YouTube videos and using Twitter",
+      "version": "1.0.0",
+      "author": "Wootzapp Team",
+      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Trex/dist_chrome.crx",
+      "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Trex/Repo/icon-128.png",
+      "github_url": "https://github.com/wootzapp/ext-store/tree/main/Trex/Repo",
+      "tags": [
+        "Rewards",
+        "YouTube",
+        "Twitter"
+      ],
+      "created_at": "2025-07-12T15:00:02Z",
+      "updated_at": "2025-07-12T15:00:02Z"
     },
     {
       "id": "nofldplihhlkcpbejlmccfafcpeejaef",
