@@ -1,0 +1,526 @@
+.dashboard {
+  width: 100%;
+  min-height: 100%;
+}
+
+.dashboard-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* Welcome Header */
+.welcome-header {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.welcome-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.welcome-icon {
+  width: 60px;
+  height: 60px;
+  background: var(--bg-secondary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-primary);
+}
+
+.sparkle-icon {
+  width: 32px;
+  height: 32px;
+  color: var(--accent-primary);
+  animation: sparkle 2s ease-in-out infinite;
+}
+
+@keyframes sparkle {
+  0%, 100% { 
+    transform: scale(1) rotate(0deg); 
+    opacity: 1;
+  }
+  50% { 
+    transform: scale(1.1) rotate(180deg); 
+    opacity: 0.8;
+  }
+}
+
+.welcome-text h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.welcome-text p {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin: 0;
+  font-weight: 400;
+}
+
+/* Status Card */
+.status-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 20px;
+  padding: 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.status-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.05) 0%, rgba(0, 153, 204, 0.02) 100%);
+  pointer-events: none;
+}
+
+.status-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+}
+
+.status-info {
+  display: flex;
+  align-items: center;
+}
+
+.status-icon {
+  width: 50px;
+  height: 50px;
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-primary);
+}
+
+.bot-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--text-primary);
+}
+
+.status-details h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+}
+
+.status-dot.online {
+  background: #10b981;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
+}
+
+.status-dot.offline {
+  background: #6b7280;
+  box-shadow: 0 0 10px rgba(107, 114, 128, 0.3);
+}
+
+.status-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* Agent Controls */
+.agent-controls {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.agent-btn {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem 2rem;
+  border: none;
+  border-radius: 20px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  min-width: 200px;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.agent-btn.start-btn {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  box-shadow: 0 8px 32px rgba(16, 185, 129, 0.3);
+}
+
+.agent-btn.start-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.agent-btn.start-btn:hover::before {
+  opacity: 1;
+}
+
+.agent-btn.start-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(16, 185, 129, 0.4);
+}
+
+.agent-btn.start-btn:disabled {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  color: rgba(255, 255, 255, 0.6);
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: 0 4px 16px rgba(107, 114, 128, 0.2);
+}
+
+.agent-btn.stop-btn {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  box-shadow: 0 8px 32px rgba(239, 68, 68, 0.3);
+}
+
+.agent-btn.stop-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.agent-btn.stop-btn:hover::before {
+  opacity: 1;
+}
+
+.agent-btn.stop-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(239, 68, 68, 0.4);
+}
+
+.agent-btn.stop-btn:disabled {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  color: rgba(255, 255, 255, 0.6);
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: 0 4px 16px rgba(107, 114, 128, 0.2);
+}
+
+.agent-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn-icon {
+  width: 18px;
+  height: 18px;
+  color: white;
+}
+
+/* Tweet Section */
+.tweet-section {
+  display: flex;
+  justify-content: center;
+}
+
+.tweet-btn {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 20px;
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  min-width: 300px;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+}
+
+.tweet-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.tweet-btn:hover::before {
+  opacity: 1;
+}
+
+.tweet-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(102, 126, 234, 0.4);
+}
+
+.tweet-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.tweet-icon {
+  width: 24px;
+  height: 24px;
+  position: relative;
+  z-index: 1;
+  color: white;
+}
+
+.tweet-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  position: relative;
+  z-index: 1;
+}
+
+.tweet-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+}
+
+.tweet-subtitle {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 400;
+}
+
+/* Message Display */
+.message {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-primary);
+  animation: slideIn 0.3s ease;
+}
+
+.message.success {
+  background: rgba(0, 255, 136, 0.1);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.message.error {
+  background: rgba(255, 71, 87, 0.1);
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.message-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.message-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.message-close {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: all var(--transition-normal);
+  opacity: 0.7;
+  margin-left: 1rem;
+}
+
+.message-close:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Spinner */
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid #fff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .dashboard-container {
+    padding: 0 1rem;
+    gap: 1.5rem;
+  }
+
+  .welcome-text h1 {
+    font-size: 1.5rem;
+  }
+
+  .status-content {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+
+  .status-info {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .status-indicator {
+    justify-content: center;
+  }
+
+  .agent-controls {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .tweet-btn {
+    min-width: 100%;
+    padding: 1.25rem 1.5rem;
+  }
+
+  .agent-btn {
+    min-width: 100%;
+    padding: 1.25rem 1.5rem;
+  }
+
+  .message {
+    padding: 0.875rem 1.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-container {
+    padding: 0 0.75rem;
+    gap: 1rem;
+  }
+
+  .welcome-text h1 {
+    font-size: 1.25rem;
+  }
+
+  .welcome-text p {
+    font-size: 0.875rem;
+  }
+
+  .status-card {
+    padding: 1.5rem;
+  }
+
+  .status-content {
+    gap: 0.75rem;
+  }
+
+  .status-details h3 {
+    font-size: 1rem;
+  }
+
+  .status-text {
+    font-size: 0.8rem;
+  }
+
+  .agent-controls {
+    gap: 0.5rem;
+  }
+
+  .tweet-btn {
+    padding: 1rem 1.25rem;
+  }
+
+  .agent-btn {
+    padding: 1rem 1.25rem;
+  }
+
+  .tweet-title {
+    font-size: 0.875rem;
+  }
+
+  .tweet-subtitle {
+    font-size: 0.75rem;
+  }
+} 
