@@ -109,6 +109,10 @@ const SettingsSheet = ({ onClose, profileData }) => {
         }
     };
 
+    const handleAdControl = () => {
+        navigate('/relicdao/dashboard/adcontrol');
+    };
+
     const onLogout_clearStorage = () => {
         console.log("Logging out");
         localStorage.removeItem('authToken');
@@ -178,6 +182,12 @@ const SettingsSheet = ({ onClose, profileData }) => {
                 onClick={handleProfileButton}
             >
                 Profile
+            </button>
+            <button
+                className="w-full bg-[#272a2f] text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition duration-300 mt-2"
+                onClick={handleAdControl}
+            >
+                Ad Control
             </button>
             <button
                 className="w-full bg-[#272a2f] text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition duration-300 mt-2"

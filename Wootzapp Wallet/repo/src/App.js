@@ -12,6 +12,7 @@ import Explore from './components/Explore';
 import Buy from './components/Buy';
 // import SendWallet from './components/SendWallet';
 import Accounts from './components/Accounts';
+import Blinks from './components/Blinks';
 import Settings from './components/Settings';
 
 function App() {
@@ -167,6 +168,7 @@ function App() {
           <Route path="/buy" element={<Buy />} /> */}
           {/* <Route path="/send" element={<SendWallet />} /> */}
           <Route path="/accounts" element={<Accounts />} />
+          <Route path="/blinks" element={<Blinks />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </div>

@@ -8,14 +8,11 @@ const Settings = () => {
   const [notification, setNotification] = useState({ show: false, message: '' });
 
   useEffect(() => {
-    // Check the current blinks state
-    chrome.wootz.setBlinksEnabled(false, (result) => {
-      if (result && typeof result.enabled !== 'undefined') {
-        setToggleEnabled(result.enabled);
-      }
-    });
-
+    console.log('Settings component mounted - checking blinks state');
+    
+    // Only check the stored preference without changing the state
     chrome.storage.local.get('blinksEnabled', (result) => {
+      console.log('Retrieved blinksEnabled from storage:', result);
       if (result.blinksEnabled !== undefined) {
         setToggleEnabled(result.blinksEnabled);
       }

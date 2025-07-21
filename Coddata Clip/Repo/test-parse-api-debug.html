@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parse API Call Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 500px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        .issue-box {
+            border: 2px solid #dc3545;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            background-color: #f8d7da;
+        }
+        .fix-box {
+            border: 2px solid #28a745;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            background-color: #d4edda;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Parse API Call Debug Test</h1>
+        <p>This test simulates the issue where duplicate background script calls prevented Parse API calls.</p>
+        
+        <div class="issue-box">
+            <h3>🐛 ISSUE IDENTIFIED:</h3>
+            <ul>
+                <li><strong>Problem:</strong> Background script was calling `processCurrentWebContentTask` twice</li>
+                <li><strong>Path 1:</strong> WebContent creation → task processing start → processCurrentWebContentTask</li>
+                <li><strong>Path 2:</strong> instagram-automation-ready → start task processing → processCurrentWebContentTask</li>
+                <li><strong>Result:</strong> Second call gets "Already processing submission" → Parse API never called</li>
+            </ul>
+        </div>
+        
+        <div class="fix-box">
+            <h3>✅ FIX IMPLEMENTED:</h3>
+            <ul>
+                <li><strong>Added:</strong> `isProcessingWebContentTask` flag to prevent duplicate calls</li>
+                <li><strong>Guard:</strong> Early return if already processing WebContent task</li>
+                <li><strong>Reset:</strong> Flag reset after response received or timeout</li>
+                <li><strong>Timeout:</strong> 30-second safety timeout to reset flag if no response</li>
+            </ul>
+        </div>
+        
+        <div class="status info">
+            <strong>Test Status:</strong> Ready to simulate the issue and fix
+        </div>
+        
+        <button onclick="simulateBeforeFix()">Simulate BEFORE Fix (Issue)</button>
+        <button onclick="simulateAfterFix()">Simulate AFTER Fix (Working)</button>
+        <button onclick="simulateRaceCondition()">Test Race Condition</button>
+        <button onclick="clearLog()">Clear Log</button>
+        
+        <h3>Test Log:</h3>
+        <div id="testLog" class="log">Test log will appear here...\n</div>
+    </div>
+
+    <script>
+        let testLog = document.getElementById('testLog');
+        let isProcessingWebContentTask = false;
+        let isProcessingSubmission = false;
+        let lastSubmittedUrl = null;
+        let callCount = 0;
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}\n`;
+            testLog.textContent += logEntry;
+            testLog.scrollTop = testLog.scrollHeight;
+            
+            // Update status
+            const statusDiv = document.querySelector('.status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.innerHTML = `<strong>Test Status:</strong> ${message}`;
+        }
+        
+        function clearLog() {
+            testLog.textContent = 'Test log cleared...\n';
+            isProcessingWebContentTask = false;
+            isProcessingSubmission = false;
+            lastSubmittedUrl = null;
+            callCount = 0;
+        }
+        
+        // Simulate content script behavior
+        function simulateContentScript(url, callId) {
+            log(`📨 Content Script ${callId}: Received process-current-task for ${url}`);
+            
+            // Check if already processing (this is what was causing the issue)
+            if (isProcessingSubmission) {
+                log(`🚫 Content Script ${callId}: Already processing submission, rejecting`, 'warning');
+                return { success: false, message: "Already processing submission" };
+            }
+            
+            if (lastSubmittedUrl === url) {
+                log(`🚫 Content Script ${callId}: URL already submitted, rejecting`, 'warning');
+                return { success: false, message: "URL already submitted" };
+            }
+            
+            // Set processing flag
+            isProcessingSubmission = true;
+            lastSubmittedUrl = url;
+            
+            log(`✅ Content Script ${callId}: Processing task for ${url}`);
+            
+            // Simulate content extraction and Parse API call
+            setTimeout(() => {
+                log(`🌐 Content Script ${callId}: Calling Parse API for ${url}`, 'success');
+                log(`📥 Content Script ${callId}: Parse API response received (status: 1)`, 'success');
+                log(`💰 Content Script ${callId}: Points awarded for ${url}`, 'success');
+                
+                // Reset flag after processing
+                isProcessingSubmission = false;
+            }, 2000);
+            
+            return { success: true, message: "Task processed successfully" };
+        }
+        
+        // Simulate background script call (BEFORE fix - no protection)
+        function simulateProcessCurrentWebContentTaskBefore(url) {
+            callCount++;
+            const callId = callCount;
+            
+            log(`🔄 Background ${callId}: processCurrentWebContentTask called for ${url}`);
+            
+            // NO PROTECTION - directly call content script
+            const response = simulateContentScript(url, callId);
+            
+            setTimeout(() => {
+                log(`📥 Background ${callId}: Response: ${JSON.stringify(response)}`);
+                if (!response.success) {
+                    log(`❌ Background ${callId}: Task failed - Parse API NOT called`, 'error');
+                } else {
+                    log(`✅ Background ${callId}: Task succeeded`, 'success');
+                }
+            }, 100);
+        }
+        
+        // Simulate background script call (AFTER fix - with protection)
+        function simulateProcessCurrentWebContentTaskAfter(url) {
+            callCount++;
+            const callId = callCount;
+            
+            log(`🔄 Background ${callId}: processCurrentWebContentTask called for ${url}`);
+            
+            // PROTECTION: Check if already processing WebContent task
+            if (isProcessingWebContentTask) {
+                log(`🚫 Background ${callId}: WebContent task already being processed, skipping duplicate call`, 'warning');
+                return;
+            }
+            
+            // Set flag to prevent duplicates
+            isProcessingWebContentTask = true;
+            log(`🔒 Background ${callId}: Set WebContent processing flag`);
+            
+            const response = simulateContentScript(url, callId);
+            
+            setTimeout(() => {
+                log(`📥 Background ${callId}: Response: ${JSON.stringify(response)}`);
+                
+                // Reset flag after response
+                isProcessingWebContentTask = false;
+                log(`🔓 Background ${callId}: Reset WebContent processing flag`);
+                
+                if (!response.success) {
+                    log(`❌ Background ${callId}: Task failed but flag reset properly`, 'warning');
+                } else {
+                    log(`✅ Background ${callId}: Task succeeded`, 'success');
+                }
+            }, 100);
+        }
+        
+        function simulateBeforeFix() {
+            log('🧪 === SIMULATING BEFORE FIX (Issue Scenario) ===', 'error');
+            
+            const testUrl = 'https://instagram.com/p/DLpGyWTKjwl/';
+            
+            // Reset state
+            isProcessingWebContentTask = false;
+            isProcessingSubmission = false;
+            lastSubmittedUrl = null;
+            
+            log('📋 Simulating the race condition that caused Parse API to not be called');
+            log('🚨 Two processCurrentWebContentTask calls within 2 seconds (actual logs from your issue)');
+            
+            // First call (from WebContent creation path)
+            simulateProcessCurrentWebContentTaskBefore(testUrl);
+            
+            // Second call (from instagram-automation-ready path) - this causes the issue
+            setTimeout(() => {
+                simulateProcessCurrentWebContentTaskBefore(testUrl);
+            }, 100); // Very quick succession
+            
+            setTimeout(() => {
+                log('📊 RESULT: Second call was rejected → Parse API never called → No points awarded', 'error');
+            }, 3000);
+        }
+        
+        function simulateAfterFix() {
+            log('🧪 === SIMULATING AFTER FIX (Working Scenario) ===', 'success');
+            
+            const testUrl = 'https://instagram.com/p/DLpGyWTKjwl/';
+            
+            // Reset state
+            isProcessingWebContentTask = false;
+            isProcessingSubmission = false;
+            lastSubmittedUrl = null;
+            
+            log('📋 Same scenario but with the fix implemented');
+            log('✅ isProcessingWebContentTask flag prevents duplicate calls');
+            
+            // First call (from WebContent creation path)
+            simulateProcessCurrentWebContentTaskAfter(testUrl);
+            
+            // Second call (from instagram-automation-ready path) - now gets blocked
+            setTimeout(() => {
+                simulateProcessCurrentWebContentTaskAfter(testUrl);
+            }, 100); // Very quick succession
+            
+            setTimeout(() => {
+                log('📊 RESULT: Duplicate call blocked → Parse API called once → Points awarded', 'success');
+            }, 3000);
+        }
+        
+        function simulateRaceCondition() {
+            log('🧪 === RACE CONDITION STRESS TEST ===', 'info');
+            
+            const testUrl = 'https://instagram.com/p/TestRaceCondition/';
+            
+            // Reset state
+            isProcessingWebContentTask = false;
+            isProcessingSubmission = false;
+            lastSubmittedUrl = null;
+            
+            log('📋 Simulating multiple rapid calls to test the fix robustness');
+            
+            // Multiple rapid calls
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => {
+                    simulateProcessCurrentWebContentTaskAfter(testUrl);
+                }, i * 50); // 50ms intervals
+            }
+            
+            setTimeout(() => {
+                log('📊 RESULT: Only first call should succeed, others should be blocked', 'info');
+            }, 4000);
+        }
+        
+        // Initialize
+        log('🔧 Test environment initialized.');
+        log('🎯 Purpose: Verify that duplicate processCurrentWebContentTask calls are prevented');
+        log('📋 This should ensure Parse API is called exactly once per task');
+    </script>
+</body>
+</html>

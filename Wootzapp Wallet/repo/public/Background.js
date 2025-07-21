@@ -5,9 +5,22 @@ let pendingSignRequest = null;
 let pendingTransaction = null;
 let pendingSolanaTransaction = null;
 
+chrome.runtime.onStartup.addListener(() => {
+  console.log('Extension starting up', new Date().toISOString());
+});
+
 chrome.runtime.onInstalled.addListener(() => {
+  console.log('Extension installed/updated', new Date().toISOString());
   console.log('Wootz Wallet extension installed');
   console.log('Extension ID:', chrome.runtime.id);
+  chrome.storage.local.get('blinksEnabled', (result) => {
+    console.log('Current blinks state in storage:', result.blinksEnabled);
+    if (result.blinksEnabled !== undefined) {
+      chrome.wootz.setBlinksEnabled(result.blinksEnabled, (r) => {
+        console.log('Reset blinks to stored value:', r);
+      });
+    }
+  });
 });
 
 chrome.wootz.onSignMessageRequested.addListener((request) => {

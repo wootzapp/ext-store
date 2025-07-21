@@ -1,4 +1,4 @@
-/* global chrome */
+/* global chrome, BigInt */
 import React, { useState, useEffect } from 'react';
 import Loading from './Loading';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -209,6 +209,28 @@ const Portfolio = ({ setIsLocked }) => {
     }
   };
 
+  const isSolana = (transaction) => transaction.coinType === 501;
+  const isEthereum = (transaction) => transaction.coinType === 60;
+
+  // Convert hex (wei) to ETH string
+  const formatEthAmount = (hex) => {
+    if (!hex) return '0';
+    try {
+      const wei = BigInt(hex.startsWith('0x') ? hex : '0x' + hex);
+      const eth = Number(wei) / 1e18;
+      return eth.toLocaleString(undefined, { maximumFractionDigits: 6 }) + ' ETH';
+    } catch {
+      return '0 ETH';
+    }
+  };
+
+  // Convert lamports to SOL string
+  const formatSolAmount = (lamports) => {
+    if (!lamports) return '0';
+    const sol = Number(lamports) / 1e9;
+    return sol.toLocaleString(undefined, { maximumFractionDigits: 6 }) + ' SOL';
+  };
+
   // Add debug logging for render
   console.log('Current Solana transaction request:', solanaTransactionRequest);
 
@@ -274,7 +296,15 @@ const Portfolio = ({ setIsLocked }) => {
                 <p className="text-gray-600 break-all text-sm">{transactionRequest.from}</p>
               </div>
               
-
+              <div className="space-y-2">
+                <p className="text-gray-700 font-medium">Transaction Amount:</p>
+                <p className="text-gray-600 break-all text-sm">
+                  {isSolana(transactionRequest)
+                    ? formatSolAmount(transactionRequest.transaction_amount)
+                    : formatEthAmount(transactionRequest.transaction_amount)} + Gas Fee
+                </p>
+              </div>
+              
               <div className="space-y-2">
                 <p className="text-gray-700 font-medium">Transaction ID:</p>
                 <p className="text-gray-600 break-all text-sm">{transactionRequest.txMetaId}</p>

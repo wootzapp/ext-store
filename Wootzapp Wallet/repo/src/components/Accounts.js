@@ -1,7 +1,7 @@
 /* global chrome */
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { FaPlus, FaWallet, FaBolt, FaUserCircle, FaCompass, FaCopy, FaEthereum, FaChevronDown, FaChevronUp, FaCog } from 'react-icons/fa';
+import { FaPlus, FaWallet, FaBolt, FaUserCircle, FaCompass, FaCopy, FaEthereum, FaChevronDown, FaChevronUp, FaCog, FaChevronRight } from 'react-icons/fa';
 import { fetchAllSolanaAssets, fetchSepoliaEthereumBalance, fetchEclipseBalance } from '../utils/tokenUtils';
 import btcIcon from '../assets/btc.svg';
 import solIcon from '../assets/sol.svg';
@@ -17,7 +17,6 @@ const Accounts = () => {
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [eclipseBalances, setEclipseBalances] = useState({});
   const [toggleEnabled, setToggleEnabled] = useState(false);
-  const [tokenData, setTokenData] = useState({});
 
   useEffect(() => {
     const fetchAccounts = () => {
@@ -42,18 +41,13 @@ const Accounts = () => {
 
     fetchAccounts();
 
-    // Add this to check the current blinks state
-    chrome.wootz.setBlinksEnabled(false, (result) => {
-      if (result && typeof result.enabled !== 'undefined') {
-        setToggleEnabled(result.enabled);
-      }
-    });
-
-    chrome.storage.local.get('blinksEnabled', (result) => {
-      if (result.blinksEnabled !== undefined) {
-        setToggleEnabled(result.blinksEnabled);
-      }
-    });
+        // Only check stored preference without changing state
+        chrome.storage.local.get('blinksEnabled', (result) => {
+          console.log('Retrieved blinksEnabled from storage in Accounts:', result);
+          if (result.blinksEnabled !== undefined) {
+            setToggleEnabled(result.blinksEnabled);
+          }
+        });
   }, []);
 
   const fetchBalances = async (accountsList) => {
@@ -61,12 +55,9 @@ const Accounts = () => {
       try {
         let balance;
         if (account.coin === 501) {
-          // Fetch actual Solana balances instead of using placeholder
-          balance = 0.0000; // Solana balance placeholder
+          // Fetch only Solana balances, no token data
           balance = await fetchAllSolanaAssets(account.address);
           console.log(`Fetched Solana balances for ${account.address}:`, balance);
-          const tokens= balance.tokens;
-          console.log(`Fetched Solana tokens for ${account.address}:`, tokens);
           
           // Additionally fetch Eclipse balance for Solana accounts
           try {
@@ -83,26 +74,6 @@ const Accounts = () => {
             }));
           }
           
-          // Fetch token data for Solana accounts
-          try {
-            // For each token account, fetch detailed token info
-            const tokenDetails = await Promise.all(
-              tokens.map(async (token) => {
-                const tokenInfo = await fetchTokenInfo(token.mint);
-                return {
-                  ...token,
-                  tokenInfo
-                };
-              })
-            );
-            
-            setTokenData(prev => ({
-              ...prev,
-              [account.address]: tokenDetails
-            }));
-          } catch (tokenError) {
-            console.error(`Error fetching token data for ${account.address}:`, tokenError);
-          }
         } else if (account.coin === 60) {
           balance = await fetchSepoliaEthereumBalance(account.address);
           console.log(`Fetched ETH balances for ${account.address}:`, balance);
@@ -124,33 +95,6 @@ const Accounts = () => {
           [account.address]: false
         }));
       }
-    }
-  };
-
-  // Function to fetch detailed token info using Helius API
-  const fetchTokenInfo = async (mintAddress) => {
-    try {
-      const response = await fetch(`https://mainnet.helius-rpc.com/?api-key=${process.env.REACT_APP_HELIUS_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: mintAddress,
-          method: 'getAsset',
-          params: {
-            id: mintAddress,
-            options: {
-              showFungible: true
-            }
-          }
-        })
-      });
-      
-      const data = await response.json();
-      return data.result;
-    } catch (error) {
-      console.error(`Error fetching token info for ${mintAddress}:`, error);
-      return null;
     }
   };
 
@@ -232,7 +176,6 @@ const Accounts = () => {
       const solanaData = balances[account.address] || { solBalance: {} };
       const solBalance = solanaData.solBalance || {};
       const eclipseBalance = eclipseBalances[account.address] || 0;
-      const tokens = tokenData[account.address] || [];
       
       return (
         <div className="mt-4 space-y-2">
@@ -257,41 +200,6 @@ const Accounts = () => {
               {`${Number(eclipseBalance).toFixed(6)} ETH`}
             </span>
           </div>
-          
-          {/* Display token balances with detailed info */}
-          {tokens.length > 0 && (
-            <div className="mt-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">SPL Tokens</h3>
-              <div className="space-y-2">
-                {tokens.map((token, idx) => {
-                  const tokenInfo = token.tokenInfo;
-                  const hasMetadata = tokenInfo && tokenInfo.content && tokenInfo.content.metadata;
-                  const tokenName = hasMetadata ? tokenInfo.content.metadata.name : token.mint.slice(0, 4) + '...' + token.mint.slice(-4);
-                  const tokenSymbol = hasMetadata ? tokenInfo.content.metadata.symbol : '';
-                  const tokenImage = tokenInfo && tokenInfo.content && tokenInfo.content.links ? tokenInfo.content.links.image : null;
-                  
-                  return (
-                    <div key={idx} className="bg-white rounded-lg p-3 shadow-sm border border-gray-100 flex justify-between items-center">
-                      <span className="text-gray-500 flex items-center">
-                        {tokenImage ? (
-                          <img src={tokenImage} alt={tokenName} className="h-4 w-4 mr-1 rounded-full" />
-                        ) : (
-                          <div className="h-4 w-4 rounded-full bg-gray-200 mr-1 flex items-center justify-center text-[10px]">T</div>
-                        )}
-                        <div className="flex flex-col">
-                          <span>{tokenName}</span>
-                          {tokenSymbol && <span className="text-xs text-gray-400">{tokenSymbol}</span>}
-                        </div>
-                      </span>
-                      <span className={Number(token.amount) > 0 ? 'font-medium' : 'text-gray-400'}>
-                        {token.amount}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </div>
       );
     }
@@ -347,9 +255,6 @@ const Accounts = () => {
         <h1 className="text-3xl font-bold bg-gradient-to-r from-[#FF3B30] to-[#FF8C00] text-transparent bg-clip-text">
           Accounts
         </h1>
-        <Link to="/settings" className="text-[#FF8C00] hover:text-[#FF3B30] transition-colors">
-          <FaCog size={24} />
-        </Link>
       </div>
 
       {error && (
@@ -358,7 +263,7 @@ const Accounts = () => {
         </div>
       )}
 
-      <div className="flex-grow">
+      <div className="flex-grow mb-16">
         {accounts.map((account, index) => (
           <div 
             key={index} 
@@ -412,36 +317,28 @@ const Accounts = () => {
         ))}
       </div>
 
-      {/* <div className="mt-6 mb-20">
-        <button className="w-full bg-gradient-to-r from-[#FF3B30] to-[#FF8C00] text-white py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-lg">
-          Add Account
-        </button>
-      </div> */}
-
-      {/* <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2">
-        <div className="flex justify-between max-w-sm mx-auto">
+      {/* Bottom Navigation Bar */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3">
+        <div className="flex justify-around max-w-sm mx-auto">
           {[
-            // { icon: <FaWallet size={16} />, label: 'Portfolio', path: '/portfolio' },
-            // { icon: <FaBolt size={16} />, label: 'Activity', path: '/activity' },
-            { icon: <FaUserCircle size={16} />, label: 'Accounts', path: '/accounts' },
-            // { icon: <FaCompass size={16} />, label: 'Explore', path: '/explore' },
-            // { icon: <FaCompass size={16} />, label: 'Send', path: '/send' },
+            { icon: <FaUserCircle size={20} />, label: 'Accounts', path: '/accounts' },
+            { icon: <FaBolt size={20} />, label: 'Blinks', path: '/blinks' },
           ].map((item, index) => (
             <Link
               key={index}
               to={item.path}
-              className={`flex flex-col items-center px-2 ${
+              className={`flex flex-col items-center px-6 py-1 ${
                 location.pathname === item.path
                   ? 'text-[#FF8C00]'
                   : 'text-gray-400 hover:text-gray-600'
               }`}
             >
               {item.icon}
-              <span className="text-[10px] mt-0.5">{item.label}</span>
+              <span className="text-xs mt-1">{item.label}</span>
             </Link>
           ))}
         </div>
-      </nav> */}
+      </nav>
     </div>
   );
 };
