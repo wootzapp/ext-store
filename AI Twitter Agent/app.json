@@ -1,7 +1,7 @@
 {
     "manifest_version": "v1.0",
     "name": "AI Twitter Agent",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "An AI Twitter Agent that can post ai generated tweets on your behalf.",
     "permissions": [
       "alarms",

@@ -124,7 +124,7 @@
       "id": "ficjckojhebnoogjmhacgodjcgddphac",
       "name": "AI Twitter Agent",
       "description": "An AI Twitter Agent that can post ai generated tweets on your behalf.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "Wootzapp Team",
       "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/AI%20Twitter%20Agent/AITwitterAgent.crx",
       "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/AI%20Twitter%20Agent/repo/public/icons/icon.png",
