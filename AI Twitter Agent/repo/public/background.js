@@ -685,8 +685,25 @@ class BackgroundTwitterAgent {
         // Wait for the API call to complete via alarm
         result = await this.waitForAPICompletion();
       } else {
+        // Map model names to their corresponding API methods
+        const modelToApiMap = {
+          'claude-3': 'claude',
+          'claude': 'claude',
+          'gpt-4': 'openai',
+          'gpt-3.5-turbo': 'openai',
+          'openai': 'openai',
+          'gemini-pro': 'gemini',
+          'gemini': 'gemini'
+        };
+        
+        const apiMethod = modelToApiMap[aiModel];
+        
+        if (!apiMethod) {
+          return { success: false, error: `Unsupported AI model: ${aiModel}` };
+        }
+        
         // Use the appropriate API based on model
-        switch (aiModel) {
+        switch (apiMethod) {
           case 'claude':
             result = await this.claudeGenerate(apiKey, randomTopic);
             break;
@@ -930,6 +947,8 @@ class BackgroundTwitterAgent {
       
       // Get config from storage
       const config = await chrome.storage.sync.get(['agentConfig']);
+      console.log('Background: Retrieved config from storage:', config);
+      
       if (!config.agentConfig) {
         console.error('Background: No config found for manual tweet');
         return { success: false, error: 'No config found' };
@@ -939,19 +958,54 @@ class BackgroundTwitterAgent {
       const aiModel = config.agentConfig.ai?.model;
       const apiKey = config.agentConfig.ai?.apiKeys?.[aiModel];
       
+      console.log('Background: AI configuration:', {
+        aiModel: aiModel,
+        hasApiKey: !!apiKey,
+        apiKeyLength: apiKey ? apiKey.length : 0,
+        availableModels: config.agentConfig.ai?.apiKeys ? Object.keys(config.agentConfig.ai.apiKeys) : []
+      });
+      
+      if (!aiModel) {
+        console.error('Background: No AI model configured');
+        return { success: false, error: 'No AI model configured' };
+      }
+      
       if (!apiKey) {
         console.error('Background: No API key found for manual tweet');
         return { success: false, error: `${aiModel} API key not configured` };
       }
 
       const topics = config.agentConfig.topics;
+      if (!topics || topics.length === 0) {
+        console.error('Background: No topics configured');
+        return { success: false, error: 'No topics configured' };
+      }
+      
       const randomTopic = topics[Math.floor(Math.random() * topics.length)];
       
       console.log('Background: Generating tweet about:', randomTopic, 'using', aiModel);
       
       // Generate tweet using the appropriate API based on model
       let result;
-      switch (aiModel) {
+      
+      // Map model names to their corresponding API methods
+      const modelToApiMap = {
+        'claude-3': 'claude',
+        'claude': 'claude',
+        'gpt-4': 'openai',
+        'gpt-3.5-turbo': 'openai',
+        'openai': 'openai',
+        'gemini-pro': 'gemini',
+        'gemini': 'gemini'
+      };
+      
+      const apiMethod = modelToApiMap[aiModel];
+      
+      if (!apiMethod) {
+        return { success: false, error: `Unsupported AI model: ${aiModel}` };
+      }
+      
+      switch (apiMethod) {
         case 'claude':
           result = await this.claudeGenerate(apiKey, randomTopic);
           break;

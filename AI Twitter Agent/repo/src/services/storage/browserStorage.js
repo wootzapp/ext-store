@@ -1,49 +1,75 @@
 /* global chrome */
 class BrowserStorage {
   constructor() {
-    this.isExtension = typeof chrome !== 'undefined' && chrome.storage;
+    this.storage = chrome.storage.local;
   }
 
   async get(key) {
-    if (this.isExtension) {
-      return new Promise((resolve) => {
-        chrome.storage.sync.get([key], (result) => {
-          resolve(result[key] || null);
+    try {
+      return new Promise((resolve, reject) => {
+        this.storage.get(key, (result) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(result[key]);
+          }
         });
       });
-    } else {
-      const value = localStorage.getItem(key);
-      return value ? JSON.parse(value) : null;
+    } catch (error) {
+      console.error('Error getting from storage:', error);
+      throw error;
     }
   }
 
   async set(key, value) {
-    if (this.isExtension) {
-      return new Promise((resolve) => {
-        chrome.storage.sync.set({ [key]: value }, resolve);
+    try {
+      return new Promise((resolve, reject) => {
+        const data = { [key]: value };
+        this.storage.set(data, () => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve();
+          }
+        });
       });
-    } else {
-      localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      console.error('Error setting to storage:', error);
+      throw error;
     }
   }
 
   async remove(key) {
-    if (this.isExtension) {
-      return new Promise((resolve) => {
-        chrome.storage.sync.remove([key], resolve);
+    try {
+      return new Promise((resolve, reject) => {
+        this.storage.remove(key, () => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve();
+          }
+        });
       });
-    } else {
-      localStorage.removeItem(key);
+    } catch (error) {
+      console.error('Error removing from storage:', error);
+      throw error;
     }
   }
 
   async clear() {
-    if (this.isExtension) {
-      return new Promise((resolve) => {
-        chrome.storage.sync.clear(resolve);
+    try {
+      return new Promise((resolve, reject) => {
+        this.storage.clear(() => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve();
+          }
+        });
       });
-    } else {
-      localStorage.clear();
+    } catch (error) {
+      console.error('Error clearing storage:', error);
+      throw error;
     }
   }
 
@@ -114,4 +140,4 @@ class BrowserStorage {
   }
 }
 
-export default BrowserStorage;
+export default new BrowserStorage();
