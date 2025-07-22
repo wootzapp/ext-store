@@ -1,0 +1,21 @@
+{
+    "manifest_version": "v1.0",
+    "name": "Authenticator",
+    "version": "1.0.0",
+    "description": "Secure SAML authentication for enterprise applications",
+    "permissions": [
+      "alarms",
+      "activeTab",
+      "storage",
+      "identity",
+      "scripting",
+      "tabs",
+      "cookies",
+      "windows",
+      "webRequest",
+      "webRequestBlocking",
+      "declarativeNetRequest",
+      "debugger",
+      "webNavigation"
+    ]
+  }

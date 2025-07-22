@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Okta SAML Authentication</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    
+    .header {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      color: white;
+      padding: 12px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+    
+    .header-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .logo-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .logo-icon svg {
+      width: 18px;
+      height: 18px;
+      fill: white;
+    }
+    
+    .logo-text {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 0;
+    }
+    
+    .status-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    #status {
+      font-size: 14px;
+      background: rgba(255, 255, 255, 0.15);
+      padding: 8px 16px;
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      min-width: 250px;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+    
+    .status-loading {
+      background: rgba(255, 255, 255, 0.15) !important;
+    }
+    
+    .status-success {
+      background: rgba(72, 187, 120, 0.9) !important;
+      border-color: rgba(72, 187, 120, 0.3) !important;
+    }
+    
+    .status-error {
+      background: rgba(245, 101, 101, 0.9) !important;
+      border-color: rgba(245, 101, 101, 0.3) !important;
+    }
+    
+    .loading-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s ease-in-out infinite;
+      margin-right: 8px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+    }
+
+    .form-group {
+      animation: fadeInUp 0.6s ease-out;
+    }
+
+    .form-group:nth-child(3) {
+      animation-delay: 0.1s;
+    }
+
+    .form-group:nth-child(4) {
+      animation-delay: 0.2s;
+    }
+
+    .login-button {
+      animation: fadeInUp 0.6s ease-out 0.3s both;
+    }
+
+    .login-footer {
+      animation: fadeInUp 0.6s ease-out 0.4s both;
+    }
+
+    .form-input:focus {
+      animation: pulse 0.6s ease-in-out;
+    }
+    
+    #content {
+      height: calc(100vh - 64px);
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    
+    .auth-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    
+    .auth-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      overflow: hidden;
+      width: 100%;
+      max-width: 900px;
+      min-height: 500px;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .auth-card-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px 24px;
+      text-align: center;
+      position: relative;
+    }
+    
+    .auth-card-header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+      pointer-events: none;
+    }
+    
+    .auth-card-header h2 {
+      margin: 0 0 8px 0;
+      font-size: 24px;
+      font-weight: 600;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .auth-card-header p {
+      margin: 0;
+      font-size: 14px;
+      opacity: 0.9;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .auth-frame-container {
+      flex: 1;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .auth-frame-wrapper {
+      flex: 1;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      min-height: 400px;
+    }
+    
+    #authFrame { 
+      width: 100%; 
+      height: 100%;
+      border: none;
+      background: white;
+      display: block;
+    }
+    
+    .auth-instructions {
+      text-align: center;
+      margin-bottom: 16px;
+      padding: 12px;
+      background: rgba(102, 126, 234, 0.1);
+      border-radius: 8px;
+      border: 1px solid rgba(102, 126, 234, 0.2);
+    }
+    
+    .auth-instructions h3 {
+      margin: 0 0 8px 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: #667eea;
+    }
+    
+    .auth-instructions p {
+      margin: 0;
+      font-size: 14px;
+      color: #5e6c84;
+      line-height: 1.4;
+    }
+    
+    .custom-login-form {
+      max-width: 420px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+    
+    .login-form {
+      background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+      padding: 32px;
+      border-radius: 20px;
+      box-shadow: 
+        0 25px 50px -12px rgba(0, 0, 0, 0.25),
+        0 0 0 1px rgba(255, 255, 255, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(10px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .login-form::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #667eea, #764ba2, #667eea);
+      background-size: 200% 100%;
+      animation: shimmer 3s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+      0%, 100% { background-position: 200% 0; }
+      50% { background-position: -200% 0; }
+    }
+
+    .login-form-header {
+      text-align: center;
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    .login-form-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1a202c;
+      margin: 0 0 6px 0;
+      letter-spacing: -0.5px;
+    }
+
+    .login-form-subtitle {
+      font-size: 14px;
+      color: #64748b;
+      margin: 0;
+      font-weight: 500;
+    }
+
+    .error-message {
+      display: none;
+      background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+      border: 1px solid #fca5a5;
+      color: #dc2626;
+      padding: 14px 16px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      line-height: 1.5;
+      font-weight: 500;
+      position: relative;
+      box-shadow: 0 4px 6px -1px rgba(220, 38, 38, 0.1);
+    }
+
+    .error-message::before {
+      content: '⚠️';
+      position: absolute;
+      left: 16px;
+      top: 14px;
+      font-size: 16px;
+    }
+
+    .error-message {
+      padding-left: 44px;
+    }
+
+    .success-message {
+      display: none;
+      background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+      border: 1px solid #86efac;
+      color: #16a34a;
+      padding: 14px 16px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      line-height: 1.5;
+      font-weight: 500;
+      position: relative;
+      box-shadow: 0 4px 6px -1px rgba(22, 163, 74, 0.1);
+    }
+
+    .success-message::before {
+      content: '✅';
+      position: absolute;
+      left: 16px;
+      top: 14px;
+      font-size: 16px;
+    }
+
+    .success-message {
+      padding-left: 44px;
+    }
+    
+    .form-group {
+      margin-bottom: 24px;
+      position: relative;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 10px;
+      font-weight: 600;
+      color: #374151;
+      font-size: 14px;
+      letter-spacing: 0.2px;
+      transition: color 0.2s ease;
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: 16px 20px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      font-size: 16px;
+      font-family: inherit;
+      font-weight: 500;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+      box-shadow: 
+        inset 0 2px 4px rgba(0, 0, 0, 0.06),
+        0 1px 3px rgba(0, 0, 0, 0.1);
+      position: relative;
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: #667eea;
+      background: #ffffff;
+      box-shadow: 
+        0 0 0 4px rgba(102, 126, 234, 0.1),
+        inset 0 2px 4px rgba(0, 0, 0, 0.06),
+        0 4px 12px rgba(102, 126, 234, 0.15);
+      transform: translateY(-1px);
+    }
+    
+    .form-input:hover:not(:focus) {
+      border-color: #cbd5e1;
+      box-shadow: 
+        inset 0 2px 4px rgba(0, 0, 0, 0.06),
+        0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-input::placeholder {
+      color: #9ca3af;
+      font-weight: 400;
+    }
+
+    .form-group:focus-within label {
+      color: #667eea;
+    }
+    
+    .password-container {
+      position: relative;
+    }
+    
+    .password-toggle {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #6b7280;
+      transition: all 0.2s ease;
+      padding: 8px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .password-toggle:hover {
+      color: #667eea;
+      background: rgba(102, 126, 234, 0.1);
+    }
+    
+    .password-toggle svg {
+      fill: currentColor;
+      transition: transform 0.2s ease;
+    }
+
+    .password-toggle:hover svg {
+      transform: scale(1.1);
+    }
+    
+    .login-button {
+      width: 100%;
+      padding: 18px 24px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: inherit;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      box-shadow: 
+        0 4px 14px rgba(102, 126, 234, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      margin-top: 8px;
+    }
+
+    .login-button::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.6s ease;
+    }
+
+    .login-button:hover::before {
+      left: 100%;
+    }
+    
+    .login-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 
+        0 8px 25px rgba(102, 126, 234, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+    
+    .login-button:active {
+      transform: translateY(0);
+      box-shadow: 
+        0 4px 14px rgba(102, 126, 234, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+    
+    .login-button:disabled {
+      cursor: not-allowed;
+      transform: none;
+      opacity: 0.7;
+      box-shadow: 
+        0 2px 8px rgba(102, 126, 234, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    .login-button:disabled::before {
+      display: none;
+    }
+    
+    .button-text {
+      transition: opacity 0.2s ease;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .button-loader {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+    }
+    
+    .loader-spinner {
+      width: 22px;
+      height: 22px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-top: 3px solid white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    .login-footer {
+      text-align: center;
+      margin-top: 28px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    
+    .login-footer p {
+      margin: 0;
+      font-size: 14px;
+      color: #64748b;
+      font-weight: 500;
+    }
+    
+    .login-footer a {
+      color: #667eea;
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .login-footer a::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      width: 0;
+      height: 2px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      transition: width 0.3s ease;
+    }
+    
+    .login-footer a:hover {
+      color: #5a67d8;
+    }
+
+    .login-footer a:hover::after {
+      width: 100%;
+    }
+    
+    .error-message {
+      background: #fff5f5;
+      border: 1px solid #fed7d7;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+      color: #c53030;
+      font-size: 14px;
+      display: none;
+    }
+    
+    .success-message {
+      background: #f0fff4;
+      border: 1px solid #9ae6b4;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+      color: #22543d;
+      font-size: 14px;
+      display: none;
+    }
+    
+    #fallback {
+      padding: 40px 24px;
+      text-align: center;
+      display: none;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 12px;
+      margin: 24px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .fallback-icon {
+      width: 64px;
+      height: 64px;
+      background: #fef2f2;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      color: #dc2626;
+      font-size: 24px;
+      border: 2px solid #fecaca;
+    }
+    
+    .fallback-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #374151;
+      margin: 0 0 12px 0;
+    }
+    
+    .fallback-description {
+      color: #6b7280;
+      margin: 0 0 24px 0;
+      line-height: 1.5;
+    }
+    
+    .fallback-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      text-decoration: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    .fallback-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    .security-features {
+      display: flex;
+      justify-content: space-around;
+      margin-top: 16px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: 8px;
+    }
+    
+    .security-feature {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #5e6c84;
+    }
+    
+    .security-feature-icon {
+      width: 16px;
+      height: 16px;
+      fill: #667eea;
+    }
+    
+    /* Responsive design */
+    @media (max-width: 768px) {
+      .header-content {
+        flex-direction: column;
+        gap: 12px;
+      }
+      
+      .status-section {
+        width: 100%;
+      }
+      
+      #status {
+        min-width: auto;
+        width: 100%;
+      }
+      
+      .auth-card {
+        margin: 10px;
+        min-height: 400px;
+      }
+      
+      .auth-card-header {
+        padding: 16px 20px;
+      }
+      
+      .auth-card-header h2 {
+        font-size: 20px;
+      }
+      
+      .auth-frame-container {
+        padding: 16px;
+      }
+
+      .custom-login-form {
+        max-width: 100%;
+        padding: 0 8px;
+      }
+
+      .login-form {
+        padding: 24px 20px;
+        border-radius: 16px;
+        box-shadow: 
+          0 20px 40px -12px rgba(0, 0, 0, 0.25),
+          0 0 0 1px rgba(255, 255, 255, 0.05);
+      }
+
+      .login-form-title {
+        font-size: 22px;
+      }
+
+      .form-input {
+        padding: 14px 16px;
+        font-size: 16px; /* Prevents zoom on iOS */
+      }
+
+      .login-button {
+        padding: 16px 20px;
+        font-size: 15px;
+      }
+      
+      .security-features {
+        flex-direction: column;
+        gap: 8px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .login-form {
+        padding: 20px 16px;
+        margin: 0 8px;
+      }
+
+      .login-form-header {
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+      }
+
+      .form-group {
+        margin-bottom: 20px;
+      }
+
+      .form-input {
+        padding: 12px 14px;
+      }
+
+      .login-button {
+        padding: 14px 18px;
+      }
+    }
+    
+    @media (max-height: 600px) {
+      .auth-card {
+        min-height: 350px;
+      }
+      
+      .auth-frame-wrapper {
+        min-height: 250px;
+      }
+
+      .login-form {
+        padding: 20px;
+      }
+
+      .login-form-header {
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+      }
+
+      .form-group {
+        margin-bottom: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-content">
+      <div class="logo-section">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M12,7C13.4,7 14.8,8.6 14.8,10.5V11.5C15.4,11.5 16,12.4 16,13V16C16,17.4 15.4,18 14.8,18H9.2C8.6,18 8,17.4 8,16V13C8,12.4 8.6,11.5 9.2,11.5V10.5C9.2,8.6 10.6,7 12,7M12,8.2C11.2,8.2 10.5,8.7 10.5,10.5V11.5H13.5V10.5C13.5,8.7 12.8,8.2 12,8.2Z"/>
+          </svg>
+        </div>
+        <h1 class="logo-text">SAML Authenticator</h1>
+      </div>
+      <div class="status-section">
+        <div id="status" class="status-loading">
+          <span class="loading-spinner"></span>
+          Loading Okta authentication...
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div id="content">
+    <div class="auth-container">
+      <div class="auth-card">
+        <div class="auth-card-header">
+          <h2>Okta Single Sign-On</h2>
+          <p>Please sign in with your organization credentials</p>
+        </div>
+        <div class="auth-frame-container">
+          <div class="auth-instructions">
+            <h3>Secure Authentication</h3>
+            <p>Please enter your organization credentials to continue with single sign-on.</p>
+          </div>
+          <div class="custom-login-form" id="customLoginForm">
+            <form id="loginForm" class="login-form">
+              <div class="login-form-header">
+                <h3 class="login-form-title">Welcome Back</h3>
+                <p class="login-form-subtitle">Please sign in to your account</p>
+              </div>
+              <div class="error-message" id="errorMessage"></div>
+              <div class="success-message" id="successMessage"></div>
+              <div class="form-group">
+                <label for="username">Username or Email</label>
+                <input type="text" id="username" name="username" required 
+                       placeholder="Enter your username or email" 
+                       class="form-input">
+              </div>
+              <div class="form-group">
+                <label for="password">Password</label>
+                <div class="password-container">
+                  <input type="password" id="password" name="password" required 
+                         placeholder="Enter your password" 
+                         class="form-input">
+                  <button type="button" class="password-toggle" id="togglePassword">
+                    <svg width="20" height="20" viewBox="0 0 24 24">
+                      <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <button type="submit" class="login-button" id="loginButton">
+                <span class="button-text">Sign In</span>
+                <div class="button-loader" style="display: none;">
+                  <div class="loader-spinner"></div>
+                </div>
+              </button>
+            </form>
+            <div class="login-footer">
+              <p>Having trouble signing in? <a href="#" id="fallbackLink">Try the standard login page</a></p>
+            </div>
+          </div>
+          <div class="auth-frame-wrapper" id="iframeContainer" style="display: none;">
+            <iframe id="authFrame" src="about:blank"></iframe>
+          </div>
+          <div class="security-features">
+            <div class="security-feature">
+              <svg class="security-feature-icon" viewBox="0 0 24 24">
+                <path d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M10,17L6,13L7.41,11.59L10,14.17L16.59,7.58L18,9L10,17Z"/>
+              </svg>
+              <span>SSL Encrypted</span>
+            </div>
+            <div class="security-feature">
+              <svg class="security-feature-icon" viewBox="0 0 24 24">
+                <path d="M9,12L11,14L15,10L13,8L11,10L9,12M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4Z"/>
+              </svg>
+              <span>SAML 2.0</span>
+            </div>
+            <div class="security-feature">
+              <svg class="security-feature-icon" viewBox="0 0 24 24">
+                <path d="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"/>
+              </svg>
+              <span>Enterprise Security</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="fallback">
+      <div class="fallback-icon">⚠️</div>
+      <h3 class="fallback-title">Unable to Load Authentication</h3>
+      <p class="fallback-description">
+        We're having trouble loading the Okta login page in this window. 
+        You can open it directly in a new tab to complete your authentication.
+      </p>
+      <button id="openDirect" class="fallback-button">
+        <span>🔗</span>
+        Open Login Page Directly
+      </button>
+    </div>
+  </div>
+  <script src="auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Initialize the custom login form
+      showCustomLoginForm();
+    });
+  </script>
+</body>
+</html>
