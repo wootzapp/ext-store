@@ -13,7 +13,9 @@ import {
   TrendingUp,
   Users,
   Sparkles,
-  Lightbulb
+  Lightbulb,
+  Twitter,
+  Instagram
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import './Dashboard.css';
@@ -30,6 +32,7 @@ function Dashboard({
   const [isStopping, setIsStopping] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [message, setMessage] = useState('');
+  const [activeTab, setActiveTab] = useState('twitter'); // 'twitter' or 'instagram'
 
   const handleStartAgent = async () => {
     if (!config) {
@@ -39,26 +42,40 @@ function Dashboard({
     
     console.log('Dashboard: Config for start agent:', config);
     
-    // Validate config structure
-    const hasValidConfig = config.ai?.model && 
-                          config.ai?.apiKeys?.[config.ai.model] &&
-                          config.twitter?.username && 
-                          config.twitter?.password &&
-                          config.topics && 
-                          config.topics.length > 0;
+    // Validate config structure based on active tab
+    let hasValidConfig = false;
+    
+    if (activeTab === 'twitter') {
+      hasValidConfig = config.ai?.model && 
+                      config.ai?.apiKeys?.[config.ai.model] &&
+                      config.twitter?.username && 
+                      config.twitter?.password &&
+                      config.twitter?.topics && 
+                      config.twitter?.topics.length > 0;
+    } else if (activeTab === 'instagram') {
+      hasValidConfig = config.ai?.model && 
+                      config.ai?.apiKeys?.[config.ai.model] &&
+                      config.instagram?.username && 
+                      config.instagram?.password &&
+                      config.instagram?.topics && 
+                      config.instagram?.topics.length > 0;
+    }
     
     console.log('Dashboard: Config validation:', {
+      activeTab,
       hasAiModel: !!config.ai?.model,
       hasApiKey: !!config.ai?.apiKeys?.[config.ai.model],
-      hasTwitterUsername: !!config.twitter?.username,
-      hasTwitterPassword: !!config.twitter?.password,
-      hasTopics: !!(config.topics && config.topics.length > 0),
-      topicsCount: config.topics?.length || 0,
+      hasUsername: activeTab === 'twitter' ? !!config.twitter?.username : !!config.instagram?.username,
+      hasPassword: activeTab === 'twitter' ? !!config.twitter?.password : !!config.instagram?.password,
+      hasTopics: activeTab === 'twitter' ? 
+        !!(config.twitter?.topics && config.twitter?.topics.length > 0) :
+        !!(config.instagram?.topics && config.instagram?.topics.length > 0),
       hasValidConfig
     });
     
     if (!hasValidConfig) {
-      setMessage('Please complete your configuration in Settings (AI model, API key, Twitter credentials, and topics)');
+      const platform = activeTab === 'twitter' ? 'Twitter' : 'Instagram';
+      setMessage(`Please complete your ${platform} configuration in Settings (AI model, API key, ${platform} credentials, and topics)`);
       return;
     }
     
@@ -66,14 +83,15 @@ function Dashboard({
     setMessage('');
     
     try {
-      const result = await onStartAgent();
+      // Pass the active platform to the start agent function
+      const result = await onStartAgent(activeTab);
       if (result.success) {
-        setMessage('Agent started successfully!');
+        setMessage(`${activeTab === 'twitter' ? 'Twitter' : 'Instagram'} agent started successfully!`);
       } else {
-        setMessage(`Failed to start agent: ${result.error}`);
+        setMessage(`Failed to start ${activeTab} agent: ${result.error}`);
       }
     } catch (error) {
-      setMessage(`Error starting agent: ${error.message}`);
+      setMessage(`Error starting ${activeTab} agent: ${error.message}`);
     } finally {
       setIsStarting(false);
     }
@@ -86,45 +104,59 @@ function Dashboard({
     try {
       const result = await onStopAgent();
       if (result.success) {
-        setMessage('Agent stopped successfully!');
+        setMessage(`${activeTab === 'twitter' ? 'Twitter' : 'Instagram'} agent stopped successfully!`);
       } else {
-        setMessage(`Failed to stop agent: ${result.error}`);
+        setMessage(`Failed to stop ${activeTab} agent: ${result.error}`);
       }
     } catch (error) {
-      setMessage(`Error stopping agent: ${error.message}`);
+      setMessage(`Error stopping ${activeTab} agent: ${error.message}`);
     } finally {
       setIsStopping(false);
     }
   };
 
-  const handlePostTweet = async () => {
+  const handlePostContent = async () => {
     if (!config) {
       setMessage('Please configure your settings first');
       return;
     }
     
-    console.log('Dashboard: Config for post tweet:', config);
+    console.log('Dashboard: Config for post content:', config);
     
-    // Validate config structure
-    const hasValidConfig = config.ai?.model && 
-                          config.ai?.apiKeys?.[config.ai.model] &&
-                          config.twitter?.username && 
-                          config.twitter?.password &&
-                          config.topics && 
-                          config.topics.length > 0;
+    // Validate config structure based on active tab
+    let hasValidConfig = false;
     
-    console.log('Dashboard: Post tweet config validation:', {
+    if (activeTab === 'twitter') {
+      hasValidConfig = config.ai?.model && 
+                      config.ai?.apiKeys?.[config.ai.model] &&
+                      config.twitter?.username && 
+                      config.twitter?.password &&
+                      config.twitter?.topics && 
+                      config.twitter?.topics.length > 0;
+    } else if (activeTab === 'instagram') {
+      hasValidConfig = config.ai?.model && 
+                      config.ai?.apiKeys?.[config.ai.model] &&
+                      config.instagram?.username && 
+                      config.instagram?.password &&
+                      config.instagram?.topics && 
+                      config.instagram?.topics.length > 0;
+    }
+    
+    console.log('Dashboard: Post content config validation:', {
+      activeTab,
       hasAiModel: !!config.ai?.model,
       hasApiKey: !!config.ai?.apiKeys?.[config.ai.model],
-      hasTwitterUsername: !!config.twitter?.username,
-      hasTwitterPassword: !!config.twitter?.password,
-      hasTopics: !!(config.topics && config.topics.length > 0),
-      topicsCount: config.topics?.length || 0,
+      hasUsername: activeTab === 'twitter' ? !!config.twitter?.username : !!config.instagram?.username,
+      hasPassword: activeTab === 'twitter' ? !!config.twitter?.password : !!config.instagram?.password,
+      hasTopics: activeTab === 'twitter' ? 
+        !!(config.twitter?.topics && config.twitter?.topics.length > 0) :
+        !!(config.instagram?.topics && config.instagram?.topics.length > 0),
       hasValidConfig
     });
     
     if (!hasValidConfig) {
-      setMessage('Please complete your configuration in Settings (AI model, API key, Twitter credentials, and topics)');
+      const platform = activeTab === 'twitter' ? 'Twitter' : 'Instagram';
+      setMessage(`Please complete your ${platform} configuration in Settings (AI model, API key, ${platform} credentials, and topics)`);
       return;
     }
     
@@ -134,12 +166,13 @@ function Dashboard({
     try {
       const result = await postTweet();
       if (result.success) {
-        setMessage('Tweet generated and posted successfully!');
+        const contentType = activeTab === 'twitter' ? 'Tweet' : 'Post';
+        setMessage(`${contentType} generated and posted successfully!`);
       } else {
-        setMessage(`Failed to post tweet: ${result.error}`);
+        setMessage(`Failed to post ${activeTab} content: ${result.error}`);
       }
     } catch (error) {
-      setMessage(`Error posting tweet: ${error.message}`);
+      setMessage(`Error posting ${activeTab} content: ${error.message}`);
     } finally {
       setIsPosting(false);
     }
@@ -160,127 +193,228 @@ function Dashboard({
               <Sparkles className="sparkle-icon" />
             </div>
             <div className="welcome-text">
-              <h1>Welcome to AI Twitter Agent</h1>
+              <h1>Welcome to AI Social Media Agent</h1>
               <p>Your intelligent social media companion</p>
             </div>
           </div>
         </motion.div>
 
-        {/* Agent Status Card */}
-        {/* <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-          className="status-card glass-effect"
-        >
-          <div className="status-content">
-            <div className="status-info">
-              <div className="status-details">
-                <h3>Agent Status</h3>
-              </div>
-            </div>
-            <div className="status-indicator">
-              <motion.div
-                animate={{
-                  scale: agentStatus?.isRunning ? [1, 1.1, 1] : 1
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: agentStatus?.isRunning ? Infinity : 0
-                }}
-                className={cn(
-                  "status-dot",
-                  agentStatus?.isRunning ? "online" : "offline"
-                )}
-              />
-              <span className="status-text">
-                {agentStatus?.isRunning ? 'Online' : 'Offline'}
-              </span>
-            </div>
-          </div>
-        </motion.div> */}
-
-        {/* Start/Stop Agent Buttons */}
+        {/* Platform Tabs */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25, duration: 0.5 }}
-          className="agent-controls"
+          transition={{ delay: 0.15, duration: 0.5 }}
+          className="platform-tabs"
         >
           <motion.button
-            className="agent-btn start-btn"
-            onClick={handleStartAgent}
-            disabled={agentStatus?.isRunning || isStarting || isStopping}
+            className={cn("platform-tab", activeTab === 'twitter' && "active")}
+            onClick={() => setActiveTab('twitter')}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
-            {isStarting ? (
-              <>
-                <div className="spinner" />
-                Starting...
-              </>
-            ) : (
-              <>
-                <Play className="btn-icon" />
-                Start Agent
-              </>
-            )}
+            <Twitter className="tab-icon" />
+            <span>Twitter</span>
           </motion.button>
           
           <motion.button
-            className="agent-btn stop-btn"
-            onClick={handleStopAgent}
-            disabled={!agentStatus?.isRunning || isStarting || isStopping}
+            className={cn("platform-tab", activeTab === 'instagram' && "active")}
+            onClick={() => setActiveTab('instagram')}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
-            {isStopping ? (
-              <>
-                <div className="spinner" />
-                Stopping...
-              </>
-            ) : (
-              <>
-                <Square className="btn-icon" />
-                Stop Agent
-              </>
-            )}
+            <Instagram className="tab-icon" />
+            <span>Instagram</span>
           </motion.button>
         </motion.div>
 
-        {/* Generate & Post Tweet Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.5 }}
-          className="tweet-section"
-        >
-          <motion.button
-            className="tweet-btn glass-effect"
-            onClick={handlePostTweet}
-            disabled={isPosting}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            {isPosting ? (
-              <>
-                <div className="spinner" />
-                <div className="tweet-content">
-                  <span className="tweet-title">Generating Tweet...</span>
-                  <span className="tweet-subtitle">Creating viral-worthy content</span>
-                </div>
-              </>
-            ) : (
-              <>
-                <Send className="tweet-icon" />
-                <div className="tweet-content">
-                  <span className="tweet-title">Generate & Post Tweet</span>
-                  <span className="tweet-subtitle">Create viral-worthy content</span>
-                </div>
-              </>
-            )}
-          </motion.button>
-        </motion.div>
+        {/* Platform Content */}
+        <AnimatePresence mode="wait">
+          {activeTab === 'twitter' && (
+            <motion.div
+              key="twitter"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+              className="platform-content"
+            >
+              {/* Twitter Agent Controls */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25, duration: 0.5 }}
+                className="agent-controls"
+              >
+                <motion.button
+                  className="agent-btn start-btn"
+                  onClick={handleStartAgent}
+                  disabled={agentStatus?.isRunning || isStarting || isStopping}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  {isStarting ? (
+                    <>
+                      <div className="spinner" />
+                      Starting...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="btn-icon" />
+                      Start Twitter Agent
+                    </>
+                  )}
+                </motion.button>
+                
+                <motion.button
+                  className="agent-btn stop-btn"
+                  onClick={handleStopAgent}
+                  disabled={!agentStatus?.isRunning || isStarting || isStopping}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  {isStopping ? (
+                    <>
+                      <div className="spinner" />
+                      Stopping...
+                    </>
+                  ) : (
+                    <>
+                      <Square className="btn-icon" />
+                      Stop Twitter Agent
+                    </>
+                  )}
+                </motion.button>
+              </motion.div>
+
+              {/* Generate & Post Tweet Section */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.5 }}
+                className="content-section"
+              >
+                <motion.button
+                  className="content-btn glass-effect"
+                  onClick={handlePostContent}
+                  disabled={isPosting}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  {isPosting ? (
+                    <>
+                      <div className="spinner" />
+                      <div className="content-content">
+                        <span className="content-title">Generating Tweet...</span>
+                        <span className="content-subtitle">Creating viral-worthy content</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="content-icon" />
+                      <div className="content-content">
+                        <span className="content-title">Generate & Post Tweet</span>
+                        <span className="content-subtitle">Create viral-worthy content</span>
+                      </div>
+                    </>
+                  )}
+                </motion.button>
+              </motion.div>
+            </motion.div>
+          )}
+
+          {activeTab === 'instagram' && (
+            <motion.div
+              key="instagram"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+              className="platform-content"
+            >
+              {/* Instagram Agent Controls */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25, duration: 0.5 }}
+                className="agent-controls"
+              >
+                <motion.button
+                  className="agent-btn start-btn"
+                  onClick={handleStartAgent}
+                  disabled={agentStatus?.isRunning || isStarting || isStopping}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  {isStarting ? (
+                    <>
+                      <div className="spinner" />
+                      Starting...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="btn-icon" />
+                      Start Instagram Agent
+                    </>
+                  )}
+                </motion.button>
+                
+                <motion.button
+                  className="agent-btn stop-btn"
+                  onClick={handleStopAgent}
+                  disabled={!agentStatus?.isRunning || isStarting || isStopping}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  {isStopping ? (
+                    <>
+                      <div className="spinner" />
+                      Stopping...
+                    </>
+                  ) : (
+                    <>
+                      <Square className="btn-icon" />
+                      Stop Instagram Agent
+                    </>
+                  )}
+                </motion.button>
+              </motion.div>
+
+              {/* Generate & Post Instagram Content Section */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.5 }}
+                className="content-section"
+              >
+                <motion.button
+                  className="content-btn glass-effect"
+                  onClick={handlePostContent}
+                  disabled={isPosting}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  {isPosting ? (
+                    <>
+                      <div className="spinner" />
+                      <div className="content-content">
+                        <span className="content-title">Generating Post...</span>
+                        <span className="content-subtitle">Creating engaging content</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="content-icon" />
+                      <div className="content-content">
+                        <span className="content-title">Generate & Post Content</span>
+                        <span className="content-subtitle">Create engaging content</span>
+                      </div>
+                    </>
+                  )}
+                </motion.button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Message Display */}
         <AnimatePresence>
