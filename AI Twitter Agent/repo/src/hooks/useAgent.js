@@ -10,8 +10,11 @@ const useAgent = () => {
       aiModel: 'Not set',
       hasValidAIKey: false,
       hasTwitterCredentials: false,
-      topicsCount: 0,
-      interval: null
+      hasInstagramCredentials: false,
+      twitterTopicsCount: 0,
+      instagramTopicsCount: 0,
+      twitterInterval: null,
+      instagramInterval: null
     }
   });
   const [loading, setLoading] = useState(false);
@@ -42,12 +45,22 @@ const useAgent = () => {
         twitter: {
           username: config.twitterUsername,
           password: config.twitterPassword,
-          email: config.email
+          email: config.email,
+          topics: config.topics || [],
+          settings: {
+            interval: config.setInterval || 30,
+            style: 'professional but engaging'
+          }
         },
-        topics: config.topics || [],
-        settings: {
-          interval: config.setInterval || 30,
-          style: 'professional but engaging'
+        instagram: {
+          username: config.instagramUsername || '',
+          password: config.instagramPassword || '',
+          email: config.instagramEmail || '',
+          topics: config.instagramTopics || [],
+          settings: {
+            interval: config.instagramInterval || 30,
+            style: config.instagramStyle || 'professional but engaging'
+          }
         }
       };
     }
@@ -65,23 +78,32 @@ const useAgent = () => {
       let aiModel = 'Not set';
       let hasValidAIKey = false;
       let hasTwitterCredentials = false;
-      let topicsCount = 0;
-      let interval = null;
+      let hasInstagramCredentials = false;
+      let twitterTopicsCount = 0;
+      let instagramTopicsCount = 0;
+      let twitterInterval = null;
+      let instagramInterval = null;
 
-      if (config.ai && config.twitter) {
+      if (config.ai && (config.twitter || config.instagram)) {
         // New nested structure
         aiModel = config.ai.model || 'Not set';
         hasValidAIKey = !!config.ai.apiKeys?.[config.ai.model];
-        hasTwitterCredentials = !!(config.twitter.username && config.twitter.password);
-        topicsCount = config.topics ? config.topics.length : 0;
-        interval = config.settings?.interval;
+        hasTwitterCredentials = !!(config.twitter?.username && config.twitter?.password);
+        hasInstagramCredentials = !!(config.instagram?.username && config.instagram?.password);
+        twitterTopicsCount = config.twitter?.topics ? config.twitter.topics.length : 0;
+        instagramTopicsCount = config.instagram?.topics ? config.instagram.topics.length : 0;
+        twitterInterval = config.twitter?.settings?.interval;
+        instagramInterval = config.instagram?.settings?.interval;
       } else if (config.model) {
         // Old flat structure
         aiModel = config.model || 'Not set';
         hasValidAIKey = !!config.apiKey;
         hasTwitterCredentials = !!(config.twitterUsername && config.twitterPassword);
-        topicsCount = config.topics ? config.topics.length : 0;
-        interval = config.setInterval;
+        hasInstagramCredentials = !!(config.instagramUsername && config.instagramPassword);
+        twitterTopicsCount = config.twitterTopics ? config.twitterTopics.length : (config.topics ? config.topics.length : 0);
+        instagramTopicsCount = config.instagramTopics ? config.instagramTopics.length : 0;
+        twitterInterval = config.twitterInterval || config.setInterval;
+        instagramInterval = config.instagramInterval;
       }
 
       setStatus(prev => ({
@@ -90,24 +112,27 @@ const useAgent = () => {
           aiModel,
           hasValidAIKey,
           hasTwitterCredentials,
-          topicsCount,
-          interval
+          hasInstagramCredentials,
+          twitterTopicsCount,
+          instagramTopicsCount,
+          twitterInterval,
+          instagramInterval
         }
       }));
     }
   }, []);
 
-  const startAgent = useCallback(async () => {
+  const startAgent = useCallback(async (platform = 'twitter') => {
     try {
       setLoading(true);
       setError(null);
       
       // Get fresh config from storage to ensure we have the latest
       const { config: freshConfig } = await loadConfig();
-      console.log('useAgent: Starting agent with fresh config:', freshConfig);
+      console.log(`useAgent: Starting ${platform} agent with fresh config:`, freshConfig);
       
       const transformedConfig = transformConfigForBackground(freshConfig);
-      console.log('useAgent: Transformed config for background:', transformedConfig);
+      console.log(`useAgent: Transformed config for ${platform} background:`, transformedConfig);
       
       if (!transformedConfig) {
         throw new Error('No valid configuration found');
@@ -122,12 +147,23 @@ const useAgent = () => {
         throw new Error(`${transformedConfig.ai.model} API key not configured`);
       }
       
-      if (!transformedConfig.twitter?.username || !transformedConfig.twitter?.password) {
-        throw new Error('Twitter credentials not configured');
-      }
-      
-      if (!transformedConfig.topics || transformedConfig.topics.length === 0) {
-        throw new Error('No topics configured');
+      // Platform-specific validation
+      if (platform === 'twitter') {
+        if (!transformedConfig.twitter?.username || !transformedConfig.twitter?.password) {
+          throw new Error('Twitter credentials not configured');
+        }
+        
+        if (!transformedConfig.twitter?.topics || transformedConfig.twitter.topics.length === 0) {
+          throw new Error('No Twitter topics configured');
+        }
+      } else if (platform === 'instagram') {
+        if (!transformedConfig.instagram?.username || !transformedConfig.instagram?.password) {
+          throw new Error('Instagram credentials not configured');
+        }
+        
+        if (!transformedConfig.instagram?.topics || transformedConfig.instagram.topics.length === 0) {
+          throw new Error('No Instagram topics configured');
+        }
       }
       
       // Store config in sync storage first
@@ -136,19 +172,20 @@ const useAgent = () => {
       // Send message to background script to start agent
       const response = await chrome.runtime.sendMessage({
         action: 'AGENT_START',
-        config: transformedConfig
+        config: transformedConfig,
+        platform: platform
       });
       
-      console.log('Start agent response:', response);
+      console.log(`Start ${platform} agent response:`, response);
       
       if (response.success) {
         setStatus(prev => ({ ...prev, isRunning: true }));
-        return { success: true, message: response.message || 'Agent started successfully' };
+        return { success: true, message: response.message || `${platform} agent started successfully` };
       } else {
-        throw new Error(response.error || 'Failed to start agent');
+        throw new Error(response.error || `Failed to start ${platform} agent`);
       }
     } catch (err) {
-      console.error('Error starting agent:', err);
+      console.error(`Error starting ${platform} agent:`, err);
       setError(err.message);
       return { success: false, error: err.message };
     } finally {
@@ -214,8 +251,8 @@ const useAgent = () => {
         throw new Error('Twitter credentials not configured');
       }
       
-      if (!transformedConfig.topics || transformedConfig.topics.length === 0) {
-        throw new Error('No topics configured');
+      if (!transformedConfig.twitter?.topics || transformedConfig.twitter.topics.length === 0) {
+        throw new Error('No Twitter topics configured');
       }
       
       // Store the transformed config in sync storage first
@@ -237,6 +274,93 @@ const useAgent = () => {
       return response;
     } catch (err) {
       console.error('Error posting tweet:', err);
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [loadConfig, transformConfigForBackground]);
+
+  const checkInstagramLogin = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('useAgent: Checking Instagram login status...');
+      
+      // Send message to background script to check Instagram login
+      const response = await chrome.runtime.sendMessage({
+        action: 'CHECK_INSTAGRAM_LOGIN'
+      });
+      
+      console.log('Instagram login check response:', response);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to check Instagram login');
+      }
+      
+      return response;
+    } catch (err) {
+      console.error('Error checking Instagram login:', err);
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const postInstagramContent = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Get fresh config from storage to ensure we have the latest
+      const { config: freshConfig } = await loadConfig();
+      console.log('useAgent: Posting Instagram content with fresh config:', freshConfig);
+      
+      const transformedConfig = transformConfigForBackground(freshConfig);
+      console.log('useAgent: Transformed config for post Instagram content:', transformedConfig);
+      
+      if (!transformedConfig) {
+        throw new Error('No valid configuration found');
+      }
+      
+      // Validate required fields
+      if (!transformedConfig.ai?.model) {
+        throw new Error('AI model not configured');
+      }
+      
+      if (!transformedConfig.ai?.apiKeys?.[transformedConfig.ai.model]) {
+        throw new Error(`${transformedConfig.ai.model} API key not configured`);
+      }
+      
+      if (!transformedConfig.instagram?.username || !transformedConfig.instagram?.password) {
+        throw new Error('Instagram credentials not configured');
+      }
+      
+      if (!transformedConfig.instagram?.topics || transformedConfig.instagram.topics.length === 0) {
+        throw new Error('No Instagram topics configured');
+      }
+      
+      // Store the transformed config in sync storage first
+      await chrome.storage.sync.set({ agentConfig: transformedConfig });
+      
+      console.log('Stored config in sync storage:', transformedConfig);
+      
+      // Send message to background script to post Instagram content
+      const response = await chrome.runtime.sendMessage({
+        action: 'GENERATE_AND_POST_INSTAGRAM'
+      });
+      
+      console.log('Post Instagram content response:', response);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to post Instagram content');
+      }
+      
+      return response;
+    } catch (err) {
+      console.error('Error posting Instagram content:', err);
       setError(err.message);
       throw err;
     } finally {
@@ -333,6 +457,8 @@ const useAgent = () => {
     startAgent,
     stopAgent,
     postTweet,
+    checkInstagramLogin,
+    postInstagramContent,
     updateConfig
   };
 };
