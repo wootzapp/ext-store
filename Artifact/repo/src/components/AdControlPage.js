@@ -8,9 +8,15 @@ import wootzImage from '../images/wootz.png';
 const GPT_AD_CONFIG = {
   adUnitPath: '/22988389496/Wootzapp',
   sizes: [
-    { width: 728, height: 90 },
-    { width: 468, height: 60 },
-    { width: 300, height: 250 }
+    { width: 728, height: 90 },   // Leaderboard (Desktop)
+    { width: 468, height: 60 },   // Banner (Desktop)
+    { width: 300, height: 250 },  // Medium Rectangle (Desktop/Mobile)
+    { width: 320, height: 50 },   // Mobile Banner (Most common mobile)
+    // { width: 300, height: 50 },   // Mobile Banner Alternative
+    { width: 320, height: 100 },  // Large Mobile Banner
+    { width: 336, height: 280 },  // Large Rectangle
+    { width: 250, height: 250 },  // Square
+    // { width: 320, height: 250 }   // Mobile Rectangle
   ],
   idPrefix: 'div-gpt-ad-1747671853981-',
   scriptUrl: 'https://securepubads.g.doubleclick.net/tag/js/gpt.js'
