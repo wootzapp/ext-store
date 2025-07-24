@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Interceptor Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .log-area {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Network Interceptor Test</h1>
+        <p>This page tests whether the Reclaim extension's network interceptor is working properly.</p>
+
+        <div class="status warning">
+            <strong>Instructions:</strong> 
+            <ol>
+                <li>Make sure the Reclaim extension is loaded and active</li>
+                <li>Open the browser console to see detailed logs</li>
+                <li>Click the test buttons below to generate network requests</li>
+                <li>Check if requests are being intercepted</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Extension Status Check</h3>
+            <button onclick="checkExtensionStatus()">Check Extension Status</button>
+            <button onclick="checkNetworkInterceptor()">Check Network Interceptor</button>
+            <div id="extension-status"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📡 Fetch API Tests</h3>
+            <button onclick="testFetchGet()">Test Fetch GET</button>
+            <button onclick="testFetchPost()">Test Fetch POST</button>
+            <button onclick="testFetchJSON()">Test Fetch JSON</button>
+        </div>
+
+        <div class="test-section">
+            <h3>📡 XMLHttpRequest Tests</h3>
+            <button onclick="testXHRGet()">Test XHR GET</button>
+            <button onclick="testXHRPost()">Test XHR POST</button>
+            <button onclick="testXHRJSON()">Test XHR JSON</button>
+        </div>
+
+        <div class="test-section">
+            <h3>🌐 Real API Tests</h3>
+            <button onclick="testRealAPI()">Test Real API (JSONPlaceholder)</button>
+            <button onclick="testRealAPIWithAuth()">Test API with Auth Headers</button>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 Test Logs</h3>
+            <button onclick="clearLogs()">Clear Logs</button>
+            <button onclick="exportLogs()">Export Logs</button>
+            <div id="test-logs" class="log-area"></div>
+        </div>
+    </div>
+
+    <script>
+        // Test log management
+        const testLogs = [];
+        
+        function addTestLog(message, type = 'info') {
+            const timestamp = new Date().toISOString();
+            const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}`;
+            testLogs.push(logEntry);
+            
+            const logArea = document.getElementById('test-logs');
+            logArea.innerHTML += logEntry + '\n';
+            logArea.scrollTop = logArea.scrollHeight;
+            
+            console.log(logEntry);
+        }
+
+        function clearLogs() {
+            testLogs.length = 0;
+            document.getElementById('test-logs').innerHTML = '';
+        }
+
+        function exportLogs() {
+            const blob = new Blob([testLogs.join('\n')], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'network-interceptor-test-logs.txt';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Extension status check
+        function checkExtensionStatus() {
+            addTestLog('Checking extension status...');
+            
+            const statusDiv = document.getElementById('extension-status');
+            
+            // Check if extension is loaded
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                addTestLog('✅ Chrome extension API available');
+                
+                // Try to communicate with extension
+                try {
+                    chrome.runtime.sendMessage({ action: 'PING' }, (response) => {
+                        if (chrome.runtime.lastError) {
+                            addTestLog('❌ Extension communication failed: ' + chrome.runtime.lastError.message, 'error');
+                            statusDiv.innerHTML = '<div class="status error">❌ Extension not responding</div>';
+                        } else {
+                            addTestLog('✅ Extension communication successful');
+                            statusDiv.innerHTML = '<div class="status success">✅ Extension is active and responding</div>';
+                        }
+                    });
+                } catch (e) {
+                    addTestLog('❌ Extension communication error: ' + e.message, 'error');
+                    statusDiv.innerHTML = '<div class="status error">❌ Extension communication error</div>';
+                }
+            } else {
+                addTestLog('❌ Chrome extension API not available', 'error');
+                statusDiv.innerHTML = '<div class="status error">❌ Not running in Chrome extension context</div>';
+            }
+        }
+
+        function checkNetworkInterceptor() {
+            addTestLog('Checking network interceptor...');
+            
+            // Check if network interceptor is available
+            if (typeof window.reclaimNetworkInterceptor !== 'undefined') {
+                addTestLog('✅ Network interceptor found in window object');
+                addTestLog('Network interceptor type: ' + typeof window.reclaimNetworkInterceptor);
+            } else {
+                addTestLog('❌ Network interceptor not found in window object', 'error');
+            }
+            
+            // Check if fetch is intercepted
+            if (window.fetch && window.fetch.toString().includes('Proxy')) {
+                addTestLog('✅ Fetch API appears to be intercepted (Proxy detected)');
+            } else {
+                addTestLog('⚠️ Fetch API may not be intercepted (no Proxy detected)', 'warning');
+            }
+            
+            // Check if XHR is intercepted
+            if (XMLHttpRequest.prototype.open && XMLHttpRequest.prototype.open.toString().includes('_rc')) {
+                addTestLog('✅ XMLHttpRequest appears to be intercepted (_rc marker detected)');
+            } else {
+                addTestLog('⚠️ XMLHttpRequest may not be intercepted (no _rc marker)', 'warning');
+            }
+        }
+
+        // Fetch API tests
+        async function testFetchGet() {
+            addTestLog('Testing Fetch GET request...');
+            try {
+                const response = await fetch('https://httpbin.org/get?test=fetch-get');
+                const data = await response.json();
+                addTestLog('✅ Fetch GET successful: ' + data.url);
+            } catch (error) {
+                addTestLog('❌ Fetch GET failed: ' + error.message, 'error');
+            }
+        }
+
+        async function testFetchPost() {
+            addTestLog('Testing Fetch POST request...');
+            try {
+                const response = await fetch('https://httpbin.org/post', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: 'test=fetch-post&data=test123'
+                });
+                const data = await response.json();
+                addTestLog('✅ Fetch POST successful: ' + data.url);
+            } catch (error) {
+                addTestLog('❌ Fetch POST failed: ' + error.message, 'error');
+            }
+        }
+
+        async function testFetchJSON() {
+            addTestLog('Testing Fetch JSON request...');
+            try {
+                const response = await fetch('https://httpbin.org/post', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        test: 'fetch-json',
+                        data: { message: 'Hello World' }
+                    })
+                });
+                const data = await response.json();
+                addTestLog('✅ Fetch JSON successful: ' + data.url);
+            } catch (error) {
+                addTestLog('❌ Fetch JSON failed: ' + error.message, 'error');
+            }
+        }
+
+        // XMLHttpRequest tests
+        function testXHRGet() {
+            addTestLog('Testing XHR GET request...');
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', 'https://httpbin.org/get?test=xhr-get');
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    addTestLog('✅ XHR GET successful');
+                } else {
+                    addTestLog('❌ XHR GET failed with status: ' + xhr.status, 'error');
+                }
+            };
+            xhr.onerror = function() {
+                addTestLog('❌ XHR GET error', 'error');
+            };
+            xhr.send();
+        }
+
+        function testXHRPost() {
+            addTestLog('Testing XHR POST request...');
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', 'https://httpbin.org/post');
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    addTestLog('✅ XHR POST successful');
+                } else {
+                    addTestLog('❌ XHR POST failed with status: ' + xhr.status, 'error');
+                }
+            };
+            xhr.onerror = function() {
+                addTestLog('❌ XHR POST error', 'error');
+            };
+            xhr.send('test=xhr-post&data=test123');
+        }
+
+        function testXHRJSON() {
+            addTestLog('Testing XHR JSON request...');
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', 'https://httpbin.org/post');
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    addTestLog('✅ XHR JSON successful');
+                } else {
+                    addTestLog('❌ XHR JSON failed with status: ' + xhr.status, 'error');
+                }
+            };
+            xhr.onerror = function() {
+                addTestLog('❌ XHR JSON error', 'error');
+            };
+            xhr.send(JSON.stringify({
+                test: 'xhr-json',
+                data: { message: 'Hello World' }
+            }));
+        }
+
+        // Real API tests
+        async function testRealAPI() {
+            addTestLog('Testing real API (JSONPlaceholder)...');
+            try {
+                const response = await fetch('https://jsonplaceholder.typicode.com/posts/1');
+                const data = await response.json();
+                addTestLog('✅ Real API successful: Post ID ' + data.id);
+            } catch (error) {
+                addTestLog('❌ Real API failed: ' + error.message, 'error');
+            }
+        }
+
+        async function testRealAPIWithAuth() {
+            addTestLog('Testing API with auth headers...');
+            try {
+                const response = await fetch('https://httpbin.org/headers', {
+                    headers: {
+                        'Authorization': 'Bearer test-token-123',
+                        'X-Custom-Header': 'test-value',
+                        'User-Agent': 'Reclaim-Test/1.0'
+                    }
+                });
+                const data = await response.json();
+                addTestLog('✅ API with auth successful');
+            } catch (error) {
+                addTestLog('❌ API with auth failed: ' + error.message, 'error');
+            }
+        }
+
+        // Initialize
+        addTestLog('Network Interceptor Test Page Loaded');
+        addTestLog('Page URL: ' + window.location.href);
+        addTestLog('User Agent: ' + navigator.userAgent);
+        
+        // Auto-check extension status after a short delay
+        setTimeout(() => {
+            checkExtensionStatus();
+            checkNetworkInterceptor();
+        }, 1000);
+    </script>
+</body>
+</html> 

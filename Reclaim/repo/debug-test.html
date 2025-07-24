@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reclaim Extension Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .debug-info {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Reclaim Extension Debug Test</h1>
+        <p>This page helps you test the Reclaim extension's data extraction functionality.</p>
+        
+        <div class="test-section">
+            <h3>1. Extension Status Check</h3>
+            <button class="test-button" onclick="checkExtension()">Check Extension Status</button>
+            <div id="extension-status" class="status info">Click the button to check extension status</div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. Simulate Network Requests</h3>
+            <p>These buttons will make network requests that the extension should intercept:</p>
+            <button class="test-button" onclick="makeTestRequest('GET')">Make GET Request</button>
+            <button class="test-button" onclick="makeTestRequest('POST')">Make POST Request</button>
+            <button class="test-button" onclick="makeTestRequest('PUT')">Make PUT Request</button>
+            <div id="request-status" class="status info">Click a button to make test requests</div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. Manual Debug Panel</h3>
+            <button class="test-button" onclick="showManualDebug()">Show Debug Panel</button>
+            <button class="test-button" onclick="clearDebugLogs()">Clear Debug Logs</button>
+            <div id="debug-status" class="status info">Use these buttons to control the debug panel</div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. Current Page Info</h3>
+            <div class="debug-info">
+                <strong>URL:</strong> <span id="current-url"></span><br>
+                <strong>Title:</strong> <span id="current-title"></span><br>
+                <strong>User Agent:</strong> <span id="user-agent"></span><br>
+                <strong>Timestamp:</strong> <span id="timestamp"></span>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>5. Extension Debug Info</h3>
+            <div id="extension-debug" class="debug-info">
+                Loading extension debug info...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Update page info
+        document.getElementById('current-url').textContent = window.location.href;
+        document.getElementById('current-title').textContent = document.title;
+        document.getElementById('user-agent').textContent = navigator.userAgent;
+        document.getElementById('timestamp').textContent = new Date().toISOString();
+
+        // Check if Reclaim extension is available
+        function checkExtension() {
+            const statusDiv = document.getElementById('extension-status');
+            
+            // Try to communicate with the extension
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                chrome.runtime.sendMessage({
+                    action: 'RECLAIM_EXTENSION_CHECK',
+                    source: 'test-page',
+                    target: 'background'
+                }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        statusDiv.className = 'status error';
+                        statusDiv.textContent = 'Extension not found or not responding: ' + chrome.runtime.lastError.message;
+                    } else if (response && response.success) {
+                        statusDiv.className = 'status success';
+                        statusDiv.textContent = 'Extension is active and responding!';
+                    } else {
+                        statusDiv.className = 'status error';
+                        statusDiv.textContent = 'Extension responded but with error: ' + (response?.error || 'Unknown error');
+                    }
+                });
+            } else {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = 'Chrome extension API not available - make sure you\'re in a browser extension context';
+            }
+        }
+
+        // Make test network requests
+        function makeTestRequest(method) {
+            const statusDiv = document.getElementById('request-status');
+            const testUrl = 'https://jsonplaceholder.typicode.com/posts/1';
+            
+            statusDiv.className = 'status info';
+            statusDiv.textContent = `Making ${method} request to ${testUrl}...`;
+
+            const options = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            };
+
+            if (method === 'POST' || method === 'PUT') {
+                options.body = JSON.stringify({
+                    title: 'Test Request',
+                    body: 'This is a test request for Reclaim extension debugging',
+                    userId: 1
+                });
+            }
+
+            fetch(testUrl, options)
+                .then(response => response.json())
+                .then(data => {
+                    statusDiv.className = 'status success';
+                    statusDiv.textContent = `${method} request successful! Response: ${JSON.stringify(data).substring(0, 100)}...`;
+                })
+                .catch(error => {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = `${method} request failed: ${error.message}`;
+                });
+        }
+
+        // Show manual debug panel
+        function showManualDebug() {
+            const statusDiv = document.getElementById('debug-status');
+            
+            if (typeof showDebugPanel === 'function') {
+                showDebugPanel();
+                statusDiv.className = 'status success';
+                statusDiv.textContent = 'Debug panel should now be visible!';
+            } else {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = 'Debug panel function not available. Make sure the extension is loaded.';
+            }
+        }
+
+        // Clear debug logs
+        function clearDebugLogs() {
+            const statusDiv = document.getElementById('debug-status');
+            
+            if (typeof window.debugLogs !== 'undefined') {
+                window.debugLogs = [];
+                if (typeof updateDebugPanel === 'function') {
+                    updateDebugPanel();
+                }
+                statusDiv.className = 'status success';
+                statusDiv.textContent = 'Debug logs cleared!';
+            } else {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = 'Debug logs not available.';
+            }
+        }
+
+        // Update extension debug info
+        function updateExtensionDebug() {
+            const debugDiv = document.getElementById('extension-debug');
+            
+            const debugInfo = {
+                chrome: typeof chrome !== 'undefined',
+                runtime: typeof chrome !== 'undefined' && typeof chrome.runtime !== 'undefined',
+                extension: typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id,
+                showDebugPanel: typeof showDebugPanel === 'function',
+                addDebugLog: typeof addDebugLog === 'function',
+                updateDebugPanel: typeof updateDebugPanel === 'function',
+                debugLogs: typeof window.debugLogs !== 'undefined' ? window.debugLogs.length : 'N/A'
+            };
+
+            debugDiv.innerHTML = Object.entries(debugInfo)
+                .map(([key, value]) => `<strong>${key}:</strong> ${value}`)
+                .join('<br>');
+        }
+
+        // Update debug info every 2 seconds
+        setInterval(updateExtensionDebug, 2000);
+        updateExtensionDebug();
+
+        // Listen for messages from the extension
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.source === 'content-script') {
+                console.log('Received message from extension:', event.data);
+                
+                const statusDiv = document.getElementById('extension-status');
+                statusDiv.className = 'status success';
+                statusDiv.textContent = 'Received message from extension: ' + JSON.stringify(event.data);
+            }
+        });
+
+        // Log page load
+        console.log('Reclaim Extension Debug Test page loaded');
+        console.log('Current URL:', window.location.href);
+        console.log('Extension functions available:', {
+            showDebugPanel: typeof showDebugPanel,
+            addDebugLog: typeof addDebugLog,
+            updateDebugPanel: typeof updateDebugPanel
+        });
+    </script>
+</body>
+</html> 
