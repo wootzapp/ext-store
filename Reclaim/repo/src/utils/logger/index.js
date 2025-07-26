@@ -1,12 +1,9 @@
 import { loggerService } from './LoggerService';
 import { debugLogger } from './debugLogger';
 
-// Enable debugLogger in development, disable in production
-if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'production') {
+// Disable debugLogger in production for cleaner code
   debugLogger.disable();
-} else {
-  debugLogger.enable();
-}
+
 export { DebugLogType } from './debugLogger';
 export { debugLogger };
 

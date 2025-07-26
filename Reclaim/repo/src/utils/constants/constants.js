@@ -1,5 +1,7 @@
 // src/utils/constants/constants.js
 
+import { getMaxListeners } from "events";
+
 // Backend URLs and API Endpoints for Reclaim Protocol
 export const BACKEND_URL = 'https://api.reclaimprotocol.org';
 
@@ -12,20 +14,113 @@ export const API_ENDPOINTS = {
 // Provider configurations
 export const PROVIDERS = {
   GITHUB: {
-    id: "6d3f6753-7ee6-49ee-a545-62f1b1822ae5", // Gmail provider ID
-    name: "Github",
-    description: "Github UserName",
-    icon: "📧",
+    id: "6d3f6753-7ee6-49ee-a545-62f1b1822ae5",
+    name: "GitHub",
+    description: "GitHub Username",
+    icon: "🐙",
     loginUrl: "https://github.com/settings/profile",
-    dataRequired: "Email address and account information"
+    dataRequired: "Username and profile information",
+    // GitHub-specific extraction patterns
+    extractionPatterns: {
+      username: [
+        { regex: '"octolytics-actor-login":"([^"]+)"', type: 'regex' },
+        { xPath: '//meta[@name="octolytics-actor-login"]/@content', type: 'xpath' },
+        { xPath: '//span[@data-testid="user-profile-name"]/text()', type: 'xpath' },
+        { regex: 'GitHub - ([^\\s]+)', type: 'regex' }
+      ],
+      profile: [
+        { regex: '"user":"([^"]+)"', type: 'regex' },
+        { regex: 'data-username="([^"]+)"', type: 'regex' }
+      ]
+    }
   },
   LINKEDIN: {
-    id: "a9f1063c-06b7-476a-8410-9ff6e427e637", // Replace with actual LinkedIn provider ID
+    id: "a9f1063c-06b7-476a-8410-9ff6e427e637",
     name: "LinkedIn", 
-    description: "Verify your LinkedIn profile",
+    description: "LinkedIn Profile",
     icon: "💼",
     loginUrl: "https://www.linkedin.com/feed/",
-    dataRequired: "Profile information and connections"
+    dataRequired: "Profile information and connections",
+    // LinkedIn-specific extraction patterns
+    extractionPatterns: {
+      username: [
+        { regex: '"publicIdentifier":"([^"]+)"', type: 'regex' },
+        { xPath: '//meta[@property="og:title"]/@content', type: 'xpath' },
+        { regex: 'linkedin\\.com/in/([^/\\s]+)', type: 'regex' }
+      ],
+      profile: [
+        { regex: '"firstName":"([^"]+)"', type: 'regex' },
+        { regex: '"lastName":"([^"]+)"', type: 'regex' },
+        { xPath: '//h1[@class="text-heading-xlarge"]/text()', type: 'xpath' }
+      ]
+    }
+  },
+  INSTAGRAM: {
+    id: "3ad6946f-88f4-4958-9a8e-5271a831b5b8",
+    name: "Instagram", 
+    description: "Instagram Profile",
+    icon: "📸",
+    loginUrl: "https://www.instagram.com/",
+    dataRequired: "Profile information and posts",
+    // Instagram-specific extraction patterns
+    extractionPatterns: {
+      username: [
+        { regex: '"username":"([^"]+)"', type: 'regex' },
+        { xPath: '//meta[@property="og:title"]/@content', type: 'xpath' },
+        { regex: 'instagram\\.com/([^/\\s]+)', type: 'regex' }
+      ],
+      profile: [
+        { regex: '"full_name":"([^"]+)"', type: 'regex' },
+        { regex: '"biography":"([^"]+)"', type: 'regex' },
+        { xPath: '//h2[@class="_aacl _aacs _aact _aacx _aada"]/text()', type: 'xpath' }
+      ]
+    }
+  },
+  TWITTER: {
+    id: "e6fe962d-8b4e-4ce5-abcc-3d21c88bd64a",
+    name: "Twitter", 
+    description: "Twitter Profile",
+    icon: "🐦",
+    loginUrl: "https://twitter.com/home",
+    dataRequired: "Profile information and tweets",
+    // Twitter/X-specific extraction patterns
+    extractionPatterns: {
+      username: [
+        { regex: '"screen_name":"([^"]+)"', type: 'regex' },
+        { xPath: '//meta[@name="twitter:site"]/@content', type: 'xpath' },
+        { regex: 'twitter\\.com/([^/\\s]+)', type: 'regex' },
+        { regex: 'x\\.com/([^/\\s]+)', type: 'regex' },
+        { xPath: '//meta[@property="og:title"]/@content', type: 'xpath' },
+        { xPath: '//title/text()', type: 'xpath' }
+      ],
+      profile: [
+        { regex: '"name":"([^"]+)"', type: 'regex' },
+        { regex: '"description":"([^"]+)"', type: 'regex' },
+        { xPath: '//h1[@data-testid="UserName"]/text()', type: 'xpath' },
+        { xPath: '//div[@data-testid="UserName"]/text()', type: 'xpath' },
+        { xPath: '//span[@data-testid="UserName"]/text()', type: 'xpath' }
+      ]
+    }
+  },
+  GMAIL: {
+    id: "f9f383fd-32d9-4c54-942f-5e9fda349762",
+    name: "Gmail", 
+    description: "Gmail Account", 
+    icon: "📧",
+    loginUrl: "https://mail.google.com/",
+    dataRequired: "Email address and account information",
+    // Gmail-specific extraction patterns
+    extractionPatterns: {
+      email: [
+        { regex: '"email":"([^"]+)"', type: 'regex' },
+        { xPath: '//meta[@name="google-signin"]/@content', type: 'xpath' },
+        { regex: '([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})', type: 'regex' }
+      ],
+      profile: [
+        { regex: '"name":"([^"]+)"', type: 'regex' },
+        { xPath: '//div[@data-email]//text()', type: 'xpath' }
+      ]
+    }
   }
 };
 

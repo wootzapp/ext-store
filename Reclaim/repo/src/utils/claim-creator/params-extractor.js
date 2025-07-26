@@ -94,33 +94,25 @@ export const extractParamsFromResponse = (responseText, responseMatches, respons
 
         // ⭐ ENHANCED: More flexible parameter extraction - try all redactions for each match ⭐
         if (responseMatches && responseMatches.length > 0 && responseRedactions && responseRedactions.length > 0) {
-            console.log('🔍 [PARAM-EXTRACTOR] Starting parameter extraction...');
-            console.log('📋 [PARAM-EXTRACTOR] Response matches:', responseMatches);
-            console.log('📋 [PARAM-EXTRACTOR] Response redactions:', responseRedactions);
             
             // iterate over the responseMatches and try ALL responseRedactions for each match
             for (let i = 0; i < responseMatches.length; i++) {
                 const match = responseMatches[i];
-                console.log(`🔍 [PARAM-EXTRACTOR] Processing match ${i + 1}:`, match);
 
                 if (!match.value) {
-                    console.log(`❌ [PARAM-EXTRACTOR] Match ${i + 1} has no value, skipping`);
                     continue;
                 }
 
                 // Extract param names from match value expect one parameter per responseMatch
                 const paramNames = extractDynamicParamNames(match.value);
-                console.log(`📋 [PARAM-EXTRACTOR] Extracted param names for match ${i + 1}:`, paramNames);
 
                 if (paramNames.length === 0) {
-                    console.log(`❌ [PARAM-EXTRACTOR] No param names found for match ${i + 1}, skipping`);
                     continue;
                 }
 
                 // ⭐ ENHANCED: Try ALL redactions for this match, not just the corresponding one ⭐
                 for (let j = 0; j < responseRedactions.length; j++) {
                     const redaction = responseRedactions[j];
-                    console.log(`🔍 [PARAM-EXTRACTOR] Trying redaction ${j + 1} for match ${i + 1}:`, redaction);
                     
                     let extractedValue = null;
 
@@ -128,7 +120,6 @@ export const extractParamsFromResponse = (responseText, responseMatches, respons
                     if (redaction.jsonPath && jsonData) {
                         try {
                             extractedValue = getValueFromJsonPath(jsonData, redaction.jsonPath);
-                            console.log(`📊 [PARAM-EXTRACTOR] JSONPath extraction result:`, extractedValue);
                         } catch (error) {
                             debugLogger.error(DebugLogType.CLAIM, `[PARAM-EXTRACTOR] Error extracting with jsonPath ${redaction.jsonPath}:`, error);
                         }
@@ -137,7 +128,6 @@ export const extractParamsFromResponse = (responseText, responseMatches, respons
                     else if (redaction.xPath && !isJson) {
                         try {
                             extractedValue = getValueFromXPath(responseText, redaction.xPath);
-                            console.log(`📊 [PARAM-EXTRACTOR] XPath extraction result:`, extractedValue);
                         } catch (error) {
                             debugLogger.error(DebugLogType.CLAIM, `[PARAM-EXTRACTOR] Error extracting with xPath ${redaction.xPath}:`, error);
                         }
@@ -145,9 +135,7 @@ export const extractParamsFromResponse = (responseText, responseMatches, respons
                     // Fall back to regex extraction
                     else if (redaction.regex) {
                         try {
-                            console.log(`🔍 [PARAM-EXTRACTOR] Trying regex:`, redaction.regex);
                             const regexMatch = responseText.match(new RegExp(redaction.regex));
-                            console.log(`📊 [PARAM-EXTRACTOR] Regex match result:`, regexMatch);
                         if (regexMatch && regexMatch.length > 1) {
                             extractedValue = regexMatch[1];
                             }
@@ -165,18 +153,13 @@ export const extractParamsFromResponse = (responseText, responseMatches, respons
                             paramValues[paramNames[0]] = String(extractedValue);
                         }
                         
-                        console.log(`✅ [PARAM-EXTRACTOR] Successfully extracted ${paramNames[0]}: ${paramValues[paramNames[0]]} using redaction ${j + 1}`);
                         debugLogger.log(DebugLogType.CLAIM, `[PARAM-EXTRACTOR] Successfully extracted ${paramNames[0]}: ${paramValues[paramNames[0]]} using ${JSON.stringify(redaction)}`);
                         break; // Found a value for this parameter, move to next match
-                    } else {
-                        console.log(`❌ [PARAM-EXTRACTOR] No value extracted with redaction ${j + 1}`);
                     }
                 }
             }
         } else {
-            console.log('❌ [PARAM-EXTRACTOR] No response matches or redactions available');
-            console.log('📋 [PARAM-EXTRACTOR] Response matches count:', responseMatches?.length || 0);
-            console.log('📋 [PARAM-EXTRACTOR] Response redactions count:', responseRedactions?.length || 0);
+            debugLogger.log(DebugLogType.CLAIM, '❌ [PARAM-EXTRACTOR] No response matches or redactions available');
         }
     } catch (error) {
         debugLogger.error(DebugLogType.CLAIM, "[PARAM-EXTRACTOR] Error extracting params from response:", error);

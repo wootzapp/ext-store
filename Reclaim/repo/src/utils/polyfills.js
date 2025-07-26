@@ -1,7 +1,6 @@
 // Polyfills for browser and service worker environments
 import { Buffer } from 'buffer';
 import process from 'process';
-import { debugLogger, DebugLogType } from './logger';
 
 // Skip WebSocket import for content script
 // import { WebSocket } from './websocket-polyfill';
@@ -32,15 +31,8 @@ if (typeof global.WebSocket === 'undefined' && !isContentScript) {
   try {
     const { WebSocket } = require('./websocket-polyfill');
     global.WebSocket = WebSocket;
-    debugLogger.info(DebugLogType.POLYFILLS, 'WebSocket polyfill added to global');
   } catch (e) {
-    debugLogger.warn(DebugLogType.POLYFILLS, 'Failed to load WebSocket polyfill:', e);
-  }
-} else {
-  if (!isContentScript) {
-    debugLogger.info(DebugLogType.POLYFILLS, 'Using native WebSocket implementation');
-  } else {
-    debugLogger.info(DebugLogType.POLYFILLS, 'Skipping WebSocket in content script context');
+    // Silent error handling
   }
 }
 
@@ -57,14 +49,12 @@ if (typeof global.require !== 'function') {
       case 'ws':
         // Don't return WebSocket in content script context
         if (isContentScript) {
-          debugLogger.info(DebugLogType.POLYFILLS, 'Blocking ws module in content script');
           return {}; // Empty implementation for content script
         }
         try {
           const { WebSocket } = require('./websocket-polyfill');
           return { WebSocket }; // Return our polyfill for ws
         } catch (e) {
-          debugLogger.warn(DebugLogType.POLYFILLS, 'Failed to load WebSocket for ws module:', e);
           return {};
         }
       case 'fs':
@@ -81,7 +71,6 @@ if (typeof global.require !== 'function') {
       case 're2':
         return {}; // Empty implementation
       default:
-        console.warn(`Mock require called for module: ${moduleName}`);
         return {};
     }
   };
@@ -92,23 +81,17 @@ if (typeof global.require !== 'function') {
     if (moduleName === 'ws') {
       // Don't return WebSocket in content script context
       if (isContentScript) {
-        debugLogger.info(DebugLogType.POLYFILLS, 'Blocking ws module in content script');
         return {}; // Empty implementation for content script
       }
       try {
         const { WebSocket } = require('./websocket-polyfill');
         return { WebSocket }; // Return our polyfill for ws
       } catch (e) {
-        debugLogger.warn(DebugLogType.POLYFILLS, 'Failed to load WebSocket for ws module:', e);
         return {};
       }
     }
-    try {
+    // For other modules, use the original require
       return originalRequire(moduleName);
-    } catch (e) {
-      debugLogger.warn(DebugLogType.POLYFILLS, `Failed to require module: ${moduleName}`);
-      return {};
-    }
   };
 }
 
@@ -150,11 +133,9 @@ if (typeof global.crypto.getRandomValues === 'undefined') {
 
 // Handle other potential missing WebCrypto APIs
 if (typeof global.crypto.subtle === 'undefined') {
-  debugLogger.warn(DebugLogType.POLYFILLS, 'WebCrypto subtle API not available. Some functionality may not work.');
   // Create a minimal fallback for subtle crypto
   global.crypto.subtle = {
     digest: async (algorithm, data) => {
-      debugLogger.warn(DebugLogType.POLYFILLS, `Crypto subtle digest (${algorithm}) called with browser fallback`);
       // This is just a minimal fallback - not secure for production
       const hashInt = Array.from(new Uint8Array(data))
         .reduce((acc, val) => (acc * 31 + val) & 0xFFFFFFFF, 0);
@@ -207,14 +188,14 @@ if (!isServiceWorker) {
       }
     });
   } catch (e) {
-    debugLogger.warn(DebugLogType.POLYFILLS, 'Could not copy all URL static properties:', e);
+    // debugLogger.warn(DebugLogType.POLYFILLS, 'Could not copy all URL static properties:', e);
   }
 
   // Set the global URL to our custom implementation
   try {
     global.URL = CustomURL;
   } catch (e) {
-    debugLogger.warn(DebugLogType.POLYFILLS, 'Could not override URL constructor:', e);
+    // debugLogger.warn(DebugLogType.POLYFILLS, 'Could not override URL constructor:', e);
     // If we can't override the URL constructor, we'll have to live with the original
   }
 }
@@ -227,24 +208,19 @@ if (typeof global.module === 'undefined') {
 // Add missing fs functions that might be needed
 global.fs = global.fs || {
   readFileSync: (path) => {
-    debugLogger.warn(DebugLogType.POLYFILLS, `Attempted to readFileSync: ${path}`);
     throw new Error('fs.readFileSync is not available in this environment');
   },
   writeFileSync: (path, data) => {
-    debugLogger.warn(DebugLogType.POLYFILLS, `Attempted to writeFileSync: ${path}`);
     // No-op
   },
   existsSync: (path) => {
-    debugLogger.warn(DebugLogType.POLYFILLS, `Attempted to check if file exists: ${path}`);
     return false;
   },
   promises: {
     readFile: async (path) => {
-      debugLogger.warn(DebugLogType.POLYFILLS, `Attempted to readFile: ${path}`);
       throw new Error('fs.promises.readFile is not available in this environment');
     },
     writeFile: async (path, data) => {
-      debugLogger.warn(DebugLogType.POLYFILLS, `Attempted to writeFile: ${path}`);
       // No-op
     }
   }

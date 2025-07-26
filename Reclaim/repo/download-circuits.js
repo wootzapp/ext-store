@@ -1,282 +1,103 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
+const { execSync } = require('child_process');
 
-const REPO = "reclaimprotocol/zk-symmetric-crypto";
-const TARGET_DIR = path.join(
-  process.cwd(),
-  "public",
-  "browser-rpc",
-  "resources"
-);
-const TEMP_DIR = path.join(process.cwd(), "zk-resources");
+const CIRCUITS_DIR = path.join(__dirname, 'circuits');
+const COMMIT_HASH = 'main';
 
-/**
- * Fetch the latest commit hash from the GitHub repository.
- */
-function getLatestCommitHash() {
-  return new Promise((resolve, reject) => {
-    const url = `https://api.github.com/repos/${REPO}/commits/HEAD`;
-    const req = https.get(url, {
-      headers: {
-        'User-Agent': 'Node.js'
-      }
-    }, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(data);
-          if (json.sha) {
-            resolve(json.sha);
-          } else {
-            reject(new Error('No SHA found in GitHub API response'));
-          }
-        } catch (error) {
-          reject(new Error(`Failed to parse GitHub API response: ${error.message}`));
-        }
-      });
-    });
-    req.on('error', reject);
-    req.setTimeout(10000, () => {
-      req.destroy();
-      reject(new Error('Timeout fetching latest commit hash'));
-    });
-  });
+// Create circuits directory if it doesn't exist
+if (!fs.existsSync(CIRCUITS_DIR)) {
+  fs.mkdirSync(CIRCUITS_DIR, { recursive: true });
 }
 
-/**
- * Perform a HEAD request to fetch the file's content-length.
- * Follows redirects if necessary.
- */
-function getFileSize(filePath, commitHash, url = null) {
-  if (!url) {
-    url = `https://github.com/${REPO}/raw/${commitHash}/resources/${filePath}`;
-  }
-  return new Promise((resolve, reject) => {
-    const req = https.request(url, { method: 'HEAD' }, (res) => {
-      if ([301, 302].includes(res.statusCode) && res.headers.location) {
-        return resolve(getFileSize(filePath, commitHash, res.headers.location));
-      }
-      const size = parseInt(res.headers['content-length'], 10);
-      resolve(isNaN(size) ? 0 : size);
-    });
-    req.on('error', reject);
-    req.end();
-  });
-}
-
-/**
- * Download a file from GitHub with retries. On every received chunk,
- * call progressCallback(delta) where delta is the number of bytes just received.
- * Follows redirects if necessary.
- */
-async function downloadFile(filePath, targetPath, progressCallback, commitHash, url = null, retries = 3) {
-  if (!url) {
-    url = `https://github.com/${REPO}/raw/${commitHash}/resources/${filePath}`;
-  }
-  const dir = path.dirname(targetPath);
-  await fs.promises.mkdir(dir, { recursive: true });
-  
+// Download file with retry logic
+async function downloadFile(url, filePath, retries = 3) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      return await new Promise((resolve, reject) => {
-        const file = fs.createWriteStream(targetPath);
-        const request = https.get(url, (response) => {
-          if ([301, 302].includes(response.statusCode) && response.headers.location) {
-            // Follow redirect
-            return downloadFile(filePath, targetPath, progressCallback, commitHash, response.headers.location)
-              .then(resolve)
-              .catch(reject);
-          }
-          response.on('data', (chunk) => {
-            progressCallback(chunk.length);
-          });
+      return new Promise((resolve, reject) => {
+        const file = fs.createWriteStream(filePath);
+        
+        https.get(url, (response) => {
+          if (response.statusCode === 200) {
           response.pipe(file);
           file.on('finish', () => {
-            file.close(resolve);
+              file.close();
+              resolve();
           });
-        });
-    
-        request.on('error', (err) => {
-          fs.unlink(targetPath, () => reject(err));
-        });
-    
-        request.setTimeout(30000, () => {
-          request.destroy();
-          reject(new Error(`Timeout downloading ${filePath}`));
+          } else {
+            reject(new Error(`HTTP ${response.statusCode}`));
+          }
+        }).on('error', (error) => {
+          fs.unlink(filePath, () => {});
+          reject(error);
         });
       });
     } catch (error) {
       if (attempt === retries) {
-        throw new Error(`Failed to download ${filePath} after ${retries} attempts: ${error.message}`);
+        throw error;
       }
-      console.log(`\nRetry ${attempt}/${retries} for ${filePath}: ${error.message}`);
-      // Exponential backoff: wait 2^attempt seconds before retrying
-      await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
     }
   }
 }
 
-/**
- * Format bytes into a human–readable string.
- */
-function formatBytes(n) {
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let i = 0;
-  while (n >= 1024 && i < units.length - 1) {
-    n /= 1024;
-    i++;
-  }
-  return `${n.toFixed(1)} ${units[i]}`;
-}
-
-/**
- * Render the progress string. We compute:
- * - overall progress = globalDownloaded / globalTotal
- * - speed = globalDownloaded / elapsed time
- * - ETA = remaining bytes / speed
- * Also show the number of files finished.
- */
-function renderProgress(completedFiles, totalFiles, globalDownloaded, globalTotal, speed, currentFileName) {
-  const progress = Math.min(globalTotal > 0 ? globalDownloaded / globalTotal : 0, 1);
-  const barLength = 25;
-  const filled = Math.round(progress * barLength);
-  const unfilled = Math.max(0, barLength - filled);
-  const bar = '█'.repeat(filled) + '░'.repeat(unfilled);
-  const remaining = speed > 0 ? Math.max(0, globalTotal - globalDownloaded) / speed : 0;
-  
-  const percentage = (progress * 100).toFixed(1).padStart(5);
-  const spdStr = `${formatBytes(speed)}/s`;
-  const etaStr = isFinite(remaining) ? `${Math.round(remaining)}s`.padStart(4) : '--';
-  
-  
-  return `[${completedFiles.toString().padStart(2)}/${totalFiles}] ${percentage}% [${bar}] Speed: ${spdStr} Time Left: ${etaStr} | ${currentFileName}`;
-}
-
-async function main() {
+// Get latest commit hash
+async function getLatestCommitHash() {
   try {
-    // Fetch the latest commit hash
-    console.log('🔄 Fetching latest commit hash...');
-    const COMMIT_HASH = await getLatestCommitHash();
-    console.log(`📝 Using commit: ${COMMIT_HASH}`);
+    const response = await fetch('https://api.github.com/repos/reclaimprotocol/reclaim-sdk/commits/main');
+    const data = await response.json();
+    return data.sha.substring(0, 7);
+  } catch (error) {
+    return COMMIT_HASH;
+  }
+}
 
-    // Create public/browser-rpc directory if it doesn't exist
-    await fs.promises.mkdir(TARGET_DIR, { recursive: true });
-
-    // Check if files already exist in the target directory
-    const ciphers = ['chacha20', 'aes-256-ctr', 'aes-128-ctr'];
-    const files = ['circuit_final.zkey', 'circuit.wasm', 'circuit.r1cs'];
-
-    const allFiles = [
-      ...ciphers.flatMap(c => files.map(f => `snarkjs/${c}/${f}`)),
+// Main download function
+async function downloadCircuits() {
+  try {
+    const commitHash = await getLatestCommitHash();
+    
+    const files = [
+      'circuit.wasm',
+      'circuit_final.zkey',
+      'verification_key.json'
     ];
 
-    // Check if all files exist
-    const allFilesExist = await Promise.all(
-      allFiles.map(async (file) => {
-        try {
-          await fs.promises.access(path.join(TARGET_DIR, file));
-          return true;
-        } catch {
-          return false;
-        }
-      })
-    ).then(results => results.every(exists => exists));
+    const baseUrl = `https://raw.githubusercontent.com/reclaimprotocol/reclaim-sdk/${commitHash}/circuits`;
 
-    if (allFilesExist) {
-      console.log('ZK files already exist in target directory, skipping download.');
-      process.exit(0);
+    // Check if files already exist
+    const existingFiles = files.filter(file => 
+      fs.existsSync(path.join(CIRCUITS_DIR, file))
+    );
+
+    if (existingFiles.length === files.length) {
       return;
     }
 
-    // Create and clean temp directory
-    await fs.promises.rm(TEMP_DIR, { recursive: true, force: true });
-    await fs.promises.mkdir(TEMP_DIR, { recursive: true });
-
-    console.log('📦 Downloading ZK files ');
-
-    const totalFiles = allFiles.length;
-  
-    // Pre-fetch each file's size so that we can compute overall progress
-    console.log('🔍 Fetching file information... please wait');
-    let fileSizes = {};
-    let globalTotalBytes = 0;
-    for (const filePath of allFiles) {
-      try {
-        const size = await getFileSize(filePath, COMMIT_HASH);
-        fileSizes[filePath] = size;
-        globalTotalBytes += size;
-      } catch (err) {
-        fileSizes[filePath] = 0;
-      }
+    // Download files
+    for (const file of files) {
+      const filePath = path.join(CIRCUITS_DIR, file);
+      const url = `${baseUrl}/${file}`;
+      
+      await downloadFile(url, filePath);
     }
-  
-    let completedFiles = 0;
-    let globalDownloadedBytes = 0;
-    const startTime = Date.now();
-  
-    process.stdout.write('\x1B[?25l'); // Hide cursor
-  
-    // Download files sequentially to temp directory
-    for (const filePath of allFiles) {
-      const targetPath = path.join(TEMP_DIR, filePath);
-      let currentFileDownloaded = 0;
-  
-      await downloadFile(filePath, targetPath, (delta) => {
-        currentFileDownloaded += delta;
-        globalDownloadedBytes += delta;
-  
-        const elapsed = (Date.now() - startTime) / 1000;
-        const speed = elapsed > 0 ? globalDownloadedBytes / elapsed : 0;
-  
-        const progressStr = renderProgress(
-          completedFiles,
-          totalFiles,
-          globalDownloadedBytes,
-          globalTotalBytes,
-          speed,
-          path.basename(filePath)
-        );
-        process.stdout.write('\r\x1B[K' + progressStr);
-      }, COMMIT_HASH);
-      completedFiles++;
-  
-      // After finishing the file, update the progress one last time.
-      const elapsed = (Date.now() - startTime) / 1000;
-      const speed = elapsed > 0 ? globalDownloadedBytes / elapsed : 0;
-      const progressStr = renderProgress(
-        completedFiles,
-        totalFiles,
-        globalDownloadedBytes,
-        globalTotalBytes,
-        speed,
-        path.basename(filePath)
-      );
-      process.stdout.write('\r\x1B[K' + progressStr);
-    }
-  
-    process.stdout.write('\x1B[?25h\n'); // Show cursor
-    console.log('\nMoving files to final location...');
-
-    // Move files from temp to final location
-    await fs.promises.rm(TARGET_DIR, { recursive: true, force: true });
-    await fs.promises.rename(TEMP_DIR, TARGET_DIR);
-
-    console.log('Download completed successfully!');
-    process.exit(0);
+    
   } catch (error) {
-    process.stdout.write('\x1B[?25h\n'); // Ensure the cursor is restored
-    console.error('\nFatal error during download:', error);
-    // Clean up temp directory on error
-    await fs.promises.rm(TEMP_DIR, { recursive: true, force: true });
-    process.exit(1);
+    throw new Error(`Failed to download circuits: ${error.message}`);
   }
 }
-  
-process.on('unhandledRejection', (error) => {
-  console.error('Unhandled promise rejection:', error);
+
+// Run download
+if (require.main === module) {
+  downloadCircuits()
+    .then(() => {
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error('Error:', error.message);
   process.exit(1);
 });
+}
   
-main();
+module.exports = { downloadCircuits };

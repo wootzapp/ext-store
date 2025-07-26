@@ -57,13 +57,10 @@ const ctx = {
     failSession: null,
     submitProofs: null,
     stopNetworkDataSync: null,
-    // ⭐ ADDED: App ID and App Secret to context from hardcoded values ⭐
+    // App ID and App Secret to context from hardcoded values
     envAppId: "0x7c74e6112781b2c5B80443fAfcf2Ea0b4c17EE16",     // This is the APP_ID for API calls
     appSecret: "0x31ee6280a945a1a5790042513941235b419e769e7c677ced8a107d82765a33b4" // This is the APP_SECRET for API calls - replace with actual value
 };
-console.log("Background script is definitely loading and running!");
-console.log("Background: APP_ID loaded:", ctx.envAppId ? 'Yes (Value present)' : 'No (Value missing)');
-console.log("Background: APP_SECRET loaded:", ctx.appSecret ? 'Yes (Value present)' : 'No (Value missing)');
 
 // Bind sessionManager methods to context
 ctx.failSession = (...args) => sessionManager.failSession(ctx, ...args);
@@ -94,29 +91,11 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
             request.responseText && request.responseText.length > 0
         );
 
-        console.log('🔍 Background: Filtering requests for Reclaim SDK:');
-        console.log(`  Total filtered requests: ${allFilteredRequests.length}`);
-        console.log(`  Requests with response body: ${requestsWithResponse.length}`);
-
         const networkData = {
             filteredRequests: requestsWithResponse,
             providerData: ctx.providerData,
             sessionId: ctx.sessionId
         };
-
-        // ⭐ DEBUG: Log network data being sent to offscreen ⭐
-        console.log('📡 Background: Sending network data to offscreen:', {
-            filteredRequestsCount: networkData.filteredRequests.length,
-            providerDataAvailable: !!networkData.providerData,
-            sessionId: networkData.sessionId
-        });
-
-        if (networkData.filteredRequests.length > 0) {
-            console.log('🔍 Background: Filtered requests being sent:');
-            networkData.filteredRequests.forEach((request, index) => {
-                console.log(`  ${index + 1}. ${request.method} ${request.url} - hasResponse: ${!!request.responseText}, responseLength: ${request.responseText?.length || 0}`);
-            });
-        }
 
         // Send network data to offscreen for Reclaim SDK
         chrome.runtime.sendMessage({
@@ -125,12 +104,11 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
             target: ctx.MESSAGE_SOURCES.OFFSCREEN,
             data: networkData
         }).catch(err => {
-            console.warn('Background: Could not send network data to offscreen (offscreen may not be ready):', err);
+            // Silent fail - offscreen may not be ready yet
         });
 
         // ⭐ ENHANCED: Start Reclaim SDK flow if we have pending config and network data ⭐
         if (ctx.pendingReclaimConfig && networkData.filteredRequests.length > 0) {
-            console.log('🚀 Background: Network data captured - enhancing Reclaim SDK flow with captured data...');
 
             // ⭐ ENHANCED: Send popup message to show verification UI ⭐
             try {
@@ -145,10 +123,10 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
                         sessionId: ctx.sessionId
                     }
                 }).catch(err => {
-                    console.warn('Background: Could not send popup message to content script:', err);
+                    // Silent fail - content script may not be ready
                 });
             } catch (error) {
-                console.warn('Background: Error sending popup message:', error);
+                // Silent fail - error sending popup message
             }
 
             // ⭐ ENHANCED: Retry mechanism for offscreen communication ⭐
@@ -158,7 +136,6 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
 
             while (retryCount < maxRetries) {
                 try {
-                    console.log(`🔄 Background: Attempting offscreen communication (attempt ${retryCount + 1}/${maxRetries})...`);
 
                     offscreenResponse = await new Promise((resolve, reject) => {
                         const timeout = setTimeout(() => {
@@ -182,15 +159,12 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
                         });
                     });
 
-                    console.log('✅ Background: Offscreen communication successful:', offscreenResponse);
                     break; // Success, exit retry loop
 
                 } catch (error) {
                     retryCount++;
-                    console.warn(`⚠️ Background: Offscreen communication attempt ${retryCount} failed:`, error);
 
                     if (retryCount >= maxRetries) {
-                        console.error('❌ Background: All offscreen communication attempts failed');
                         // Don't throw - let the process continue with network data
                     } else {
                         // Wait before retry
@@ -200,9 +174,7 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
             }
 
             if (offscreenResponse) {
-                console.log('✅ Background: Reclaim SDK flow started successfully');
             } else {
-                console.log('⚠️ Background: Reclaim SDK flow not started - continuing with ZK proof generation');
             }
 
             // Clear pending config since we've used it
@@ -213,7 +185,6 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
 
         } 
     }catch (error) {
-        console.error('❌ Background: Failed to start Reclaim SDK flow:', error);
     }
 
     try {
@@ -229,33 +200,10 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
             data: { requestHash: criteria.requestHash }
         });
 
-        // ⭐ ENHANCED: Debug claim creation process ⭐
-        console.log('🔍 Background: Starting claim creation process...');
-        console.log('📋 Background: Request data:', {
-            url: request.url,
-            method: request.method,
-            hasBody: !!request.body,
-            hasResponse: !!request.responseText,
-            responseLength: request.responseText ? request.responseText.length : 0
-        });
-        console.log('📋 Background: Provider data:', {
-            name: ctx.providerData?.name,
-            hasResponseMatches: !!ctx.providerData?.responseMatches,
-            responseMatchesCount: ctx.providerData?.responseMatches?.length || 0,
-            hasResponseRedactions: !!ctx.providerData?.responseRedactions,
-            responseRedactionsCount: ctx.providerData?.responseRedactions?.length || 0
-        });
-
         let claimData = null;
         try {
-            console.log('🚀 Background: Calling createClaimObject...');
             claimData = await ctx.createClaimObject(request, ctx.providerData, sessionId, loginUrl, ctx.callbackUrl);
-            console.log('✅ Background: Claim creation completed:', {
-                hasClaimData: !!claimData,
-                claimType: typeof claimData
-            });
         } catch (error) {
-            console.error('❌ Background: Error creating claim object:', error);
             debugLogger.error(DebugLogType.BACKGROUND, 'Error creating claim object:', error);
             chrome.tabs.sendMessage(ctx.activeTabId, {
                 action: ctx.MESSAGE_ACTIONS.CLAIM_CREATION_FAILED,
@@ -268,15 +216,6 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
         }
 
         if (claimData) {
-            console.log('🎉 Background: Claim creation successful!');
-            console.log('📊 Background: Claim data:', {
-                hasParams: !!claimData.params,
-                hasSecretParams: !!claimData.secretParams,
-                paramValuesCount: claimData.params?.paramValues ? Object.keys(claimData.params.paramValues).length : 0,
-                secretParamValuesCount: claimData.secretParams?.paramValues ? Object.keys(claimData.secretParams.paramValues).length : 0
-            });
-
-            // ⭐ NEW: Send claim data to offscreen script ⭐
             chrome.runtime.sendMessage({
                 action: ctx.MESSAGE_ACTIONS.NETWORK_DATA_FOR_RECLAIM,
                 source: ctx.MESSAGE_SOURCES.BACKGROUND,
@@ -288,7 +227,7 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
                     claimData: claimData
                 }
             }).catch(err => {
-                console.warn('Background: Could not send claim data to offscreen:', err);
+                // Silent fail - offscreen may not be ready
             });
 
             chrome.tabs.sendMessage(ctx.activeTabId, {
@@ -305,7 +244,6 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
                 appId: ctx.appId || 'unknown'
             });
         } else {
-            console.log('❌ Background: Claim creation failed - no claim data returned');
             ctx.loggerService.log({
                 message: `Claim Object creation failed for request hash: ${criteria.requestHash}`,
                 type: ctx.LOG_TYPES.BACKGROUND,
@@ -319,59 +257,12 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
 
         // ⭐ NEW: Use Wootz API for ZK proof generation instead of Reclaim SDK ⭐
         try {
-            console.log('🚀 Background: Starting ZK proof generation with Wootz API...');
-            console.log('📋 Background: Claim data for ZK proof:', {
-                hasClaimData: !!claimData,
-                claimDataKeys: claimData ? Object.keys(claimData) : [],
-                providerName: claimData?.providerData?.name,
-                extractedParams: claimData?.params?.paramValues || {},
-                timestamp: new Date().toISOString()
-            });
-
             // Get page data from content script first
-            console.log('📄 Background: Getting page data from content script...');
             const pageData = await this.getPageDataFromContentScript(ctx.activeTabId);
-
-            console.log('✅ Background: Page data received:', {
-                hasPageData: !!pageData,
-                pageUrl: pageData?.url,
-                pageContentLength: pageData?.content ? pageData.content.length : 0,
-                pageContentPreview: pageData?.content ? pageData.content.substring(0, 200) + '...' : 'N/A'
-            });
-
-            // Import the proof generator
-            console.log('📦 Background: Importing proof generator...');
-            const { generateProof } = await import('../utils/proof-generator/proof-generator.js');
-
-            // Generate ZK proof with page data
-            console.log('🔧 Background: Calling generateProof with data:', {
-                hasClaimData: !!claimData,
-                hasPageData: !!pageData,
-                timestamp: new Date().toISOString()
-            });
 
             const proofResult = await generateProof(claimData, pageData);
 
-            console.log('📊 Background: Proof result received:', {
-                success: proofResult.success,
-                hasProof: !!proofResult.proof,
-                hasError: !!proofResult.error,
-                error: proofResult.error,
-                message: proofResult.message,
-                timestamp: new Date().toISOString()
-            });
-
             if (proofResult.success) {
-                console.log('✅ Background: ZK proof generation successful!');
-                console.log('📊 Background: Proof details:', {
-                    proofSize: proofResult.proof ? JSON.stringify(proofResult.proof).length : 0,
-                    hasCallbackResponse: !!proofResult.callbackResponse,
-                    callbackResponseKeys: proofResult.callbackResponse ? Object.keys(proofResult.callbackResponse) : [],
-                    message: proofResult.message,
-                    proofKeys: proofResult.proof ? Object.keys(proofResult.proof) : []
-                });
-
-                // Send success message to content script
                 chrome.tabs.sendMessage(ctx.activeTabId, {
                     action: ctx.MESSAGE_ACTIONS.PROOF_GENERATION_SUCCESS,
                     source: ctx.MESSAGE_SOURCES.BACKGROUND,
@@ -383,7 +274,6 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
                     }
                 });
 
-                // Send proof submitted message to show final success state
                 setTimeout(() => {
                     chrome.tabs.sendMessage(ctx.activeTabId, {
                         action: ctx.MESSAGE_ACTIONS.PROOF_SUBMITTED,
@@ -399,16 +289,6 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
 
                 return { success: true, message: "ZK proof generated and sent successfully" };
             } else {
-                console.error('❌ Background: ZK proof generation failed:', {
-                    error: proofResult.error,
-                    errorType: typeof proofResult.error,
-                    hasMessage: !!proofResult.message,
-                    message: proofResult.message,
-                    timestamp: new Date().toISOString()
-                });
-
-                // Send failure message to content script
-                console.log('📤 Background: Sending failure message to content script...');
                 chrome.tabs.sendMessage(ctx.activeTabId, {
                     action: ctx.MESSAGE_ACTIONS.PROOF_GENERATION_FAILED,
                     source: ctx.MESSAGE_SOURCES.BACKGROUND,
@@ -422,16 +302,8 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
                 return { success: false, error: proofResult.error };
             }
         } catch (error) {
-            console.error('❌ Background: Error in ZK proof generation:', {
-                error: error,
-                errorMessage: error.message,
-                errorStack: error.stack,
-                errorType: typeof error,
-                timestamp: new Date().toISOString()
-            });
+            debugLogger.error(DebugLogType.BACKGROUND, 'Error in ZK proof generation:', error);
 
-            // Send failure message to content script
-            console.log('📤 Background: Sending error message to content script...');
             chrome.tabs.sendMessage(ctx.activeTabId, {
                 action: ctx.MESSAGE_ACTIONS.PROOF_GENERATION_FAILED,
                 source: ctx.MESSAGE_SOURCES.BACKGROUND,
@@ -457,39 +329,17 @@ ctx.sessionTimerManager.setTimerDuration(120000); // 2 minutes to allow time for
 
 // ⭐ NEW: Helper function to get page data from content script ⭐
 ctx.getPageDataFromContentScript = async function (tabId) {
-    console.log('📄 [BACKGROUND-DETAILED] getPageDataFromContentScript called:', {
-        tabId: tabId,
-        hasChrome: typeof chrome !== 'undefined',
-        hasTabs: typeof chrome !== 'undefined' && !!chrome.tabs,
-        hasSendMessage: typeof chrome !== 'undefined' && chrome.tabs && typeof chrome.tabs.sendMessage === 'function',
-        timestamp: new Date().toISOString()
-    });
-
     return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-            console.error('⏰ [BACKGROUND-DETAILED] Timeout getting page data from content script after 10 seconds');
             reject(new Error('Timeout getting page data from content script'));
         }, 10000); // 10 second timeout
 
-        console.log('📤 [BACKGROUND-DETAILED] Sending GET_PAGE_DATA message to content script...');
         chrome.tabs.sendMessage(tabId, {
             action: MESSAGE_ACTIONS.GET_PAGE_DATA,
             source: MESSAGE_SOURCES.BACKGROUND,
             target: MESSAGE_SOURCES.CONTENT_SCRIPT
         }, (response) => {
             clearTimeout(timeout);
-
-            console.log('📥 [BACKGROUND-DETAILED] Response received from content script:', {
-                hasResponse: !!response,
-                responseType: typeof response,
-                responseKeys: response ? Object.keys(response) : [],
-                success: response?.success,
-                hasUrl: !!response?.url,
-                hasContent: !!response?.content,
-                contentLength: response?.content ? response.content.length : 0,
-                error: response?.error,
-                timestamp: new Date().toISOString()
-            });
 
             if (chrome.runtime.lastError) {
                 console.error('❌ [BACKGROUND-DETAILED] Chrome runtime error:', {
@@ -503,7 +353,6 @@ ctx.getPageDataFromContentScript = async function (tabId) {
                     url: 'unknown',
                     content: ''
                 };
-                console.log('🔄 [BACKGROUND-DETAILED] Using fallback data:', fallbackData);
                 resolve(fallbackData);
                 return;
             }
@@ -513,12 +362,6 @@ ctx.getPageDataFromContentScript = async function (tabId) {
                     url: response.url,
                     content: response.content
                 };
-
-                console.log('✅ [BACKGROUND-DETAILED] Successfully resolved page data:', {
-                    url: pageData.url,
-                    contentLength: pageData.content.length,
-                    timestamp: new Date().toISOString()
-                });
 
                 resolve(pageData);
             } else {
@@ -534,7 +377,6 @@ ctx.getPageDataFromContentScript = async function (tabId) {
                     url: 'unknown',
                     content: ''
                 };
-                console.log('🔄 [BACKGROUND-DETAILED] Using fallback data due to error:', fallbackData);
                 resolve(fallbackData);
             }
         });
@@ -592,46 +434,29 @@ function stopNetworkDataSync() {
 // Start network data sync when session starts
 startNetworkDataSync();
 
-// ⭐ ENHANCED: Debug background script initialization ⭐
-console.log('🚀 Background: Script initialized and ready to receive messages');
-console.log('📡 Background: Message listener registered');
-console.log('🔄 Background: Network data sync started');
-
 // Register message handler
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    // ⭐ ENHANCED: Debug all incoming messages ⭐
-    console.log('📡 Background: Received message:', {
-        action: message.action,
-        source: message.source,
-        target: message.target,
-        hasData: !!message.data,
-        dataKeys: message.data ? Object.keys(message.data) : [],
-        senderTabId: sender.tab?.id
-    });
-
     // This is the main entry point for all messages received by the background script.
     // It delegates handling to the messageRouter.
-    messageRouter.handleMessage(ctx, message, sender, sendResponse);
+    
+    // Handle the message asynchronously
+    messageRouter.handleMessage(message, sender, sendResponse, ctx).catch(error => {
+        // Ensure error response is sent if the async operation fails
+        sendResponse({ success: false, error: error.message });
+    });
+    
     return true; // Required for async response in Chrome Extensions
 });
 
 // Listen for tab removals to clean up managedTabs and reset session
 chrome.tabs.onRemoved.addListener((tabId) => {
-    console.log('🗑️ [BACKGROUND-CLEANUP] Tab removed:', {
-        tabId: tabId,
-        isManagedTab: ctx.managedTabs.has(tabId),
-        isActiveTab: ctx.activeTabId === tabId,
-        timestamp: new Date().toISOString()
-    });
 
     if (ctx.managedTabs.has(tabId)) {
         ctx.managedTabs.delete(tabId);
-        console.log('✅ [BACKGROUND-CLEANUP] Removed from managed tabs');
     }
 
     // If the active tab was closed, reset the session
     if (ctx.activeTabId === tabId) {
-        console.log('🔄 [BACKGROUND-CLEANUP] Active tab closed - resetting session state');
         resetSessionState();
     }
 });
@@ -639,12 +464,6 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 // Listen for tab updates to detect navigation away from provider pages
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (ctx.managedTabs.has(tabId) && changeInfo.status === 'complete') {
-        console.log('🔄 [BACKGROUND-CLEANUP] Managed tab updated:', {
-            tabId: tabId,
-            url: tab.url,
-            isActiveTab: ctx.activeTabId === tabId,
-            timestamp: new Date().toISOString()
-        });
 
         // If user navigated away from provider domain, consider session ended
         if (ctx.providerData && ctx.providerData.loginUrl) {
@@ -652,7 +471,6 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
             const currentDomain = tab.url ? new URL(tab.url).hostname : '';
 
             if (currentDomain && !currentDomain.includes(providerDomain)) {
-                console.log('🚪 [BACKGROUND-CLEANUP] User navigated away from provider domain - resetting session');
                 resetSessionState();
             }
         }
@@ -661,7 +479,6 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 // Function to reset session state
 function resetSessionState() {
-    console.log('🔄 [BACKGROUND-CLEANUP] Resetting session state...');
 
     // Stop network data sync
     stopNetworkDataSync();
@@ -691,6 +508,4 @@ function resetSessionState() {
     if (ctx.unregisterRequestInterceptors) {
         ctx.unregisterRequestInterceptors();
     }
-
-    console.log('✅ [BACKGROUND-CLEANUP] Session state reset completed');
 }

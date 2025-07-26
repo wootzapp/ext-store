@@ -59,13 +59,27 @@ function matchesRequestCriteria(request, filterCriteria, parameters = {}) {
     return true;
   }
 
-  // ⭐ ENHANCED: More flexible URL matching for GitHub ⭐
-  // If we're looking for GitHub profile page, accept any GitHub page with user data
-  if (filterCriteria.url.includes('github.com/settings/profile') && request.url.includes('github.com')) {
-    // Accept any GitHub page that might contain user data
-    if (request.url.includes('/settings/') || request.url.includes('/profile') || request.url.includes('/api/')) {
-      debugLogger.log(DebugLogType.CLAIM, `[NETWORK-FILTER] Flexible GitHub match: ${request.url}`);
-      return true;
+  // ⭐ ENHANCED: Generic provider URL matching for all providers ⭐
+  // Check if we're on a provider-specific page that might contain user data
+  const providerDomains = {
+    'github.com': ['/settings/', '/profile', '/api/', '/user/'],
+    'linkedin.com': ['/feed/', '/in/', '/profile', '/api/'],
+    'instagram.com': ['/', '/p/', '/stories/', '/api/'],
+    'twitter.com': ['/home', '/profile', '/api/', '/user/'],
+    'x.com': ['/home', '/profile', '/api/', '/user/'], // Add X.com domain
+    'gmail.com': ['/mail/', '/inbox/', '/api/'],
+    'mail.google.com': ['/mail/', '/inbox/', '/api/']
+  };
+
+  // Check if the request URL matches any provider domain patterns
+  for (const [domain, patterns] of Object.entries(providerDomains)) {
+    if (request.url.includes(domain)) {
+      for (const pattern of patterns) {
+        if (request.url.includes(pattern)) {
+          debugLogger.log(DebugLogType.CLAIM, `[NETWORK-FILTER] Flexible ${domain} match: ${request.url}`);
+          return true;
+        }
+      }
     }
   }
 
