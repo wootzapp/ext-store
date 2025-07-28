@@ -24,7 +24,7 @@ const ctx = {
     providerData: null,
     parameters: null,
     httpProviderId: null,
-    appId: null, // This appId will be set by sessionManager based on templateData.applicationId for session tracking
+    appId: null, 
     sessionId: null,
     callbackUrl: null,
     originalTabId: null,
@@ -57,17 +57,17 @@ const ctx = {
     failSession: null,
     submitProofs: null,
     stopNetworkDataSync: null,
-    // App ID and App Secret to context from hardcoded values
-    envAppId: "0x7c74e6112781b2c5B80443fAfcf2Ea0b4c17EE16",     // This is the APP_ID for API calls
-    appSecret: "0x31ee6280a945a1a5790042513941235b419e769e7c677ced8a107d82765a33b4" // This is the APP_SECRET for API calls - replace with actual value
+    
+    envAppId: "0x7c74e6112781b2c5B80443fAfcf2Ea0b4c17EE16",     
+    appSecret: "0x31ee6280a945a1a5790042513941235b419e769e7c677ced8a107d82765a33b4"
 };
 
-// Bind sessionManager methods to context
+
 ctx.failSession = (...args) => sessionManager.failSession(ctx, ...args);
 ctx.submitProofs = (...args) => sessionManager.submitProofs(ctx, ...args);
 ctx.stopNetworkDataSync = stopNetworkDataSync;
 
-// Add processFilteredRequest to context (moved from class)
+
 ctx.processFilteredRequest = async function (request, criteria, sessionId, loginUrl) {
     try {
         if (!ctx.firstRequestReceived) {
@@ -83,9 +83,6 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
             appId: ctx.appId || 'unknown'
         });
 
-        // ⭐ CRITICAL: Send captured network data to offscreen for Reclaim SDK ⭐
-        // This ensures the Reclaim SDK has access to the network data it needs
-        // ⭐ ENHANCED: Filter out requests without response bodies to prevent SDK timeout ⭐
         const allFilteredRequests = Array.from(ctx.filteredRequests.values());
         const requestsWithResponse = allFilteredRequests.filter(request =>
             request.responseText && request.responseText.length > 0
@@ -97,18 +94,18 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
             sessionId: ctx.sessionId
         };
 
-        // Send network data to offscreen for Reclaim SDK
         chrome.runtime.sendMessage({
             action: ctx.MESSAGE_ACTIONS.NETWORK_DATA_FOR_RECLAIM,
             source: ctx.MESSAGE_SOURCES.BACKGROUND,
             target: ctx.MESSAGE_SOURCES.OFFSCREEN,
             data: networkData
         }).catch(err => {
-            // Silent fail - offscreen may not be ready yet
+            console.warn('Background: Could not send network data to offscreen (offscreen may not be ready):', err);
         });
 
-        // ⭐ ENHANCED: Start Reclaim SDK flow if we have pending config and network data ⭐
+        
         if (ctx.pendingReclaimConfig && networkData.filteredRequests.length > 0) {
+            
 
             // ⭐ ENHANCED: Send popup message to show verification UI ⭐
             try {
@@ -123,10 +120,10 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
                         sessionId: ctx.sessionId
                     }
                 }).catch(err => {
-                    // Silent fail - content script may not be ready
+                    console.warn('Background: Could not send popup message to content script:', err);
                 });
             } catch (error) {
-                // Silent fail - error sending popup message
+                console.warn('Background: Error sending popup message:', error);
             }
 
             // ⭐ ENHANCED: Retry mechanism for offscreen communication ⭐
@@ -136,6 +133,7 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
 
             while (retryCount < maxRetries) {
                 try {
+                    
 
                     offscreenResponse = await new Promise((resolve, reject) => {
                         const timeout = setTimeout(() => {
@@ -158,23 +156,18 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
                             }
                         });
                     });
-
-                    break; // Success, exit retry loop
+                    break;
 
                 } catch (error) {
                     retryCount++;
+                    
 
                     if (retryCount >= maxRetries) {
-                        // Don't throw - let the process continue with network data
+                        
                     } else {
-                        // Wait before retry
                         await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
                     }
                 }
-            }
-
-            if (offscreenResponse) {
-            } else {
             }
 
             // Clear pending config since we've used it
@@ -185,6 +178,7 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
 
         } 
     }catch (error) {
+        console.error('❌ Background: Failed to start Reclaim SDK flow:', error);
     }
 
     try {
@@ -204,6 +198,7 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
         try {
             claimData = await ctx.createClaimObject(request, ctx.providerData, sessionId, loginUrl, ctx.callbackUrl);
         } catch (error) {
+            console.error('❌ Background: Error creating claim object:', error);
             debugLogger.error(DebugLogType.BACKGROUND, 'Error creating claim object:', error);
             chrome.tabs.sendMessage(ctx.activeTabId, {
                 action: ctx.MESSAGE_ACTIONS.CLAIM_CREATION_FAILED,
@@ -216,6 +211,7 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
         }
 
         if (claimData) {
+            // ⭐ NEW: Send claim data to offscreen script ⭐
             chrome.runtime.sendMessage({
                 action: ctx.MESSAGE_ACTIONS.NETWORK_DATA_FOR_RECLAIM,
                 source: ctx.MESSAGE_SOURCES.BACKGROUND,
@@ -227,7 +223,7 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
                     claimData: claimData
                 }
             }).catch(err => {
-                // Silent fail - offscreen may not be ready
+                console.warn('Background: Could not send claim data to offscreen:', err);
             });
 
             chrome.tabs.sendMessage(ctx.activeTabId, {
@@ -260,9 +256,14 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
             // Get page data from content script first
             const pageData = await this.getPageDataFromContentScript(ctx.activeTabId);
 
+            // Import the proof generator
+            const { generateProof } = await import('../utils/proof-generator/proof-generator.js');
+
+            // Generate ZK proof with page data
             const proofResult = await generateProof(claimData, pageData);
 
             if (proofResult.success) {
+                // Send success message to content script
                 chrome.tabs.sendMessage(ctx.activeTabId, {
                     action: ctx.MESSAGE_ACTIONS.PROOF_GENERATION_SUCCESS,
                     source: ctx.MESSAGE_SOURCES.BACKGROUND,
@@ -274,6 +275,7 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
                     }
                 });
 
+                // Send proof submitted message to show final success state
                 setTimeout(() => {
                     chrome.tabs.sendMessage(ctx.activeTabId, {
                         action: ctx.MESSAGE_ACTIONS.PROOF_SUBMITTED,
@@ -289,6 +291,7 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
 
                 return { success: true, message: "ZK proof generated and sent successfully" };
             } else {
+                // Send failure message to content script
                 chrome.tabs.sendMessage(ctx.activeTabId, {
                     action: ctx.MESSAGE_ACTIONS.PROOF_GENERATION_FAILED,
                     source: ctx.MESSAGE_SOURCES.BACKGROUND,
@@ -302,8 +305,7 @@ ctx.processFilteredRequest = async function (request, criteria, sessionId, login
                 return { success: false, error: proofResult.error };
             }
         } catch (error) {
-            debugLogger.error(DebugLogType.BACKGROUND, 'Error in ZK proof generation:', error);
-
+            // Send failure message to content script
             chrome.tabs.sendMessage(ctx.activeTabId, {
                 action: ctx.MESSAGE_ACTIONS.PROOF_GENERATION_FAILED,
                 source: ctx.MESSAGE_SOURCES.BACKGROUND,
@@ -342,11 +344,6 @@ ctx.getPageDataFromContentScript = async function (tabId) {
             clearTimeout(timeout);
 
             if (chrome.runtime.lastError) {
-                console.error('❌ [BACKGROUND-DETAILED] Chrome runtime error:', {
-                    error: chrome.runtime.lastError,
-                    errorMessage: chrome.runtime.lastError.message,
-                    timestamp: new Date().toISOString()
-                });
                 console.warn('Could not get page data from content script:', chrome.runtime.lastError.message);
                 // Fallback to empty data
                 const fallbackData = {
@@ -365,12 +362,6 @@ ctx.getPageDataFromContentScript = async function (tabId) {
 
                 resolve(pageData);
             } else {
-                console.error('❌ [BACKGROUND-DETAILED] Content script returned error:', {
-                    hasResponse: !!response,
-                    success: response?.success,
-                    error: response?.error,
-                    timestamp: new Date().toISOString()
-                });
                 console.warn('Content script returned no page data');
 
                 const fallbackData = {
@@ -434,23 +425,17 @@ function stopNetworkDataSync() {
 // Start network data sync when session starts
 startNetworkDataSync();
 
+
 // Register message handler
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // This is the main entry point for all messages received by the background script.
     // It delegates handling to the messageRouter.
-    
-    // Handle the message asynchronously
-    messageRouter.handleMessage(message, sender, sendResponse, ctx).catch(error => {
-        // Ensure error response is sent if the async operation fails
-        sendResponse({ success: false, error: error.message });
-    });
-    
+    messageRouter.handleMessage(ctx, message, sender, sendResponse);
     return true; // Required for async response in Chrome Extensions
 });
 
 // Listen for tab removals to clean up managedTabs and reset session
 chrome.tabs.onRemoved.addListener((tabId) => {
-
     if (ctx.managedTabs.has(tabId)) {
         ctx.managedTabs.delete(tabId);
     }
@@ -464,7 +449,6 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 // Listen for tab updates to detect navigation away from provider pages
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (ctx.managedTabs.has(tabId) && changeInfo.status === 'complete') {
-
         // If user navigated away from provider domain, consider session ended
         if (ctx.providerData && ctx.providerData.loginUrl) {
             const providerDomain = new URL(ctx.providerData.loginUrl).hostname;
@@ -479,7 +463,6 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 // Function to reset session state
 function resetSessionState() {
-
     // Stop network data sync
     stopNetworkDataSync();
 

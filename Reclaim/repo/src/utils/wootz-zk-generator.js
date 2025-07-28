@@ -34,7 +34,7 @@ export class WootzZKProofGenerator {
       });
 
       // Use provided page data or fallback to current context
-      const currentUrl = pageUrl || 'unknown';
+              const currentUrl = pageUrl || 'unknown';
       const pageContentToUse = pageContent || (typeof document !== 'undefined' ? document.documentElement.outerHTML : '');
 
       debugLogger.info(DebugLogType.PROOF, '[WOOTZ-ZK] Page data prepared', {
@@ -50,28 +50,30 @@ export class WootzZKProofGenerator {
       }
 
       // Generate ZK proof using Wootz API
-      const timeout = 30000; // 30 seconds timeout
-      const startTime = Date.now();
-
       return new Promise((resolve, reject) => {
-        // Set up timeout
-        const timeoutId = setTimeout(() => {
-          this.isGenerating = false;
-          reject(new Error(`ZK proof generation timed out after ${timeout}ms`));
-        }, timeout);
+        const timeout = setTimeout(() => {
+          reject(new Error('ZK proof generation timeout - Wootz API took too long'));
+        }, 30000); // 30 second timeout
 
-        // Call WootzApp API
-        chrome.wootz.generateZKProof(currentUrl, (result) => {
-          clearTimeout(timeoutId);
-          const endTime = Date.now();
-          const duration = endTime - startTime;
-
-          this.handleProofResult(result, claimData, resolve, reject, pageUrl);
-        });
+        try {
+          chrome.wootz.generateZKProof(
+            currentUrl,
+            pageContentToUse,
+            (result) => {
+              clearTimeout(timeout);
+              this.handleProofResult(result, claimData, resolve, reject, currentUrl);
+            }
+          );
+        } catch (apiError) {
+          clearTimeout(timeout);
+          debugLogger.error(DebugLogType.PROOF, '[WOOTZ-ZK] Error calling WootzApp API:', apiError);
+          reject(new Error(`WootzApp API call failed: ${apiError.message}`));
+        }
       });
 
     } catch (error) {
       this.isGenerating = false;
+      debugLogger.error(DebugLogType.PROOF, '[WOOTZ-ZK] Error in ZK proof generation:', error);
       throw error;
     }
   }
@@ -102,10 +104,8 @@ export class WootzZKProofGenerator {
         const error = result[0].error;
         
         if (error.includes('No TLS data found')) {
-          
           // Try alternative approach for X.com/Twitter
           if (pageUrl && (pageUrl.includes('x.com') || pageUrl.includes('twitter.com'))) {
-            
             // Create a proof using the page content directly
             const alternativeProof = this.createAlternativeProof(claimData, pageUrl);
             
@@ -195,6 +195,7 @@ export class WootzZKProofGenerator {
       
       // If WootzApp API fails, create a mock proof for testing
       if (error.message.includes('WootzApp API') || error.message.includes('Invalid proof result structure')) {
+        debugLogger.warn(DebugLogType.PROOF, '[WOOTZ-ZK] Creating mock proof for testing purposes');
         
         const mockProof = {
           proof: {
@@ -221,6 +222,7 @@ export class WootzZKProofGenerator {
           }
         };
 
+        // Send mock proof to callback URL
         this.sendProofToCallback(mockProof, resolve, reject);
         return;
       }
@@ -338,7 +340,6 @@ export class WootzZKProofGenerator {
       });
 
       if (!response.ok) {
-        
         // Try to get error details from response
         let errorDetails = '';
         try {
@@ -359,6 +360,7 @@ export class WootzZKProofGenerator {
       });
 
       this.isGenerating = false;
+
       resolve({
         success: true,
         proof: proof,
@@ -444,7 +446,6 @@ export class WootzZKProofGenerator {
    * @returns {Object} - Alternative proof object
    */
   createAlternativeProof(claimData, pageUrl) {
-    
     // Extract username from URL
     const urlMatch = pageUrl.match(/(?:twitter\.com|x\.com)\/([^\/\s]+)/);
     const username = urlMatch ? urlMatch[1] : 'unknown';
@@ -486,7 +487,6 @@ export class WootzZKProofGenerator {
    * @returns {Object} - TLS-limited proof object
    */
   createTLSLimitedProof(claimData, pageUrl, error) {
-    
     const tlsLimitedProof = {
       proof: {
         a: ['tls-limited-proof-a'],

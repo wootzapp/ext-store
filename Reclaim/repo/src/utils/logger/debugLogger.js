@@ -1,19 +1,25 @@
-// Debug logger for development
-export const DebugLogType = {
-  BACKGROUND: 'BACKGROUND',
-  CONTENT: 'CONTENT',
-  OFFSCREEN: 'OFFSCREEN',
-  POPUP: 'POPUP',
-  CLAIM: 'CLAIM',
-  PROOF: 'PROOF',
-  NETWORK: 'NETWORK',
-  GENERAL: 'GENERAL'
-};
+// Local debug logger for development
+// Usage: import { debugLogger, DebugLogType } from './debugLogger';
 
-export class DebugLogger {
+export const DebugLogType = Object.freeze({
+  BACKGROUND: 'background',
+  CONTENT: 'content',
+  POPUP: 'popup',
+  INIT: 'init',
+  VERIFICATION: 'verification',
+  FETCH: 'fetch',
+  PROVIDER: 'provider',
+  CLAIM: 'claim',
+  PROOF: 'proof',
+  OFFSCREEN: 'offscreen',
+  POLYFILLS: 'polyfills',
+  SESSION_TIMER: 'session-timer',
+});
+
+class DebugLogger {
   constructor() {
-    this.enabled = false;
-    this.logs = [];
+    this.enabled = true;
+    this.allowedTypes = new Set(); // If empty, allow all types
   }
 
   enable() {
@@ -24,37 +30,75 @@ export class DebugLogger {
     this.enabled = false;
   }
 
+  setTypes(typesArray) {
+    if (!Array.isArray(typesArray)) return;
+    this.allowedTypes = new Set(typesArray);
+  }
+
+  clearTypes() {
+    this.allowedTypes.clear();
+  }
+
   log(type, ...args) {
     if (!this.enabled) return;
-    
-    const timestamp = new Date().toISOString();
-    const logEntry = {
-      timestamp,
-      type,
-      args
-    };
-    
-    this.logs.push(logEntry);
+    if (this.allowedTypes.size > 0 && !this.allowedTypes.has(type)) return;
+    const color = DebugLogger.typeColor(type);
+    // eslint-disable-next-line no-console
+    console.log(`%c[${type}][INFO]`, `color: ${color}; font-weight: bold;`, ...args);
   }
 
   info(type, ...args) {
-    this.log(type, ...args);
+    if (!this.enabled) return;
+    if (this.allowedTypes.size > 0 && !this.allowedTypes.has(type)) return;
+    const color = DebugLogger.typeColor(type);
+    // eslint-disable-next-line no-console
+    console.info(`%c[${type}][INFO]`, `color: ${color}; font-weight: bold;`, ...args);
   }
 
   warn(type, ...args) {
-    this.log(type, ...args);
+    if (!this.enabled) return;
+    if (this.allowedTypes.size > 0 && !this.allowedTypes.has(type)) return;
+    const color = DebugLogger.typeColor(type, 'warn');
+    // eslint-disable-next-line no-console
+    console.warn(`%c[${type}][WARN]`, `color: ${color}; font-weight: bold;`, ...args);
   }
 
   error(type, ...args) {
-    this.log(type, ...args);
+    if (!this.enabled) return;
+    if (this.allowedTypes.size > 0 && !this.allowedTypes.has(type)) return;
+    const color = DebugLogger.typeColor(type, 'error');
+    // eslint-disable-next-line no-console
+    console.error(`%c[${type}][ERROR]`, `color: ${color}; font-weight: bold;`, ...args);
   }
 
-  getLogs() {
-    return this.logs;
-  }
-
-  clear() {
-    this.logs = [];
+  static typeColor(type, level = 'info') {
+    // Assign colors to types for better visibility
+    const colors = {
+      background: '#0074D9',
+      content: '#2ECC40',
+      popup: '#FF851B',
+      init: '#B10DC9',
+      verification: '#FF4136',
+      fetch: '#39CCCC',
+      provider: '#FFDC00',
+      claim: '#7FDBFF',
+      proof: '#85144b',
+      offscreen: '#AAAAAA',
+      polyfills: '#0074D9',
+      'session-timer': '#2ECC40',
+    };
+    const levelColors = {
+      info: '', // default, use type color
+      warn: '#FFA500', // orange
+      error: '#FF0000', // red
+    };
+    // Try to match a known type, else use gray
+    const key = Object.keys(colors).find(k => type.toLowerCase().includes(k));
+    let baseColor = colors[key] || '#888888';
+    if (level !== 'info') {
+      baseColor = levelColors[level] || baseColor;
+    }
+    return baseColor;
   }
 }
 

@@ -94,7 +94,6 @@ export const extractParamsFromResponse = (responseText, responseMatches, respons
 
         // ⭐ ENHANCED: More flexible parameter extraction - try all redactions for each match ⭐
         if (responseMatches && responseMatches.length > 0 && responseRedactions && responseRedactions.length > 0) {
-            
             // iterate over the responseMatches and try ALL responseRedactions for each match
             for (let i = 0; i < responseMatches.length; i++) {
                 const match = responseMatches[i];
@@ -158,8 +157,6 @@ export const extractParamsFromResponse = (responseText, responseMatches, respons
                     }
                 }
             }
-        } else {
-            debugLogger.log(DebugLogType.CLAIM, '❌ [PARAM-EXTRACTOR] No response matches or redactions available');
         }
     } catch (error) {
         debugLogger.error(DebugLogType.CLAIM, "[PARAM-EXTRACTOR] Error extracting params from response:", error);

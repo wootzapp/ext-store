@@ -7,6 +7,20 @@
 (function() {
     'use strict';
 
+    // Backend API configuration (now handled via content script)
+    // const BACKEND_URL = 'https://api.reclaimprotocol.org';
+    // const PROVIDER_API_ENDPOINT = (providerId) => `${BACKEND_URL}/api/providers/${providerId}/custom-injection`;
+    
+    // Debug utility for logging
+    const debug = {
+        // log: (...args) => console.log("🔍 [Injection Script]:", ...args),
+        // error: (...args) => console.error("❌ [Injection Script Error]:", ...args),
+        // info: (...args) => console.info("ℹ️ [Injection Script Info]:", ...args),
+        log: (...args) => undefined,
+        error: (...args) => undefined,
+        info: (...args) => undefined
+    };
+
     /**
      * IMPORTANT: localStorage Context Isolation
      * 
@@ -32,11 +46,14 @@
  
             const value = localStorage.getItem(keyValue);
             if (value) {
+                debug.info(`Found provider ID in localStorage[${keyValue}]: ${value}`);
                 return value;
             }
 
+            debug.error('Provider ID not found in local storage');
             return null;
         } catch (error) {
+            debug.error('Error accessing localStorage:', error);
             return null;
         }
     }
@@ -78,6 +95,8 @@
      */
     async function fetchProviderInjectionScript(providerId) {
         try {
+            debug.info(`Fetching injection script for provider: ${providerId}`);
+            
             return new Promise((resolve, reject) => {
                 // Listen for response from content script
                 const handleMessage = (event) => {
@@ -87,8 +106,10 @@
                         window.removeEventListener('message', handleMessage);
                         
                         if (event.data.error) {
+                            debug.error(`Failed to fetch injection script: ${event.data.error}`);
                             resolve(null);
                         } else {
+                            debug.info(`Successfully fetched injection script for provider: ${providerId}`);
                             resolve({
                                 script: event.data.scriptContent,
                                 providerData: { 
@@ -112,11 +133,13 @@
                 // Timeout after 10 seconds
                 setTimeout(() => {
                     window.removeEventListener('message', handleMessage);
+                    debug.error('Timeout waiting for injection script response');
                     resolve(null);
                 }, 10000);
             });
 
         } catch (error) {
+            debug.error(`Failed to fetch injection script for provider ${providerId}:`, error);
             return null;
         }
     }
@@ -126,6 +149,8 @@
      */
     function executeInjectionScript(scriptContent, providerData) {
         try {
+            debug.info(`Executing injection script for provider: ${providerData.name || 'Unknown'}`);
+
             // LinkedIn has extremely strict CSP that blocks all script execution
             // Instead of trying to execute scripts, we'll use a different approach:
             // 1. Store the script content and provider data in a safe location
@@ -146,6 +171,8 @@
                 data: injectionData
             }, '*');
 
+            debug.info(`Sent injection script data to content script for provider: ${providerData.name || 'Unknown'}`);
+
             // Dispatch a custom event to notify that injection script data has been sent
             window.dispatchEvent(new CustomEvent('reclaimInjectionScriptSent', {
                 detail: {
@@ -156,6 +183,8 @@
             }));
 
         } catch (error) {
+            debug.error(`Error sending injection script data:`, error);
+
             // Dispatch error event
             window.dispatchEvent(new CustomEvent('reclaimInjectionScriptError', {
                 detail: {
@@ -179,10 +208,12 @@
             
             // If not found in localStorage, try to get from extension
             if (!providerId) {
+                debug.info('Provider ID not found in localStorage, requesting from extension...');
                 providerId = await getProviderIdFromExtension();
             }
             
             if (!providerId) {
+                debug.error('Cannot load injection script: Provider ID not found');
                 return;
             }
 
@@ -190,6 +221,7 @@
             const injectionData = await fetchProviderInjectionScript(providerId);
             
             if (!injectionData) {
+                debug.info('No injection script to execute');
                 return;
             }
 
@@ -197,6 +229,7 @@
             executeInjectionScript(injectionData.script, injectionData.providerData);
 
         } catch (error) {
+            debug.error('Error in loadAndExecuteInjectionScript:', error);
         }
     }
 
@@ -223,6 +256,7 @@
     };
 
     // Initialize the loader
+    debug.info('Reclaim Injection Script Loader initialized and injected successfully');
     initializeInjectionLoader();
 
 })();

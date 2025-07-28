@@ -63,8 +63,8 @@ function matchesRequestCriteria(request, filterCriteria, parameters = {}) {
   // Check if we're on a provider-specific page that might contain user data
   const providerDomains = {
     'github.com': ['/settings/', '/profile', '/api/', '/user/'],
-    'linkedin.com': ['/feed/', '/in/', '/profile', '/api/'],
-    'instagram.com': ['/', '/p/', '/stories/', '/api/'],
+    'linkedin.com': ['/feed/', '/in/', '/profile', '/api/', '/voyager/', '/li/', '/mynetwork/', '/messaging/'],
+    'instagram.com': ['/', '/p/', '/stories/', '/api/', '/graphql/', '/logging_client_events', '/reels/', '/explore/'],
     'twitter.com': ['/home', '/profile', '/api/', '/user/'],
     'x.com': ['/home', '/profile', '/api/', '/user/'], // Add X.com domain
     'gmail.com': ['/mail/', '/inbox/', '/api/'],
@@ -80,6 +80,33 @@ function matchesRequestCriteria(request, filterCriteria, parameters = {}) {
           return true;
         }
       }
+    }
+  }
+
+  // ⭐ NEW: Enhanced Instagram and LinkedIn API detection ⭐
+  // Instagram GraphQL and API endpoints - Return true immediately for any Instagram API request
+  if (request.url.includes('instagram.com') || request.url.includes('graph.instagram.com')) {
+    if (request.url.includes('/graphql/') || 
+        request.url.includes('/api/') || 
+        request.url.includes('/logging_client_events') ||
+        request.url.includes('/p/') ||
+        request.url.includes('/stories/') ||
+        request.url.includes('/reels/')) {
+      debugLogger.log(DebugLogType.CLAIM, `[NETWORK-FILTER] Instagram API match: ${request.url}`);
+      return true;
+    }
+  }
+
+  // LinkedIn API and data endpoints - Return true immediately for any LinkedIn API request
+  if (request.url.includes('linkedin.com')) {
+    if (request.url.includes('/voyager/') || 
+        request.url.includes('/api/') || 
+        request.url.includes('/li/') ||
+        request.url.includes('/feed/') ||
+        request.url.includes('/in/') ||
+        request.url.includes('/mynetwork/')) {
+      debugLogger.log(DebugLogType.CLAIM, `[NETWORK-FILTER] LinkedIn API match: ${request.url}`);
+      return true;
     }
   }
 
@@ -99,7 +126,7 @@ function matchesRequestCriteria(request, filterCriteria, parameters = {}) {
     }
   }
 
-  // Check method match
+  // Check method match - Only for non-Instagram/LinkedIn requests
   if (request.method !== filterCriteria.method) {
     return false;
   }

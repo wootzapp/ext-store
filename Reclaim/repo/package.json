@@ -21,7 +21,6 @@
     "@extism/extism": "^1.0.3",
     "@reclaimprotocol/attestor-core": "https://github.com/reclaimprotocol/attestor-core.git",
     "@reclaimprotocol/js-sdk": "^4.3.1",
-    "@reclaimprotocol/reclaim-sdk": "^6.0.0",
     "browserify-zlib": "^0.2.0",
     "buffer": "^6.0.3",
     "child_process": "^1.0.2",

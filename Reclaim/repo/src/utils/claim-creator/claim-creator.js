@@ -25,17 +25,17 @@ const generateChromeAndroidUserAgent = (chromeMajorVersion = 135, isMobile = tru
 
 const getPrivateKeyFromOffscreen = () => {
     return new Promise((resolve, reject) => {
-        // Timeout after 30 seconds
+        // ⭐ INCREASED: Timeout after 30 seconds (was 10 seconds) ⭐
         const callTimeout = setTimeout(() => {
             chrome.runtime.onMessage.removeListener(messageListener);
             reject(new Error('Timeout: No response from offscreen document for private key request.'));
-        }, 30000);
+        }, 30000); // Increased from 10000 to 30000
 
         const messageListener = (message, sender) => {
             // Ensure the message is from the offscreen document and is the expected response
             if (message.action === MESSAGE_ACTIONS.GET_PRIVATE_KEY_RESPONSE &&
                 message.source === MESSAGE_SOURCES.OFFSCREEN &&
-                message.target === MESSAGE_SOURCES.BACKGROUND) {
+                message.target === MESSAGE_SOURCES.BACKGROUND) { // Assuming this script runs in background context
 
                 clearTimeout(callTimeout);
                 chrome.runtime.onMessage.removeListener(messageListener);
@@ -57,7 +57,7 @@ const getPrivateKeyFromOffscreen = () => {
         debugLogger.info(DebugLogType.CLAIM, '[CLAIM-CREATOR] Requesting private key from offscreen document');
         chrome.runtime.sendMessage({
             action: MESSAGE_ACTIONS.GET_PRIVATE_KEY,
-            source: MESSAGE_SOURCES.BACKGROUND,
+            source: MESSAGE_SOURCES.BACKGROUND, // Assuming this script runs in background context
             target: MESSAGE_SOURCES.OFFSCREEN
         }, response => {
             if (chrome.runtime.lastError) {
@@ -66,6 +66,8 @@ const getPrivateKeyFromOffscreen = () => {
                 debugLogger.error(DebugLogType.CLAIM, '[CLAIM-CREATOR] Error sending GET_PRIVATE_KEY message:', chrome.runtime.lastError.message);
                 reject(new Error(`Error sending message to offscreen document: ${chrome.runtime.lastError.message}`));
             }
+            // If offscreen.js calls sendResponse synchronously, it can be handled here
+            // but the main logic relies on the async messageListener
         });
     });
 };
@@ -80,6 +82,7 @@ export const createClaimObject = async (request, providerData, sessionId, loginU
         debugLogger.info(DebugLogType.CLAIM, '[CLAIM-CREATOR] Offscreen document is ready.');
     } catch (error) {
         debugLogger.error(DebugLogType.CLAIM, '[CLAIM-CREATOR] Failed to ensure offscreen document:', error);
+        // Depending on requirements, you might want to throw error or handle differently
         throw new Error(`Failed to initialize offscreen document: ${error.message}`);
     }
     
@@ -166,9 +169,6 @@ export const createClaimObject = async (request, providerData, sessionId, loginU
     
     // 3. Extract params from response if available
     if (request.responseText) {
-        
-        // ⭐ ENHANCED: Show full response content for debugging ⭐
-        
         // ⭐ ENHANCED: Use provider-specific extraction patterns ⭐
         const providerName = providerData.name?.toLowerCase() || 'unknown';
         
@@ -181,29 +181,11 @@ export const createClaimObject = async (request, providerData, sessionId, loginU
         
         let providerSpecificPatterns = [];
         if (providerConfig?.extractionPatterns) {
-            
             // Flatten all patterns from the provider
             Object.values(providerConfig.extractionPatterns).forEach(patternArray => {
                 providerSpecificPatterns.push(...patternArray);
             });
         }
-        
-        // ⭐ ENHANCED: Search for provider-specific patterns in response ⭐
-        
-        providerSpecificPatterns.forEach((pattern, index) => {
-            if (pattern.type === 'regex' && pattern.regex) {
-                const match = request.responseText.match(new RegExp(pattern.regex));
-                if (match) {
-                    foundPatterns.push({
-                        pattern: pattern.regex,
-                        match: match[1],
-                        type: 'regex'
-                    });
-                }
-            }
-        });
-        
-        // ⭐ ENHANCED: Show any potential user data found in response ⭐
         
         // Look for common user data indicators across all providers
         const potentialUserData = [];
@@ -219,7 +201,21 @@ export const createClaimObject = async (request, providerData, sessionId, loginU
             /"publicIdentifier":"([^"]+)"/,
             /"full_name":"([^"]+)"/,
             /"firstName":"([^"]+)"/,
-            /"lastName":"([^"]+)"/
+            /"lastName":"([^"]+)"/,
+            // ⭐ NEW: Instagram-specific patterns ⭐
+            /"username":"([^"]+)"/,
+            /"full_name":"([^"]+)"/,
+            /"biography":"([^"]+)"/,
+            /"profile_pic_url":"([^"]+)"/,
+            /"is_private":([^,]+)/,
+            /"is_verified":([^,]+)/,
+            /"publicIdentifier":"([^"]+)"/,
+            /"firstName":"([^"]+)"/,
+            /"lastName":"([^"]+)"/,
+            /"headline":"([^"]+)"/,
+            /"location":"([^"]+)"/,
+            /"industry":"([^"]+)"/,
+            /"summary":"([^"]+)"/
         ];
         
         jsonPatterns.forEach(pattern => {
@@ -250,7 +246,6 @@ export const createClaimObject = async (request, providerData, sessionId, loginU
         
         // ⭐ NEW: Auto-create response matches if missing ⭐
         if (!providerData.responseMatches || providerData.responseMatches.length === 0) {
-            
             // Create automatic response matches based on found data
             const autoResponseMatches = [
                 {
@@ -291,7 +286,6 @@ export const createClaimObject = async (request, providerData, sessionId, loginU
                 autoResponseMatches, 
                 autoResponseRedactions
             );
-            
         } else {
             // Use existing config
             responseParams = extractParamsFromResponse(

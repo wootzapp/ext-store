@@ -3,6 +3,19 @@
 (function () {
     const injectionFunction = function () {
         /**
+         * Debug utility for consistent logging across the interceptor
+         * @type {Object}
+         */
+        const debug = {
+            // log: (...args) => console.log("🔍 [Debug]:", ...args),
+            // error: (...args) => console.error("❌ [Error]:", ...args),
+            // info: (...args) => console.info("ℹ️ [Info]:", ...args),
+            log: (...args) => undefined, // Disabled console.log("🔍 [Debug]:", ...args),
+            error: (...args) => undefined, // Disabled console.error("❌ [Error]:", ...args),
+            info: (...args) => undefined, // Disabled console.info("ℹ️ [Info]:", ...args),
+        };
+
+        /**
          * RequestInterceptor class
          * Provides middleware-based interception for both Fetch and XMLHttpRequest
          * Allows monitoring and modification of HTTP requests and responses
@@ -25,10 +38,14 @@
                     !this.originalFetch ||
                     !this.originalXHR
                 ) {
+                    debug.error(
+                        "Not in a browser environment or required APIs not available"
+                    );
                     return;
                 }
 
                 this.setupInterceptor();
+                debug.info("RequestInterceptor initialized");
             }
 
             /**
@@ -43,7 +60,7 @@
                         this.requestMiddlewares.map((middleware) => middleware(requestData))
                     );
                 } catch (error) {
-                    // Silent error handling
+                    debug.error("Error in request middleware:", error);
                 }
             }
 
@@ -59,7 +76,7 @@
                     try {
                         await middleware(parsedResponse, requestData);
                     } catch (error) {
-                        // Silent error handling
+                        debug.error("Error in response middleware:", error);
                     }
                 }
             }
@@ -75,8 +92,34 @@
 
                 try {
                     responseBody = await clone.text();
+                    
+                    // ⭐ DEBUG: Check for CSP errors in response ⭐
+                    if (responseBody && typeof responseBody === 'string') {
+                        const cspIndicators = [
+                            'Content Security Policy',
+                            'CSP',
+                            'script-src',
+                            'unsafe-eval',
+                            'unsafe-inline',
+                            'Refused to execute script',
+                            'Content-Security-Policy'
+                        ];
+                        
+                        const hasCspError = cspIndicators.some(indicator => 
+                            responseBody.toLowerCase().includes(indicator.toLowerCase())
+                        );
+                        
+                        if (hasCspError) {
+                            console.warn('⚠️ [Network Interceptor] Possible CSP error in response:', {
+                                url: response.url,
+                                status: response.status,
+                                bodyPreview: responseBody.substring(0, 200) + '...'
+                            });
+                        }
+                    }
                 } catch (error) {
-                    responseBody = '';
+                    debug.error("Error parsing response:", error);
+                    responseBody = "Could not read response body";
                 }
 
                 return {
@@ -85,8 +128,7 @@
                     statusText: response.statusText,
                     headers: Object.fromEntries(response.headers.entries()),
                     body: responseBody,
-                    type: response.type,
-                    ok: response.ok
+                    originalResponse: response,
                 };
             }
 
@@ -107,6 +149,15 @@
                         if (!url) {
                             return Reflect.apply(target, thisArg, argumentsList);
                         }
+
+                        // ⭐ DEBUG: Log fetch interception ⭐
+                        console.log('🔍 [Network Interceptor] Intercepting fetch request:', {
+                            url: url,
+                            method: options.method || 'GET',
+                            hasBody: !!options.body,
+                            hasHeaders: !!options.headers,
+                            timestamp: new Date().toISOString()
+                        });
 
                         const requestData = {
                             url,
@@ -133,7 +184,7 @@
                                 )
                             );
                         } catch (error) {
-                            // Silent error handling
+                            debug.error("Error in request middleware:", error);
                         }
 
                         // Make the actual fetch call with potentially modified data
@@ -155,6 +206,7 @@
                                 });
                             } catch (e) {
                                 // In case the response is immutable, don't break the app
+                                debug.error("Could not mark response:", e);
                             }
                         }
 
@@ -162,7 +214,7 @@
                         self
                             .processResponseMiddlewares(response.clone(), requestData)
                             .catch((error) => {
-                                // Silent error handling
+                                debug.error("Error in response middleware:", error);
                             });
 
                         return response; // Return the original response object
@@ -189,6 +241,13 @@
                     });
 
                     const [method = "GET", url = ""] = args;
+                    
+                    // ⭐ DEBUG: Log XHR open ⭐
+                    console.log('🔍 [Network Interceptor] XHR open called:', {
+                        method: method,
+                        url: url,
+                        timestamp: new Date().toISOString()
+                    });
                     
                     const requestInfo = {
                         url,
@@ -221,6 +280,15 @@
                     if (requestInfo) {
                         requestInfo.options.body = data;
 
+                        // ⭐ DEBUG: Log XHR send ⭐
+                        console.log('🔍 [Network Interceptor] XHR send called:', {
+                            url: requestInfo.url,
+                            method: requestInfo.options.method,
+                            hasBody: !!data,
+                            bodyType: typeof data,
+                            timestamp: new Date().toISOString()
+                        });
+
                         // Process request middlewares
                         const runRequestMiddlewares = async () => {
                             try {
@@ -230,7 +298,7 @@
                                     )
                                 );
                             } catch (error) {
-                                // Silent error handling
+                                debug.error("Error in request middleware:", error);
                             }
                         };
 
@@ -282,6 +350,7 @@
                                                 try {
                                                     return JSON.stringify(response);
                                                 } catch (e) {
+                                                    debug.error("Failed to stringify object response:", e);
                                                     return String(response);
                                                 }
                                             default:
@@ -313,11 +382,11 @@
                                     // Process response middlewares
                                     self
                                         .processResponseMiddlewares(responseObj, requestInfo)
-                                        .catch((error) => {
-                                            // Silent error handling
-                                        });
+                                        .catch((error) =>
+                                            debug.error("Error in response middleware:", error)
+                                        );
                                 } catch (error) {
-                                    // Silent error handling
+                                    debug.error("Error processing XHR response:", error);
                                 }
                             }
                         };
@@ -366,6 +435,12 @@
 
         // Request middleware for capturing and sending requests to content script
         interceptor.addRequestMiddleware(async (request) => {
+            // debug.info("Request:", {
+            //     url: request.url,
+            //     method: request.options.method,
+            //     headers: request.options.headers,
+            // });
+            
             // Create a completely new object with only primitive values
             try {
                 // Safely extract headers as a plain object
@@ -385,7 +460,7 @@
                         }
                     }
                 } catch (e) {
-                    // Silent error handling
+                    debug.error("Error extracting headers:", e);
                 }
                 
                 // Safely extract body
@@ -399,7 +474,7 @@
                         }
                     }
                 } catch (e) {
-                    // Silent error handling
+                    debug.error("Error extracting body:", e);
                 }
                 
                 // Safely extract URL as a plain string
@@ -421,7 +496,7 @@
                         }
                     }
                 } catch (e) {
-                    // Silent error handling
+                    debug.error("Error extracting URL:", e);
                     urlStr = window.location.href; // Fallback to current page URL
                 }
                 
@@ -439,7 +514,7 @@
                     data: simpleRequest
                 }, '*');
             } catch (error) {
-                // Silent error handling
+                debug.error("Error posting request data:", error);
                 // Send minimal data as fallback
                 let fallbackUrl = '';
                 try {
@@ -470,6 +545,12 @@
 
         // Response middleware for capturing and sending responses to content script
         interceptor.addResponseMiddleware(async (response, request) => {
+            // debug.info("Response:", {
+            //     url: request.url,
+            //     status: response.status,
+            //     body: response.body,
+            // });
+
             // Create a completely new object with only primitive values
             try {
                 // Safely extract headers as a plain object
@@ -489,7 +570,7 @@
                         }
                     }
                 } catch (e) {
-                    // Silent error handling
+                    debug.error("Error extracting headers:", e);
                 }
 
                 // Safely extract body
@@ -503,7 +584,7 @@
                         }
                     }
                 } catch (e) {
-                    // Silent error handling
+                    debug.error("Error extracting body:", e);
                 }
 
                 // Safely extract URL as a plain string
@@ -525,7 +606,7 @@
                         }
                     }
                 } catch (e) {
-                    // Silent error handling
+                    debug.error("Error extracting URL:", e);
                     urlStr = window.location.href; // Fallback to current page URL
                 }
 
@@ -543,7 +624,7 @@
                     data: simpleResponse
                 }, '*');
             } catch (error) {
-                // Silent error handling
+                debug.error("Error posting response data:", error);
                 // Send minimal data as fallback
                 let fallbackUrl = '';
                 try {
@@ -590,6 +671,9 @@
          */
         window.reclaimInterceptor = interceptor;
 
+        debug.info(
+            "Userscript initialized and ready - Access via window.reclaimInterceptor"
+        );
     };
 
     injectionFunction();
