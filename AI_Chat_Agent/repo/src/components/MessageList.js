@@ -2,15 +2,26 @@ import React, { useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-const MessageList = ({ messages }) => {
+const MessageList = ({ messages, onTemplateClick }) => {
   const messagesEndRef = useRef(null);
+  const containerRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const scrollToTop = () => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop = 0;
+    }
+  };
+
   useEffect(() => {
-    scrollToBottom();
+    if (messages.length === 0) {
+      scrollToTop();
+    } else {
+      scrollToBottom();
+    }
   }, [messages]);
 
   const getMessageStyle = (type) => {
@@ -74,6 +85,30 @@ const MessageList = ({ messages }) => {
         return baseStyle;
     }
   };
+
+  const templateCommands = [
+    {
+      id: 'general_chat',
+      emoji: '💬',
+      title: 'General Chat',
+      description: 'Explain how artificial intelligence works in simple terms',
+      command: 'Explain how artificial intelligence works in simple terms'
+    },
+    {
+      id: 'social_media',
+      emoji: '🐦',
+      title: 'Social Media Task',
+      description: 'Post a tweet about the benefits of AI automation in daily life',
+      command: 'Post a tweet about the benefits of AI automation in daily life'
+    },
+    {
+      id: 'shopping_task',
+      emoji: '🛒',
+      title: 'Shopping Task',
+      description: 'Find the cheapest Labubu on Amazon and compare prices',
+      command: 'Find the cheapest Labubu on Amazon and compare prices'
+    }
+  ];
 
   // Custom markdown components with proper styling
   const markdownComponents = {
@@ -213,26 +248,149 @@ const MessageList = ({ messages }) => {
     )
   };
 
+  const TemplateCommands = () => (
+    <div style={{ 
+      padding: '15px 15px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '12px',
+      alignItems: 'center'
+    }}>
+      <div style={{ 
+        textAlign: 'center', 
+        marginBottom: '16px'
+      }}>
+        <h4 style={{ 
+          color: '#AADEFFFF', 
+          marginBottom: '4px', 
+          fontSize: '16px', 
+          fontWeight: '700',
+          margin: 0
+        }}>
+          🚀 Quick Start Templates
+        </h4>
+        <p style={{ 
+          fontSize: '12px', 
+          color: '#ABDFFFEA', 
+          fontWeight: '600',
+          margin: '4px 0 0 0'
+        }}>
+          Choose a template to get started quickly
+        </p>
+      </div>
+
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        width: '100%',
+        maxWidth: '320px'
+      }}>
+        {templateCommands.map((template) => (
+          <button
+            key={template.id}
+            onClick={() => onTemplateClick?.(template.command)}
+            style={{
+              background: 'linear-gradient(135deg, #003A7CFF 0%, #004499FF 100%)',
+              border: '1px solid rgba(255, 220, 220, 0.3)',
+              borderRadius: '12px',
+              padding: '8px 10px',
+              cursor: 'pointer',
+              textAlign: 'left',
+              transition: 'all 0.3s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              width: '100%',
+              color: '#FFDCDCFF'
+            }}
+          >
+            <div style={{
+              fontSize: '20px',
+              width: '24px',
+              height: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>
+              {template.emoji}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: '14px',
+                fontWeight: '600',
+                marginBottom: '2px',
+                color: '#FFDCDCFF'
+              }}>
+                {template.title}
+              </div>
+              <div style={{
+                fontSize: '11px',
+                color: 'rgba(255, 220, 220, 0.8)',
+                lineHeight: '1.3'
+              }}>
+                {template.description}
+              </div>
+            </div>
+            <div style={{
+              width: '2px',
+              height: '30px',
+              backgroundColor: 'rgba(255, 220, 220, 0.3)',
+              margin: '0 0 0 0',
+              flexShrink: 0
+            }} />
+            <div style={{
+              fontSize: '12px',
+              color: 'rgba(255, 220, 220, 0.6)',
+              flexShrink: 0
+            }}>
+              Try ➤
+            </div>
+          </button>
+        ))}
+      </div>
+
+      <div style={{
+        marginTop: '16px',
+        padding: '12px',
+        backgroundColor: 'rgba(255, 220, 220, 0.1)',
+        borderRadius: '8px',
+        border: '1px solid rgba(255, 220, 220, 0.2)',
+        textAlign: 'center',
+        maxWidth: '280px'
+      }}>
+        <p style={{ 
+          fontSize: '11px', 
+          color: 'rgba(255, 220, 220, 0.8)',
+          margin: 0,
+          lineHeight: '1.4'
+        }}>
+          💡 <strong>Tip:</strong> You can also type your own custom commands or questions directly in the chat input below.
+        </p>
+      </div>
+    </div>
+  );
+
   const WelcomeMessage = () => (
     <div style={{ 
       textAlign: 'center', 
       color: '#657786', 
-      marginTop: '20px',
+      marginTop: '10px',
       padding: '0 16px'
     }}>
-      <div style={{ fontSize: '36px', marginBottom: '12px' }}>🤖</div>
-      <h4 style={{ color: '#005E99FF', marginBottom: '6px', fontSize: '15px', fontWeight: '750' }}>Welcome to AI Chat Agent!</h4>
-      <p style={{ marginBottom: '12px', fontSize: '13px', color: '#000000FF', fontWeight: '600' }}>Ask me to help you with tasks or start a conversation:</p>
-      <div style={{ 
+      <h4 style={{ color: '#AADEFFFF', marginBottom: '-5px', fontSize: '15px', fontWeight: '750' }}>🤖 Welcome to Social Shopping Agent!</h4>
+      <p style={{ marginBottom: '12px', fontSize: '13px', color: '#ABDFFFEA', fontWeight: '600' }}>Ask me to help you with tasks or start a conversation.</p>
+      {/* <div style={{ 
         textAlign: 'left', 
         maxWidth: '280px', 
         margin: '0 auto',
-        backgroundColor: '#DDDDDDFF',
+        backgroundColor: '#FFDCDCE3',
         color: '#000000FF',
         padding: '12px',
         borderRadius: '10px',
         border: '1px solid #888888FF'
-      }}>
+      }}> 
         <div style={{ marginBottom: '6px', fontSize: '12px' }}>
           <strong>• YouTube:</strong> "Search for videos and play"
         </div>
@@ -245,30 +403,38 @@ const MessageList = ({ messages }) => {
         <div style={{ fontSize: '12px' }}>
           <strong>• Any site:</strong> "Help me navigate this page"
         </div>
-      </div>
-      <p style={{ 
+      </div> */}
+      {/* <p style={{ 
         fontSize: '13px', 
-        color: '#000000FF', 
+        color: '#FFDCDCFF', 
         marginTop: '15px',
         fontStyle: 'italic', 
         fontWeight: '600'
       }}>
         Configure your API keys in Settings ⚙️ to get started..
-      </p>
+      </p> */}
     </div>
   );
 
   return (
-    <div style={{ 
-      flex: 1, 
-      overflowY: 'auto', 
-      display: 'flex', 
-      flexDirection: 'column',
-      backgroundColor: '#F0F0F0FF', 
-      WebkitOverflowScrolling: 'touch',
-      scrollBehavior: 'smooth'
-    }}>
-      {messages.length === 0 && <WelcomeMessage />}
+    <div 
+      ref={containerRef}
+      style={{ 
+        flex: 1, 
+        overflowY: 'auto', 
+        display: 'flex', 
+        flexDirection: 'column',
+        backgroundColor: '#002550FF', 
+        WebkitOverflowScrolling: 'touch',
+        scrollBehavior: 'smooth'
+      }}
+    >
+      {messages.length === 0 && (
+        <>
+          <WelcomeMessage />
+          <TemplateCommands />
+        </>
+      )}
       
       {messages.map((message, index) => (
         <div key={index} style={getMessageStyle(message.type)}>

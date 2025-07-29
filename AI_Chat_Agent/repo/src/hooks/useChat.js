@@ -1,21 +1,25 @@
 /* global chrome */
 import { useState, useEffect } from 'react';
 
-export const useChat = () => {
+export const useChat = (chatId = null) => {
   const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
+  // Load chat history if chatId is provided
   useEffect(() => {
-    loadChatHistory();
-  }, []);
+    if (chatId) {
+      loadChatHistory(chatId);
+    }
+  }, [chatId]);
 
-  const loadChatHistory = async () => {
+  const loadChatHistory = async (historyId) => {
     try {
-      if (typeof chrome !== 'undefined' && chrome.storage) {
-        const result = await chrome.storage.local.get(['chatHistory']);
-        if (result.chatHistory && Array.isArray(result.chatHistory)) {
-          setMessages(result.chatHistory);
-        }
+      setLoading(true);
+      const result = await chrome.storage.local.get(['chatHistories']);
+      const histories = result.chatHistories || {};
+      
+      if (histories[historyId]) {
+        setMessages(histories[historyId].messages || []);
       }
     } catch (error) {
       console.error('Error loading chat history:', error);
@@ -25,52 +29,43 @@ export const useChat = () => {
   };
 
   const addMessage = (message) => {
-    const newMessage = {
-      ...message,
-      id: Date.now().toString(36) + Math.random().toString(36).substr(2),
-      timestamp: message.timestamp || Date.now()
-    };
-    
-    setMessages(prev => {
-      const updated = [...prev, newMessage];
-      
-      // Keep only last 100 messages
-      const limited = updated.slice(-100);
-      
-      // Save to storage
-      if (typeof chrome !== 'undefined' && chrome.storage) {
-        chrome.storage.local.set({ chatHistory: limited }).catch(console.error);
-      }
-      
-      return limited;
-    });
+    setMessages(prev => [...prev, message]);
   };
 
-  const clearMessages = async () => {
+  const clearMessages = () => {
     setMessages([]);
-    
+  };
+
+  const saveCurrentChat = async () => {
+    if (messages.length === 0) return;
+
     try {
-      if (typeof chrome !== 'undefined' && chrome.storage) {
-        await chrome.storage.local.remove(['chatHistory']);
-      }
+      const result = await chrome.storage.local.get(['chatHistories']);
+      const histories = result.chatHistories || {};
+      
+      const chatId = chatId || Date.now().toString();
+      const title = messages.find(m => m.type === 'user')?.content?.substring(0, 50) || 'New Chat';
+      
+      histories[chatId] = {
+        id: chatId,
+        title: title,
+        messages: messages,
+        createdAt: new Date().toISOString(),
+        lastUpdated: new Date().toISOString()
+      };
+
+      await chrome.storage.local.set({ chatHistories: histories });
+      console.log('Chat saved successfully');
     } catch (error) {
-      console.error('Error clearing chat history:', error);
+      console.error('Error saving chat:', error);
     }
   };
 
-  const updateMessage = (messageId, updates) => {
-    setMessages(prev => 
-      prev.map(msg => 
-        msg.id === messageId ? { ...msg, ...updates } : msg
-      )
-    );
-  };
-
-  return { 
-    messages, 
-    addMessage, 
-    clearMessages, 
-    updateMessage,
-    loading 
+  return {
+    messages,
+    addMessage,
+    clearMessages,
+    loading,
+    saveCurrentChat
   };
 };

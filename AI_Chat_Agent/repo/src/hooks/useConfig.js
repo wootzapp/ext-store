@@ -1,6 +1,19 @@
 /* global chrome */
 import { useState, useEffect } from 'react';
-import { DEFAULT_CONFIG } from '../utils/constants';
+
+const DEFAULT_CONFIG = {
+  aiProvider: 'gemini',
+  navigatorModel: 'gemini-1.5-pro',
+  plannerModel: 'gemini-1.5-pro', 
+  validatorModel: 'gemini-1.5-pro',
+  autoLogin: true,
+  safeMode: true,
+  voiceInput: true,
+  humanDelay: true,
+  debugMode: true,
+  maxRetries: 3,
+  timeout: 30000
+};
 
 export const useConfig = () => {
   const [config, setConfig] = useState(DEFAULT_CONFIG);

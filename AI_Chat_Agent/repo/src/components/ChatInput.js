@@ -1,21 +1,33 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-const ChatInput = ({ onSendMessage, onStopExecution, isExecuting, disabled, placeholder }) => {
+const ChatInput = ({ 
+  onSendMessage, 
+  onStopExecution, 
+  isExecuting, 
+  disabled, 
+  placeholder,
+  value = '',
+  onChange 
+}) => {
   const [message, setMessage] = useState('');
   const textareaRef = useRef(null);
+
+  // Use external value if provided, otherwise use internal state
+  const currentValue = onChange ? value : message;
+  const setValue = onChange ? onChange : setMessage;
 
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 100) + 'px';
     }
-  }, [message]);
+  }, [currentValue]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (message.trim() && !disabled && !isExecuting) {
-      onSendMessage(message.trim());
-      setMessage('');
+    if (currentValue.trim() && !disabled && !isExecuting) {
+      onSendMessage(currentValue.trim());
+      setValue('');
     }
   };
 
@@ -26,7 +38,7 @@ const ChatInput = ({ onSendMessage, onStopExecution, isExecuting, disabled, plac
     }
   };
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e) => { 
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (isExecuting) {
@@ -41,7 +53,7 @@ const ChatInput = ({ onSendMessage, onStopExecution, isExecuting, disabled, plac
     <div style={{ 
       padding: '8px 12px',
       borderTop: '1px solid #8A8A8AFF',
-      background: 'linear-gradient(to top, #B1B1B1FF, #EBEBEBFF)',
+      background: 'linear-gradient(to top, #00499CFF, #002550FF)',
       flexShrink: 0
     }}>
       <form onSubmit={isExecuting ? handleStop : handleSubmit} style={{ 
@@ -52,8 +64,8 @@ const ChatInput = ({ onSendMessage, onStopExecution, isExecuting, disabled, plac
         <div style={{ flex: 1, position: 'relative' }}>
           <textarea
             ref={textareaRef}
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            value={currentValue}
+            onChange={(e) => setValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={disabled}
@@ -69,7 +81,7 @@ const ChatInput = ({ onSendMessage, onStopExecution, isExecuting, disabled, plac
               lineHeight: '20px',
               fontFamily: 'inherit',
               outline: 'none',
-              backgroundColor: disabled ? '#f7f9fa' : '#ffffff',
+              backgroundColor: disabled ? '#FFDCDCCB' : '#FFDCDCFF',
               color: disabled ? '#657786' : '#14171a',
               boxSizing: 'border-box',
               overflow: 'hidden'
@@ -98,7 +110,7 @@ const ChatInput = ({ onSendMessage, onStopExecution, isExecuting, disabled, plac
               alignItems: 'center',
               justifyContent: 'center',
               gap: '4px', 
-              marginBottom: '5px'
+              marginBottom: '3px'
             }}
             title="Stop Execution"
           >
@@ -107,14 +119,14 @@ const ChatInput = ({ onSendMessage, onStopExecution, isExecuting, disabled, plac
         ) : (
           <button
             type="submit"
-            disabled={!message.trim() || disabled}
+            disabled={!currentValue.trim() || disabled}
             style={{
               padding: '8px 16px',
-              backgroundColor: (!message.trim() || disabled) ? '#e1e8ed' : '#00694AFF',
-              color: (!message.trim() || disabled) ? '#657786' : 'white',
-              border: '1px solid #A5A5A5FF',
+              backgroundColor: (!currentValue.trim() || disabled) ? '#FFDCDCCB' : '#00694AFF',
+              color: (!currentValue.trim() || disabled) ? '#657786' : 'white',
+              border: '1px solid #FFDCDCFF',
               borderRadius: '18px',
-              cursor: (!message.trim() || disabled) ? 'default' : 'pointer',
+              cursor: (!currentValue.trim() || disabled) ? 'default' : 'pointer',
               fontSize: '14px',
               fontWeight: '600',
               minWidth: '60px',
@@ -123,7 +135,7 @@ const ChatInput = ({ onSendMessage, onStopExecution, isExecuting, disabled, plac
               alignItems: 'center',
               justifyContent: 'center',
               gap: '4px',
-              marginBottom: '5px'
+              marginBottom: '3px'
             }}
             title="Send Message"
           >

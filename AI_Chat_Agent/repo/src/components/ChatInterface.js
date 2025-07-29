@@ -4,18 +4,43 @@ import React, { useState, useEffect, useRef } from 'react';
 import MessageList from './MessageList';
 import ChatInput from './ChatInput';
 import TaskStatus from './TaskStatus';
-import SettingsModal from './SettingsModal';
 import { useChat } from '../hooks/useChat';
+import { useLocation } from 'react-router-dom';
+import { 
+  FaEdit, 
+  FaCog,
+  FaWifi,
+  FaExclamationTriangle,
+  // FaHistory
+} from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
 
 const ChatInterface = () => {
-  const [showSettings, setShowSettings] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get chat ID from URL params
+  const urlParams = new URLSearchParams(location.search);
+  const historyId = urlParams.get('history');
+  
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
-  const { messages, addMessage, clearMessages } = useChat();
+  const { messages, addMessage, clearMessages, loading, saveCurrentChat } = useChat(historyId);
   const [isExecuting, setIsExecuting] = useState(false);
   const [taskStatus, setTaskStatus] = useState(null);
   const portRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const isConnectingRef = useRef(false);
+
+  // // Add state for subscription choice modal
+  // const [showSubscriptionChoice, setShowSubscriptionChoice] = useState(false);
+
+  // Add state for message input
+  const [messageInput, setMessageInput] = useState('');
+
+  // Add function to handle template clicks
+  const handleTemplateClick = (templateCommand) => {
+    setMessageInput(templateCommand);
+  };
 
   // Helper function to detect markdown content
   const hasMarkdownContent = (content) => {
@@ -41,9 +66,10 @@ const ChatInterface = () => {
     const setupConnection = () => {
       if (!mounted || isConnectingRef.current) return;
       
-      isConnectingRef.current = true;
+      // isConnectingRef.current = true;
       
       try {
+        isConnectingRef.current = true;
         console.log('Setting up connection...');
         
         // Clear existing connection safely
@@ -247,14 +273,57 @@ const ChatInterface = () => {
   }, []);
 
   const handleSendMessage = async (message) => {
-    // Add user message immediately
+    // const shouldShowSubscription = !subscription.usingPersonalAPI && 
+    //                                !subscription.hasPersonalKeys && 
+    //                                subscription.remaining_requests <= 0;
+
+    // if (shouldShowSubscription) {
+    //   setShowSubscriptionChoice(true);
+    //   return; 
+    // }
+
     addMessage({
       type: 'user',
       content: message,
       timestamp: Date.now()
     });
 
-    // Send to background script if connected
+    // try {
+    //   if (!subscription.usingPersonalAPI && subscription.remaining_requests > 0) {
+    //     const response = await subscription.makeAIRequest(message);
+        
+    //     addMessage({
+    //       type: 'assistant',
+    //       content: response.response || response.content || 'No response generated',
+    //       timestamp: Date.now(),
+    //       isMarkdown: hasMarkdownContent(response.response || response.content)
+    //     });
+
+    //     setTimeout(() => {
+    //       saveCurrentChat();
+    //     }, 100);
+        
+    //     return;
+    //   }
+    // } catch (error) {
+    //   if (error.message === 'TRIAL_EXPIRED') {
+    //     if (!subscription.hasPersonalKeys) {
+    //       setShowSubscriptionChoice(true);
+    //       return;
+    //     }
+    //   } else if (error.message === 'USE_PERSONAL_API') {
+        
+    //   } else {
+    //     addMessage({
+    //       type: 'error',
+    //       content: `❌ API Error: ${error.message}`,
+    //       timestamp: Date.now()
+    //     });
+    //     return;
+    //   }
+    // }
+
+    // Fallback to background script (existing logic)
     if (portRef.current && connectionStatus === 'connected' && !isExecuting) {
       try {
         console.log('Sending message to background:', message);
@@ -299,11 +368,13 @@ const ChatInterface = () => {
     }
   };
 
-  const handleNewChat = () => {
-    // Clear local messages first
-    clearMessages();
+  const handleNewChat = async () => {
+    await clearMessages(); 
+    
     setTaskStatus(null);
     setIsExecuting(false);
+    
+    navigate('/chat', { replace: true });
     
     // Send new_chat message to background to clear backend state
     if (portRef.current && connectionStatus === 'connected') {
@@ -336,52 +407,59 @@ const ChatInterface = () => {
     }
   };
 
-  // If settings is open, show full-page settings
-  if (showSettings) {
-    return <SettingsModal onClose={() => setShowSettings(false)} />;
-  }
+  const getConnectionIcon = () => {
+    switch (connectionStatus) {
+      case 'connected': return <FaWifi />;
+      case 'connecting': return <FaWifi style={{ opacity: 0.6 }} />;
+      case 'error': return <FaExclamationTriangle />;
+      default: return <FaWifi style={{ opacity: 0.3 }} />;
+    }
+  };
 
+  // Add subscription choice modal as an overlay in the return statement
   return (
     <div className="chat-interface" style={{ 
       width: '100vw',
       height: '100vh',
-      maxWidth: '400px',
+      maxWidth: '500px',
       maxHeight: '600px',
       display: 'flex', 
       flexDirection: 'column',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      backgroundColor: '#ffffff',
+      backgroundColor: '#002550FF',
       overflow: 'hidden',
       position: 'fixed',
-      top: 0,
-      left: 0,
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)',
       userSelect: 'none',
       WebkitUserSelect: 'none',
       WebkitTouchCallout: 'none',
       touchAction: 'manipulation'
     }}>
-      {/* Fixed Header - Reduced height */}
+      {/* Fixed Header - Updated with consistent styling */}
       <div className="header" style={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center', 
         padding: '8px 12px',
         borderBottom: '1px solid #8A8A8AFF',
-        background: 'linear-gradient(to bottom, #B1B1B1FF, #CECECEFF)',
+        background: 'linear-gradient(0deg, #002550FF 0%, #764ba2 100%)',
         flexShrink: 0,
-        height: '48px',
+        minHeight: '50px',
+        maxHeight: '75px',
         boxSizing: 'border-box'
       }}>
         <div style={{ minWidth: 0, flex: 1 }}>
           <h3 style={{ 
             margin: 0, 
-            color: '#00559BFF', 
-            fontSize: '16px', 
-            fontWeight: '800',
+            color: '#FFDCDCFF', 
+            fontSize: '15px', 
+            fontWeight: '750',
             lineHeight: '20px', 
             textAlign: 'left'
           }}>
-            AI CHAT AGENT
+            SOCIAL SHOPPING AGENT
           </h3>
           <div style={{ 
             fontSize: '12px', 
@@ -389,46 +467,77 @@ const ChatInterface = () => {
             marginTop: '1px',
             display: 'flex',
             alignItems: 'center',
-            gap: '3px',
+            gap: '4px',
             lineHeight: '12px'
           }}>
-            <span style={{ fontSize: '12px' }}>●</span>
+            {getConnectionIcon()}
             <span>{getConnectionStatusText()}</span>
             {isExecuting && <span>• Working...</span>}
+            {/* <RequestCounter 
+              subscriptionState={subscription} 
+              onUpgradeClick={() => setShowSubscriptionChoice(true)}
+            /> */}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '7.5px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
           <button 
             onClick={handleNewChat}
             style={{ 
-              padding: '4px 6px', 
-              backgroundColor: '#F0F0F0FF',
-              border: '1px solid #6B6B6BFF',
-              borderRadius: '10px',
+              padding: '6px 8px', 
+              backgroundColor: 'rgba(255, 220, 220, 0.2)',
+              border: '1px solid rgba(255, 220, 220, 0.3)',
+              borderRadius: '8px',
               cursor: 'pointer',
-              fontSize: '20px',
-              lineHeight: '18px',
+              fontSize: '16px',
+              color: '#FFDCDCFF',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
             title="New Chat"
           >
-            📝
+            <FaEdit />
           </button>
-          <button 
-            onClick={() => setShowSettings(true)}
+          
+          {/* <button 
+            onClick={() => navigate('/history')}
             style={{ 
-              padding: '4px 6px',
-              backgroundColor: '#F0F0F0FF',
-              border: '1px solid #6B6B6BFF',
-              color: '#000000FF',
-              borderRadius: '10px',
+              padding: '6px 8px', 
+              backgroundColor: 'rgba(255, 220, 220, 0.2)',
+              border: '1px solid rgba(255, 220, 220, 0.3)',
+              borderRadius: '8px',
               cursor: 'pointer',
-              fontSize: '20px',
-              lineHeight: '18px'
+              fontSize: '16px',
+              color: '#FFDCDCFF',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
-            title="Settings"
+            title="Chat History"
           >
-            ⚙️
-          </button>
+            <FaHistory />
+          </button> */}
+          
+          <div style={{ position: 'relative' }}>
+            <button 
+              onClick={() => navigate('/settings')}
+              style={{ 
+                padding: '6px 8px',
+                backgroundColor: 'rgba(255, 220, 220, 0.2)',
+                border: '1px solid rgba(255, 220, 220, 0.3)',
+                color: '#FFDCDCFF',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title="Settings"
+            >
+              <FaCog />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -442,7 +551,10 @@ const ChatInterface = () => {
         flexDirection: 'column',
         minHeight: 0 
       }}>
-        <MessageList messages={messages} />
+        <MessageList 
+          messages={messages} 
+          onTemplateClick={handleTemplateClick}
+        />
       </div>
 
       {/* Fixed Input at Bottom - Pass stop handler and execution state */}
@@ -456,7 +568,26 @@ const ChatInterface = () => {
             ? (isExecuting ? "Processing..." : "Ask me anything...")
             : "Connecting..."
         }
+        value={messageInput}
+        onChange={setMessageInput}
       />
+      
+      {/* Add subscription choice as overlay */}
+      {/* {showSubscriptionChoice && (
+        <SubscriptionChoice 
+          onSubscribe={() => {
+            setShowSubscriptionChoice(false);
+            navigate('/subscription');
+          }}
+          onUseAPI={() => {
+            setShowSubscriptionChoice(false);
+            navigate('/settings');
+          }}
+          onClose={() => setShowSubscriptionChoice(false)}
+          onRefreshSubscription={() => subscription.loadSubscriptionData()}
+          user={user}
+        />
+      )} */}
     </div>
   );
 };
