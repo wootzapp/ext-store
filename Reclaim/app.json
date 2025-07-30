@@ -1,0 +1,20 @@
+{
+  "manifest_version": "v1.0",
+  "name": "Reclaim",
+  "version": "1.0.0",
+  "description": "Reclaim Protocol to generate zero-knowledge proofs for private, verifiable data sharing.",
+  "author": {
+    "name": "Wootzapp Team",
+    "email": "mhaskeaashish16@gmail.com"
+  },
+  "permissions": [
+    "offscreen",
+    "cookies",
+    "tabs",
+    "declarativeNetRequest",
+    "activeTab",
+    "storage",
+    "webRequest",
+    "wootz"
+  ]
+}
