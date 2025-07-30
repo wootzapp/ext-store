@@ -1,0 +1,87 @@
+{
+  "manifest_version": 3,
+  "name": "Reclaim Extension",
+  "version": "1.0.4",
+  "description": "A chrome extension for Reclaim",
+  "icons": {
+    "16": "assets/img/logo.png",
+    "48": "assets/img/logo.png",
+    "128": "assets/img/logo.png"
+  },
+  "background": {
+    "service_worker": "background/background.bundle.js"
+  },
+  "action": {
+    "default_popup": "popup/index.html",
+    "default_icon": "assets/img/logo.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; worker-src 'self'; connect-src 'self' https://*.ngrok-free.app https://*.ngrok.io https://api.reclaimprotocol.org https://attestor.reclaimprotocol.org https://logs.reclaimprotocol.org wss://attestor.reclaimprotocol.org wss://*.ngrok-free.app wss://*.ngrok.io;"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/content.bundle.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "https://api.reclaimprotocol.org/*",
+    "https://attestor.reclaimprotocol.org/*",
+    "https://logs.reclaimprotocol.org/*",
+    "https://*.ngrok-free.app/*",
+    "https://*.ngrok.io/*"
+  ],
+  "permissions": [
+    "offscreen",
+    "cookies",
+    "tabs",
+    "declarativeNetRequest",
+    "activeTab",
+    "storage",
+    "webRequest",
+    "wootz"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "offscreen/offscreen.html", 
+        "offscreen/offscreen.bundle.js"
+      ],
+      "matches": ["<all_urls>"]
+    },
+    {
+      "resources": ["assets/img/logo.png"],
+      "matches": ["<all_urls>"]
+    },
+    {
+      "resources": [
+        "interceptor/network-interceptor.js", 
+        "interceptor/network-interceptor.bundle.js"
+      ],
+      "matches": ["<all_urls>"]
+    },
+    {
+      "resources": [
+        "interceptor/injection-scripts.js", 
+        "interceptor/injection-scripts.bundle.js"
+      ],
+      "matches": ["<all_urls>"]
+    },
+    {
+      "resources": [
+        "content/components/ProviderVerificationPopup.css", 
+        "content/components/ProviderVerificationPopup.html"
+      ],
+      "matches": ["<all_urls>"]
+    },
+    {
+      "resources": [
+        "popup/index.html", 
+        "popup/popup.bundle.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

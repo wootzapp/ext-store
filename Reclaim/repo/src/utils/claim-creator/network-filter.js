@@ -1,0 +1,274 @@
+// Import shared utility functions
+import { getValueFromJsonPath, getValueFromXPath, isJsonFormat, safeJsonParse } from './params-extractor-utils.js';
+import { debugLogger, DebugLogType } from '../logger';
+
+// Escape special regex characters in string
+function escapeSpecialCharacters(input) {
+  return input.replace(/[[\]()*+?.,\\^$|#]/g, '\\$&');
+}
+
+// Extract template variables from a string
+function getTemplateVariables(template) {
+  const paramRegex = /{{(\w+)}}/g;
+  const variables = [];
+  let match;
+
+  while ((match = paramRegex.exec(template)) !== null) {
+    variables.push(match[1]);
+  }
+
+  return variables;
+}
+
+// Convert template to regex, substituting known parameters
+export function convertTemplateToRegex(template, parameters = {}) {
+  // Escape special regex characters
+  let escapedTemplate = escapeSpecialCharacters(template);
+
+  // Find all template variables
+  const allVars = getTemplateVariables(template);
+  const unsubstitutedVars = [];
+
+  // Replace template variables with actual values or regex patterns
+  for (const param of allVars) {
+    if (parameters[param]) {
+      // Substitute known parameter
+      escapedTemplate = escapedTemplate.replace(`{{${param}}}`, parameters[param]);
+    } else {
+      // Track unsubstituted variables
+      unsubstitutedVars.push(param);
+      // Use appropriate regex pattern based on variable name
+      const replacement = param.endsWith('GRD') ? '(.*)' : '(.*?)';
+      escapedTemplate = escapedTemplate.replace(`{{${param}}}`, replacement);
+    }
+  }
+
+  return {
+    pattern: escapedTemplate,
+    allVars,
+    unsubstitutedVars
+  };
+}
+
+// Function to check if a request matches filtering criteria
+function matchesRequestCriteria(request, filterCriteria, parameters = {}) {
+  // Check URL match
+
+  // For exact match
+  if (filterCriteria.url === request.url) {
+    return true;
+  }
+
+  // ⭐ ENHANCED: Generic provider URL matching for all providers ⭐
+  // Check if we're on a provider-specific page that might contain user data
+  const providerDomains = {
+    'github.com': ['/settings/', '/profile', '/api/', '/user/'],
+    'linkedin.com': ['/feed/', '/in/', '/profile', '/api/', '/voyager/', '/li/', '/mynetwork/', '/messaging/'],
+    'instagram.com': ['/', '/p/', '/stories/', '/api/', '/graphql/', '/logging_client_events', '/reels/', '/explore/'],
+    'twitter.com': ['/home', '/profile', '/api/', '/user/'],
+    'x.com': ['/home', '/profile', '/api/', '/user/'], // Add X.com domain
+    'gmail.com': ['/mail/', '/inbox/', '/api/'],
+    'mail.google.com': ['/mail/', '/inbox/', '/api/']
+  };
+
+  // Check if the request URL matches any provider domain patterns
+  for (const [domain, patterns] of Object.entries(providerDomains)) {
+    if (request.url.includes(domain)) {
+      for (const pattern of patterns) {
+        if (request.url.includes(pattern)) {
+          debugLogger.log(DebugLogType.CLAIM, `[NETWORK-FILTER] Flexible ${domain} match: ${request.url}`);
+          return true;
+        }
+      }
+    }
+  }
+
+  // ⭐ NEW: Enhanced Instagram and LinkedIn API detection ⭐
+  // Instagram GraphQL and API endpoints - Return true immediately for any Instagram API request
+  if (request.url.includes('instagram.com') || request.url.includes('graph.instagram.com')) {
+    if (request.url.includes('/graphql/') || 
+        request.url.includes('/api/') || 
+        request.url.includes('/logging_client_events') ||
+        request.url.includes('/p/') ||
+        request.url.includes('/stories/') ||
+        request.url.includes('/reels/')) {
+      debugLogger.log(DebugLogType.CLAIM, `[NETWORK-FILTER] Instagram API match: ${request.url}`);
+      return true;
+    }
+  }
+
+  // LinkedIn API and data endpoints - Return true immediately for any LinkedIn API request
+  if (request.url.includes('linkedin.com')) {
+    if (request.url.includes('/voyager/') || 
+        request.url.includes('/api/') || 
+        request.url.includes('/li/') ||
+        request.url.includes('/feed/') ||
+        request.url.includes('/in/') ||
+        request.url.includes('/mynetwork/')) {
+      debugLogger.log(DebugLogType.CLAIM, `[NETWORK-FILTER] LinkedIn API match: ${request.url}`);
+      return true;
+    }
+  }
+
+  // For regex match
+  if (filterCriteria.urlType === 'REGEX') {
+    const urlRegex = new RegExp(convertTemplateToRegex(filterCriteria.url, parameters).pattern);
+    if (!urlRegex.test(request.url)) {
+      return false;
+    }
+  }
+
+  // For template match
+  if (filterCriteria.urlType === 'TEMPLATE') {
+    const urlTemplate = new RegExp(convertTemplateToRegex(filterCriteria.url, parameters).pattern);
+    if (!urlTemplate.test(request.url)) {
+      return false;
+    }
+  }
+
+  // Check method match - Only for non-Instagram/LinkedIn requests
+  if (request.method !== filterCriteria.method) {
+    return false;
+  }
+
+  // Check body match if enabled
+  if (filterCriteria.bodySniff && filterCriteria.bodySniff.enabled) {
+    const bodyTemplate = filterCriteria.bodySniff.template;
+    const requestBody = typeof request.body === 'string' ?
+      request.body : JSON.stringify(request.body);
+
+    // For exact match
+    if (bodyTemplate === requestBody) {
+      return true;
+    }
+
+    // For template match
+    const bodyRegex = new RegExp(convertTemplateToRegex(bodyTemplate, parameters).pattern);
+    if (!bodyRegex.test(requestBody)) {
+      return false;
+    }
+  }
+
+  // If we get here, all criteria matched
+  return true;
+}
+
+// Function to check if response matches criteria
+function matchesResponseCriteria(responseText, matchCriteria, parameters = {}) {
+  if (!matchCriteria || matchCriteria.length === 0) {
+    return true;
+  }
+
+  for (const match of matchCriteria) {
+    const { pattern } = convertTemplateToRegex(match.value, parameters);
+    const regex = new RegExp(pattern);
+    const matches = regex.test(responseText);
+
+    // Check if match expectation is met
+    const matchExpectation = match.invert ? !matches : matches;
+    if (!matchExpectation) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// Function to check if response fields match responseRedactions criteria
+function matchesResponseFields(responseText, responseRedactions) {
+  if (!responseRedactions || responseRedactions.length === 0) {
+    return true;
+  }
+
+  // ⭐ ENHANCED: More lenient matching - if ANY pattern matches, consider it valid ⭐
+  let anyMatchFound = false;
+
+  // Try to parse JSON if the response appears to be JSON
+  let jsonData = null;
+  const isJson = isJsonFormat(responseText);
+
+  if (isJson) {
+    jsonData = safeJsonParse(responseText);
+    if (jsonData) {
+    }
+  }
+
+  // Check each redaction pattern - if ANY match, consider it valid
+  for (const redaction of responseRedactions) {
+    let patternMatched = false;
+    
+    // If jsonPath is specified and response is JSON
+    if (redaction.jsonPath && jsonData) {
+      try {
+        const value = getValueFromJsonPath(jsonData, redaction.jsonPath);
+        if (value !== undefined && value !== null) {
+          patternMatched = true;
+        }
+      } catch (error) {
+        debugLogger.error(DebugLogType.CLAIM, `[NETWORK-FILTER] Error checking jsonPath ${redaction.jsonPath}:`, error);
+      }
+    }
+    // If xPath is specified and response is not JSON (assumed to be HTML)
+    else if (redaction.xPath && !isJson) {
+      try {
+        const value = getValueFromXPath(responseText, redaction.xPath);
+        if (value) {
+          patternMatched = true;
+        }
+      } catch (error) {
+        debugLogger.error(DebugLogType.CLAIM, `[NETWORK-FILTER] Error checking xPath ${redaction.xPath}:`, error);
+      }
+    }
+    // If regex is specified
+    else if (redaction.regex) {
+      try {
+        const regex = new RegExp(redaction.regex);
+        if (regex.test(responseText)) {
+          patternMatched = true;
+        }
+      } catch (error) {
+        debugLogger.error(DebugLogType.CLAIM, `[NETWORK-FILTER] Error checking regex ${redaction.regex}:`, error);
+      }
+    }
+    
+    // If this pattern matched, mark that we found at least one match
+    if (patternMatched) {
+      anyMatchFound = true;
+      debugLogger.log(DebugLogType.CLAIM, `[NETWORK-FILTER] Pattern matched: ${JSON.stringify(redaction)}`);
+    }
+  }
+
+  // ⭐ ENHANCED: Return true if ANY pattern matched, or if no patterns were specified ⭐
+  return anyMatchFound || responseRedactions.length === 0;
+}
+
+// Main filtering function
+export const filterRequest = (request, filterCriteria, parameters = {}) => {
+  try {
+    // First check if request matches criteria
+    if (!matchesRequestCriteria(request, filterCriteria, parameters)) {
+      return false;
+    }
+
+
+    // Then check if response matches (if we have response data)
+    if (request.responseText && filterCriteria.responseMatches) {
+      if (!matchesResponseCriteria(request.responseText, filterCriteria.responseMatches, parameters)) {
+        return false;
+      }
+    }
+
+    
+    // Check if the response fields match the responseRedactions criteria
+    if (request.responseText && filterCriteria.responseRedactions) {
+      if (!matchesResponseFields(request.responseText, filterCriteria.responseRedactions)) {
+        return false;
+      }
+    }
+
+    return true;
+  } catch (error) {
+    debugLogger.error(DebugLogType.CLAIM, '[NETWORK-FILTER] Error filtering request:', error);
+    return false;
+  }
+};
