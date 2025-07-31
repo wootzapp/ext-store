@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "AI Summarizer Extension",
+  "name": "Web Summary",
   "version": "1.0.0",
-  "description": "A Chrome extension that logs current page URLs using background and content scripts",
+  "description": "Transform webpages into concise insights with AI-powered summarization",
   "permissions": [
     "activeTab",
     "storage",
@@ -24,7 +24,7 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "AI Summarizer"
+    "default_title": "Web Summary"
   },
   "icons": {
     "16": "icons/icon16.png",

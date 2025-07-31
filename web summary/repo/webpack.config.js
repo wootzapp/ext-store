@@ -3,6 +3,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = {
+  target: 'web',
   entry: {
     popup: './src/popup/index.jsx',
     background: './src/background.js',
@@ -38,6 +39,15 @@ module.exports = {
   resolve: {
     extensions: ['.js', '.jsx']
   },
+  externals: {
+    'chrome': 'chrome'
+  },
+  node: {
+    global: false
+  },
+  experiments: {
+    topLevelAwait: false
+  },
   plugins: [
     new HtmlWebpackPlugin({
       template: './src/popup/popup.html',
@@ -52,6 +62,7 @@ module.exports = {
     })
   ],
   optimization: {
-    splitChunks: false
+    splitChunks: false,
+    runtimeChunk: false
   }
 }; 

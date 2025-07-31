@@ -4,71 +4,6 @@ console.log('Content script loaded');
 setupUrlMonitoring();
 setupPageLoadListener();
 
-async function waitForPageLoad() {
-  if (document.readyState === 'complete') {
-    return;
-  }
-  
-  return new Promise((resolve) => {
-    const checkLoad = () => {
-      if (document.readyState === 'complete') {
-        resolve();
-      } else {
-        setTimeout(checkLoad, 100);
-      }
-    };
-    checkLoad();
-  });
-}
-
-function checkUrlChange() {
-  const newUrl = window.location.href;
-  if (newUrl !== currentUrl) {
-    currentUrl = newUrl;
-    console.log('URL changed to:', currentUrl);
-    captureAndSendDOM();
-    notifyBackgroundOfUrlChange();
-  }
-}
-
-function setupUrlMonitoring() {
-  setInterval(checkUrlChange, 1000);
-}
-
-function captureAndSendDOM() {
-  // Wait for page to be fully loaded before capturing DOM
-  waitForPageLoad().then(() => {
-    const domData = {
-      url: currentUrl,
-      title: document.title,
-      html: document.documentElement.outerHTML,
-      textContent: document.body ? document.body.textContent.substring(0, 1000) : '', // First 1000 chars
-      timestamp: new Date().toISOString()
-    };
-    
-    chrome.runtime.sendMessage({
-      type: 'domCaptured',
-      data: domData
-    }).then(response => {
-      console.log('Background acknowledged DOM capture:', response);
-    }).catch(err => {
-      console.log('Could not send DOM to background:', err);
-    });
-  });
-}
-
-function notifyBackgroundOfUrlChange() {
-  chrome.runtime.sendMessage({
-    type: 'urlChanged',
-    url: currentUrl,
-    timestamp: new Date().toISOString()
-  }).then(response => {
-    console.log('Background acknowledged URL change:', response);
-  }).catch(err => {
-    console.log('Could not notify background about URL change:', err);
-  });
-}
-
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('Content script received message:', message);
   
@@ -100,6 +35,33 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
       break;
       
+    case 'aiProcessingComplete':
+      console.log('AI processing completed:', message.data);
+      // You can add UI updates here to show the results
+      displayAIResults(message.data);
+      sendResponse({
+        type: 'aiResultsReceived',
+        timestamp: new Date().toISOString()
+      });
+      break;
+      
+    case 'aiProcessingProgress':
+      console.log('AI processing progress:', message.data);
+      displayAIProgress(message.data);
+      sendResponse({
+        type: 'aiProgressReceived',
+        timestamp: new Date().toISOString()
+      });
+      break;
+
+    case 'aiProcessingError':
+      console.log('AI processing error:', message.data);
+      sendResponse({
+        type: 'aiErrorReceived',
+        timestamp: new Date().toISOString()
+      });
+      break;
+      
     default:
       console.log('Unknown message type:', message.type);
       break;
@@ -108,7 +70,149 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true; 
 });
 
+async function waitForPageLoad() {
+  if (document.readyState === 'complete') {
+    return;
+  }
+  
+  return new Promise((resolve) => {
+    const checkLoad = () => {
+      if (document.readyState === 'complete') {
+        resolve();
+      } else {
+        setTimeout(checkLoad, 100);
+      }
+    };
+    checkLoad();
+  });
+}
+
+function checkUrlChange() {
+  const newUrl = window.location.href;
+  if (newUrl !== currentUrl) {
+    const oldUrl = currentUrl;
+    currentUrl = newUrl;
+    console.log('URL changed from:', oldUrl, 'to:', currentUrl);
+    
+    // Clear storage for the new page
+    clearStorageForNewPage();
+    
+    // Capture DOM for the new page
+    captureAndSendDOM();
+    notifyBackgroundOfUrlChange();
+  }
+}
+
+// Clear storage when navigating to a new page
+function clearStorageForNewPage() {
+  chrome.storage.local.remove(['currentPage', 'aiResults', 'aiError', 'aiProcessingStatus'], () => {
+    console.log('Storage cleared for URL change');
+  });
+}
+
+function setupUrlMonitoring() {
+  setInterval(checkUrlChange, 1000);
+}
+
+function captureAndSendDOM() {
+  waitForPageLoad().then(() => {
+    const domData = {
+      url: currentUrl,
+      title: document.title,
+      html: document.documentElement.outerHTML,
+      textContent: document.body ? document.body.textContent : '',
+      cleanTextContent: '',
+      timestamp: new Date().toISOString()
+    };
+
+    cleanDomData(domData);
+
+    // Send DOM data to background script for processing and storage
+    chrome.runtime.sendMessage({
+      type: 'domCaptured',
+      data: domData
+    }).then(response => {
+      console.log('Background acknowledged DOM capture:', response);
+    }).catch(err => {
+      console.log('Could not send DOM to background:', err);
+    });
+  });
+}
+
+function cleanDomData(domData) {
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = domData.html;
+
+  console.log('Original HTML length:', tempDiv.innerHTML.length);
+
+  const headElements = tempDiv.querySelectorAll('head');
+  headElements.forEach(el => el.remove());
+
+  const styleElements = tempDiv.querySelectorAll('style');
+  styleElements.forEach(el => el.remove());
+
+  const scriptElements = tempDiv.querySelectorAll('script');
+  scriptElements.forEach(el => el.remove());
+
+  const noscriptElements = tempDiv.querySelectorAll('noscript');
+  noscriptElements.forEach(el => el.remove());
+
+  const allElements = tempDiv.querySelectorAll('*');
+  allElements.forEach(el => {
+    if (el.children.length > 0) return;
+
+    const textContent = (el.textContent || '').trim();
+    while (el.attributes.length > 0) {
+      el.removeAttribute(el.attributes[0].name);
+    }
+  });
+
+  console.log('After cleaning:', tempDiv.innerHTML.length);
+
+  let cleanText = tempDiv.textContent || tempDiv.innerText || '';
+
+
+  cleanText = cleanText.replace(/<img[^>]*>/g, '');
+  cleanText = cleanText.replace(/<input[^>]*>/g, '');
+  cleanText = cleanText.replace(/<meta[^>]*>/g, '');
+  cleanText = cleanText.replace(/<link[^>]*>/g, '');
+  cleanText = cleanText.replace(/<br[^>]*>/g, '');
+  cleanText = cleanText.replace(/<hr[^>]*>/g, '');
+  cleanText = cleanText.replace(/<base[^>]*>/g, '');
+
+  cleanText = cleanText
+    .replace(/\s+/g, ' ')           
+    .replace(/\n\s*\n/g, '\n')      
+    .replace(/^\s+|\s+$/g, '')      
+    .replace(/\t/g, ' ')            
+    .replace(/\r/g, '')             
+    .replace(/[^\S\r\n]+/g, ' ')    
+    .trim();
+
+  console.log('Text Content cleaned:', cleanText);
+  console.log('Text Content cleaned length:', cleanText.length);
+  
+  const finalImgCheck = tempDiv.querySelectorAll('img');
+  console.log('Final img check:', finalImgCheck.length);
+  
+  domData.cleanTextContent = cleanText;
+  domData.html = tempDiv.innerHTML;
+}
+
+function notifyBackgroundOfUrlChange() {
+  chrome.runtime.sendMessage({
+    type: 'urlChanged',
+    url: currentUrl,
+    timestamp: new Date().toISOString()
+  }).then(response => {
+    console.log('Background acknowledged URL change:', response);
+  }).catch(err => {
+    console.log('Could not notify background about URL change:', err);
+  });
+}
+
 function setupPageLoadListener() {
+  // Only capture DOM data, don't trigger AI processing automatically
   if (document.readyState === 'complete') {
     captureAndSendDOM();
     notifyBackgroundOfPageLoad();
@@ -126,6 +230,68 @@ function notifyBackgroundOfPageLoad() {
     url: currentUrl,
     timestamp: new Date().toISOString()
   });
+}
+
+// Display AI processing progress (log only)
+function displayAIProgress(progressData) {
+  console.log('=== AI PROCESSING PROGRESS ===');
+  console.log('Status:', progressData.status);
+  console.log('Timestamp:', progressData.timestamp);
+  console.log('=== END PROGRESS ===');
+}
+
+// Display AI results (log only)
+function displayAIResults(aiData) {
+  console.log('=== AI RESULTS ===');
+  console.log('URL:', aiData.url);
+  console.log('Title:', aiData.title);
+  console.log('Summary:', aiData.summary);
+  console.log('FAQs:', aiData.faqs);
+  console.log('Provider:', aiData.provider);
+  console.log('Timestamp:', aiData.timestamp);
+  console.log('=== END AI RESULTS ===');
+}
+
+// Get stored DOM data from local storage
+function getStoredDOMData() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['currentPage'], (result) => {
+      resolve(result.currentPage || null);
+    });
+  });
+}
+
+// Get stored AI results from local storage
+function getStoredAIResults() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['aiResults'], (result) => {
+      resolve(result.aiResults || null);
+    });
+  });
+}
+
+// Get stored AI error from local storage
+function getStoredAIError() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['aiError'], (result) => {
+      resolve(result.aiError || null);
+    });
+  });
+}
+
+// Get all stored data for current page
+async function getAllStoredData() {
+  const [domData, aiResults, aiError] = await Promise.all([
+    getStoredDOMData(),
+    getStoredAIResults(),
+    getStoredAIError()
+  ]);
+  
+  return {
+    domData,
+    aiResults,
+    aiError
+  };
 }
 
 
