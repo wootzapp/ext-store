@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import AIChat from './AIChat';
 import FloatingButton from './FloatingButton';
 import AnalysisPage from './AnalysisPage';
+import FactChecker from './FactChecker';
 import aiService from '../utils/aiService';
 
 // Landing Page Component - moved outside to prevent re-creation
@@ -114,10 +115,12 @@ const Popup = () => {
   const [showLanding, setShowLanding] = useState(true);
   const [showChat, setShowChat] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [showFactChecker, setShowFactChecker] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [analysisData, setAnalysisData] = useState(null);
+  const [factCheckData, setFactCheckData] = useState(null);
   const [currentPageUrl, setCurrentPageUrl] = useState('');
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -292,6 +295,69 @@ const Popup = () => {
     handleAnalysePage();
   }, [handleAnalysePage]);
 
+  // Handle fact checker
+  const handleFactChecker = useCallback(async () => {
+    try {
+      // Get current active tab
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      if (tab && tab.url) {
+        // Set the current page URL
+        setCurrentPageUrl(tab.url);
+        
+        // Switch to fact checker page
+        setShowChat(false);
+        setShowLanding(false);
+        setShowAnalysis(false);
+        setShowFactChecker(true);
+        setIsLoading(true);
+        setFactCheckData(null);
+
+        // Use aiService to generate fact check
+        const result = await aiService.generateFactCheck(tab.url);
+        
+        if (result.success) {
+          setFactCheckData({
+            overallAssessment: result.overallAssessment,
+            credibilityScore: result.credibilityScore,
+            verifiedClaims: result.verifiedClaims || [],
+            disputedClaims: result.disputedClaims || [],
+            falseClaims: result.falseClaims || [],
+            sources: result.sources || [],
+            recommendations: result.recommendations,
+            rawResponse: result.rawResponse
+          });
+        } else {
+          console.error('Fact check failed:', result.error);
+          setFactCheckData(null);
+        }
+      } else {
+        console.error('Unable to get current tab URL');
+        setFactCheckData(null);
+      }
+    } catch (error) {
+      console.error('Error triggering fact check:', error);
+      setFactCheckData(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Handle going back from fact checker page
+  const handleBackFromFactChecker = useCallback(() => {
+    console.log('🔍 Fact Checker: Going back to chat');
+    setShowFactChecker(false);
+    setShowChat(true);
+    setFactCheckData(null);
+    setCurrentPageUrl('');
+  }, []);
+
+  // Handle retry fact check
+  const handleRetryFactCheck = useCallback(() => {
+    console.log('🔍 Fact Checker: Retrying fact check');
+    handleFactsChecker();
+  }, [handleFactsChecker]);
+
   // Handle asking personalized questions about the current page
   const handleAskQuestion = useCallback(async (question, pageUrl) => {
     try {
@@ -327,25 +393,46 @@ Please provide a detailed and helpful answer based on the content and context of
   }, []);
 
   const handleFactsChecker = useCallback(async () => {
+    console.log('🔍 Fact Checker: Starting fact check process...');
+    
     try {
       // Get current active tab
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      console.log('🔍 Fact Checker: Active tab found:', tab?.url);
       
-      if (tab) {
-        // Send message to content script to capture DOM and process with AI for facts checking
-        chrome.tabs.sendMessage(tab.id, { type: 'captureDOM' });
+      if (tab && tab.url) {
+        setCurrentPageUrl(tab.url);
+        setFactCheckData(null);
+        setIsLoading(true);
         
-        // Add a system message to chat
-        const factsMessage = {
-          id: Date.now(),
-          text: '✅ Starting facts verification...',
-          sender: 'system',
-          timestamp: new Date().toISOString()
-        };
-        setMessages(prev => [...prev, factsMessage]);
+        // Switch to fact checker view
+        setShowLanding(false);
+        setShowChat(false);
+        setShowAnalysis(false);
+        setShowFactChecker(true);
+        
+        console.log('🔍 Fact Checker: Switched to fact checker view, calling AI service...');
+        
+        // Call AI service directly with the URL
+        const result = await aiService.generateFactCheck(tab.url);
+        console.log('🔍 Fact Checker: AI service response:', result);
+        
+        if (result.success) {
+          setFactCheckData(result);
+          console.log('🔍 Fact Checker: Fact check completed successfully');
+        } else {
+          console.error('🔍 Fact Checker: AI service error:', result.error);
+          setFactCheckData(null);
+        }
+      } else {
+        console.error('🔍 Fact Checker: No active tab found or invalid URL');
       }
     } catch (error) {
-      console.error('Error triggering facts checker:', error);
+      console.error('🔍 Fact Checker: Error during fact checking:', error);
+      setFactCheckData(null);
+    } finally {
+      setIsLoading(false);
+      console.log('🔍 Fact Checker: Process completed');
     }
   }, []);
 
@@ -366,6 +453,15 @@ Please provide a detailed and helpful answer based on the content and context of
             onBack={handleBackFromAnalysis}
             onRetry={handleRetryAnalysis}
             onAskQuestion={handleAskQuestion}
+          />
+        ) : showFactChecker ? (
+          <FactChecker
+            key="factchecker"
+            factCheckData={factCheckData}
+            currentPageUrl={currentPageUrl}
+            isLoading={isLoading}
+            onBack={handleBackFromFactChecker}
+            onRetry={handleRetryFactCheck}
           />
         ) : showChat ? (
           <div className="relative w-full h-full">

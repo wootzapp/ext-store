@@ -3,8 +3,8 @@ const API_CONFIG = {
   // Google Gemini Configuration
   gemini: {
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-    apiKey: 'AIzaSyBm9WJOUi5juWaCiT07aeXI4V9uvdKuIwQ',
-    model: 'models/gemini-1.5-flash',
+    apiKey: 'AIzaSyCoNFODrVovsQEFa4nseHbv0d56eMqhtDU',
+    model: 'models/gemini-2.5-flash',
     maxTokens: 6000,
     temperature: 0.7,
     timeout: 30000, 

@@ -62,6 +62,54 @@ class AIService {
     }
   }
 
+  // Generate fact check using Gemini tools for URL analysis
+  async generateFactCheck(url) {
+    console.log('🤖 AI Service: Starting fact check for URL:', url);
+    
+    if (!this.validateApiKey()) {
+      const error = 'API key not configured. Please add your API key in apiConfig.js';
+      console.error('🤖 AI Service: API key validation failed:', error);
+      throw new Error(error);
+    }
+
+    // Check if URL is valid for fact checking
+    if (!url || url.includes('chrome://') || url.includes('chrome-extension://') || url.includes('about:') || url.includes('localhost')) {
+      console.log('🤖 AI Service: Invalid URL for fact checking');
+      return {
+        success: true,
+        overallAssessment: 'This URL cannot be fact-checked as it is a browser internal page or local resource. Please navigate to a news article or webpage with factual content.',
+        credibilityScore: null,
+        verifiedClaims: [],
+        disputedClaims: [],
+        falseClaims: [],
+        sources: [],
+        recommendations: 'Navigate to a news article, blog post, or informational webpage to perform fact-checking analysis.',
+        timestamp: new Date().toISOString()
+      };
+    }
+
+    try {
+      const response = await this.makeFactCheckApiCall(url);
+      const parsed = this.parseFactCheckResponse(response);
+      
+      const result = {
+        success: true,
+        ...parsed,
+        timestamp: new Date().toISOString()
+      };
+      
+      console.log('🤖 AI Service: Fact check completed successfully');
+      return result;
+    } catch (error) {
+      console.error('🤖 AI Service: Error generating fact check:', error);
+      return {
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
   // Generate summary from text content (kept for backward compatibility)
 
   // Generate both summary and FAQs in one call
@@ -335,6 +383,187 @@ A5: [Answer]`;
 
     const data = await response.json();
     return data.candidates[0].content.parts[0].text;
+  }
+
+  // Make fact check API call using Gemini tools
+  async makeFactCheckApiCall(url) {
+    const headers = getApiHeaders();
+    const config = this.config;
+
+    // Add timeout to the request (longer timeout for fact checking with tools)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 seconds for fact checking
+
+    try {
+      const prompt = `You are a fact-checking expert with access to Google Search. Analyze the webpage at this URL: ${url}
+
+Please perform a comprehensive fact-check analysis following these steps:
+1. Use Google Search to find information about the URL and its content
+2. Research the credibility of the source/domain
+3. Verify any factual claims made in the content
+4. Check for contradicting information from reliable sources
+5. Assess the overall credibility based on your findings
+
+Provide your analysis in this EXACT JSON format:
+
+{
+  "overall_assessment": "Your comprehensive credibility assessment here",
+  "credibility_score": 85,
+  "verified_claims": [
+    {
+      "statement": "Specific factual claim that is verified",
+      "status": "Verified",
+      "evidence": "Supporting evidence for this claim",
+      "source": "Source URL or reference"
+    }
+  ],
+  "disputed_claims": [
+    {
+      "statement": "Specific claim that is disputed",
+      "status": "Disputed", 
+      "evidence": "Reason why this claim is questionable",
+      "source": "Source URL or reference"
+    }
+  ],
+  "false_claims": [
+    {
+      "statement": "Specific false claim",
+      "status": "False",
+      "evidence": "Evidence contradicting this claim", 
+      "source": "Source URL or reference"
+    }
+  ],
+  "sources_used": [
+    {
+      "url": "https://example.com/source1",
+      "title": "Source Title",
+      "reliability": "High/Medium/Low reliability assessment"
+    }
+  ],
+  "recommendations": "Your recommendations for readers"
+}
+
+Important: 
+- Use Google Search to research the URL and verify information
+- Respond with ONLY the JSON object, no additional text
+- Base your assessment on factual evidence from your searches
+- Include specific claims you can verify or dispute`;
+
+      const requestBody = {
+        contents: [
+          {
+            parts: [
+              {
+                text: prompt
+              }
+            ]
+          }
+        ],
+        tools: [
+          { 
+            google_search: {}
+          }
+        ],
+        generationConfig: {
+          maxOutputTokens: config.maxTokens,
+          temperature: 0.3  // Lower temperature for more factual responses
+        }
+      };
+
+      const response = await fetch(`${config.baseUrl}/${config.model}:generateContent?key=${config.apiKey}`, {
+        method: 'POST',
+        headers: headers,
+        signal: controller.signal,
+        body: JSON.stringify(requestBody)
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('🤖 AI Service: API error response:', errorText);
+        throw new Error(`Gemini API error: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      const result = data.candidates[0].content.parts[0].text;
+      
+      // Check if response is too short (likely just an acknowledgment)
+      if (result && result.length < 200) {
+        console.log('🤖 AI Service: Response too short, trying fallback...');
+        
+        // Retry without tools but with more explicit instructions
+        const fallbackPrompt = `You are a fact-checking expert. I'm providing you with a news article URL: ${url}
+
+Based on your knowledge, please analyze this news topic and provide a fact-check assessment in JSON format:
+
+{
+  "overall_assessment": "Provide a credibility assessment for typical news about this topic/source",
+  "credibility_score": 75,
+  "verified_claims": [
+    {
+      "statement": "General statement about typical verifiable claims for this topic",
+      "status": "Verified",
+      "evidence": "General evidence or reasoning",
+      "source": "Typical source type"
+    }
+  ],
+  "disputed_claims": [
+    {
+      "statement": "Common disputed aspects of this topic",
+      "status": "Disputed",
+      "evidence": "Reason for dispute",
+      "source": "Source of conflict"
+    }
+  ],
+  "false_claims": [],
+  "sources_used": [
+    {
+      "url": "General source category",
+      "title": "Type of sources typically used",
+      "reliability": "Assessment of typical source reliability"
+    }
+  ],
+  "recommendations": "General recommendations for readers about this topic"
+}
+
+Please provide only the JSON response, no additional text.`;
+
+        const fallbackBody = {
+          contents: [{ parts: [{ text: fallbackPrompt }] }],
+          generationConfig: {
+            maxOutputTokens: config.maxTokens,
+            temperature: 0.3
+          }
+        };
+
+        const fallbackResponse = await fetch(`${config.baseUrl}/${config.model}:generateContent?key=${config.apiKey}`, {
+          method: 'POST',
+          headers: headers,
+          signal: controller.signal,
+          body: JSON.stringify(fallbackBody)
+        });
+
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json();
+          const fallbackResult = fallbackData.candidates[0].content.parts[0].text;
+          return fallbackResult;
+        }
+      }
+      
+      return result;
+      
+    } catch (error) {
+      clearTimeout(timeoutId);
+      
+      if (error.name === 'AbortError') {
+        console.error('🤖 AI Service: Request timeout after 60 seconds');
+        throw new Error(`Request timeout after 60 seconds - Fact checking with tools requires more time`);
+      }
+      
+      console.error('🤖 AI Service: API call failed:', error);
+      throw error;
+    }
   }
 
   // Parse FAQ response into structured format
@@ -661,6 +890,176 @@ Do not include any text before or after the JSON response.`;
         ]
       };
     }
+  }
+
+  // Parse fact check response
+  parseFactCheckResponse(responseText) {
+    try {
+      // Clean the response text to extract JSON
+      let cleanedResponse = responseText.trim();
+      
+      // Remove any markdown code blocks if present
+      if (cleanedResponse.startsWith('```json')) {
+        cleanedResponse = cleanedResponse.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      } else if (cleanedResponse.startsWith('```')) {
+        cleanedResponse = cleanedResponse.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      }
+      
+      // Find JSON object boundaries more carefully
+      const jsonStart = cleanedResponse.indexOf('{');
+      if (jsonStart === -1) {
+        throw new Error('No JSON object found in response');
+      }
+      
+      // Find the matching closing brace by counting braces
+      let braceCount = 0;
+      let jsonEnd = -1;
+      for (let i = jsonStart; i < cleanedResponse.length; i++) {
+        if (cleanedResponse[i] === '{') {
+          braceCount++;
+        } else if (cleanedResponse[i] === '}') {
+          braceCount--;
+          if (braceCount === 0) {
+            jsonEnd = i;
+            break;
+          }
+        }
+      }
+      
+      if (jsonEnd === -1) {
+        // Try to find a reasonable stopping point
+        jsonEnd = cleanedResponse.lastIndexOf('}');
+        if (jsonEnd === -1) {
+          throw new Error('No complete JSON object found');
+        }
+      }
+      
+      cleanedResponse = cleanedResponse.substring(jsonStart, jsonEnd + 1);
+      
+      // Try to fix common JSON issues
+      cleanedResponse = cleanedResponse
+        .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+        .replace(/\\"/g, '"') // Fix escaped quotes
+        .replace(/\n/g, ' ') // Replace newlines with spaces
+        .replace(/\r/g, ' ') // Replace carriage returns
+        .replace(/\t/g, ' ') // Replace tabs
+        .replace(/  +/g, ' ') // Replace multiple spaces with single space
+        .replace(/,(\s*[}\]])/g, '$1'); // Remove trailing commas
+      
+      // Parse the JSON response
+      const parsedData = JSON.parse(cleanedResponse);
+      
+      // Structure the result for the UI
+      const result = {
+        overallAssessment: parsedData.overall_assessment || 'Fact check completed.',
+        credibilityScore: parsedData.credibility_score || null,
+        verifiedClaims: Array.isArray(parsedData.verified_claims) ? parsedData.verified_claims : [],
+        disputedClaims: Array.isArray(parsedData.disputed_claims) ? parsedData.disputed_claims : [],
+        falseClaims: Array.isArray(parsedData.false_claims) ? parsedData.false_claims : [],
+        sources: Array.isArray(parsedData.sources_used) ? parsedData.sources_used : [],
+        recommendations: parsedData.recommendations || 'Please verify information from multiple sources.',
+        rawResponse: responseText // Keep raw response as fallback
+      };
+
+      return result;
+      
+    } catch (error) {
+      console.error('🤖 AI Service: Error parsing JSON fact check response:', error);
+      
+      // Improved fallback: try to extract useful information even if JSON is malformed
+      try {
+        // Extract credibility score if mentioned
+        const credibilityMatch = responseText.match(/['""]credibility_score['""]:\s*(\d+)/i);
+        const credibilityScore = credibilityMatch ? parseInt(credibilityMatch[1]) : null;
+        
+        // Extract overall assessment
+        const assessmentMatch = responseText.match(/['""]overall_assessment['""]:\s*['""]([^'"]*)['"]/i);
+        const overallAssessment = assessmentMatch ? assessmentMatch[1] : 'Fact check completed. The response contains detailed analysis.';
+        
+        // Extract verified claims
+        const verifiedClaimsSection = responseText.match(/['""]verified_claims['""]:\s*\[(.*?)\]/s);
+        let verifiedClaims = [];
+        if (verifiedClaimsSection) {
+          try {
+            const claimsText = verifiedClaimsSection[1];
+            // Simple extraction of statements
+            const statements = claimsText.match(/['""]statement['""]:\s*['""]([^'"]*)['"]/g);
+            if (statements) {
+              verifiedClaims = statements.map(statement => {
+                const match = statement.match(/['""]statement['""]:\s*['""]([^'"]*)['"]/);
+                return {
+                  statement: match ? match[1] : 'Verified claim found',
+                  status: 'Verified',
+                  evidence: 'Evidence available in full response',
+                  source: 'Source details in full response'
+                };
+              });
+            }
+          } catch (e) {
+            // Could not extract verified claims
+          }
+        }
+        
+        return {
+          rawResponse: responseText,
+          overallAssessment: overallAssessment,
+          credibilityScore: credibilityScore,
+          verifiedClaims: verifiedClaims,
+          disputedClaims: [],
+          falseClaims: [],
+          sources: [],
+          recommendations: 'Please review the full response below for complete details.'
+        };
+        
+      } catch (fallbackError) {
+        console.error('🤖 AI Service: Fallback parsing also failed:', fallbackError);
+        
+        // Final fallback: return raw response
+        return {
+          rawResponse: responseText,
+          overallAssessment: 'Fact check completed. Please review the detailed analysis below.',
+          credibilityScore: null,
+          verifiedClaims: [],
+          disputedClaims: [],
+          falseClaims: [],
+          sources: [],
+          recommendations: 'Please verify information from multiple sources.'
+        };
+      }
+    }
+  }
+
+  // Helper method to extract claim status
+  extractClaimStatus(claim) {
+    const lowerClaim = claim.toLowerCase();
+    if (lowerClaim.includes('verified') || lowerClaim.includes('confirmed') || lowerClaim.includes('accurate')) {
+      return 'Verified';
+    } else if (lowerClaim.includes('false') || lowerClaim.includes('incorrect') || lowerClaim.includes('debunked')) {
+      return 'False';
+    } else if (lowerClaim.includes('disputed') || lowerClaim.includes('questionable') || lowerClaim.includes('unclear')) {
+      return 'Disputed';
+    }
+    return 'Under Review';
+  }
+
+  // Helper method to extract evidence from claim text
+  extractEvidence(claim) {
+    // Look for evidence indicators
+    const evidencePattern = /(?:evidence|source|according to|study shows|research indicates)[:\s]*([^.!?]*[.!?])/i;
+    const match = claim.match(evidencePattern);
+    return match ? match[1].trim() : '';
+  }
+
+  // Helper method to extract URL title from surrounding text
+  extractUrlTitle(text, url) {
+    const urlIndex = text.indexOf(url);
+    if (urlIndex === -1) return '';
+    
+    // Look for title before the URL (within 100 characters)
+    const beforeUrl = text.substring(Math.max(0, urlIndex - 100), urlIndex);
+    const titleMatch = beforeUrl.match(/([^\\n]{10,50})\\s*$/);
+    
+    return titleMatch ? titleMatch[1].trim() : '';
   }
 
   // Export prompt data as JSON string
