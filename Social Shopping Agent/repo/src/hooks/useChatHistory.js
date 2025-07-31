@@ -47,7 +47,9 @@ export const useChatHistory = () => {
       if (typeof chrome !== 'undefined' && chrome.storage) {
         const result = await chrome.storage.local.get(['chatHistories']);
         const currentHistories = result.chatHistories || [];
-        const updatedHistories = [chatHistory, ...currentHistories].slice(0, 50);
+        
+        // Keep only the 9 most recent chats and add the new one (total 10)
+        const updatedHistories = [chatHistory, ...currentHistories].slice(0, 10);
         
         // Update storage
         await chrome.storage.local.set({ chatHistories: updatedHistories });

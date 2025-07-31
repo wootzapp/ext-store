@@ -2,10 +2,10 @@
 import { useState, useEffect } from 'react';
 
 const DEFAULT_CONFIG = {
-  aiProvider: 'gemini',
-  navigatorModel: 'gemini-1.5-pro',
-  plannerModel: 'gemini-1.5-pro', 
-  validatorModel: 'gemini-1.5-pro',
+  aiProvider: 'anthropic',
+  navigatorModel: 'claude-3-5-sonnet-20241022',
+  plannerModel: 'claude-3-5-sonnet-20241022', 
+  validatorModel: 'claude-3-haiku-20240307',
   autoLogin: true,
   safeMode: true,
   voiceInput: true,

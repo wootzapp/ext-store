@@ -8,14 +8,16 @@ import { useChat } from '../hooks/useChat';
 import { useLocation } from 'react-router-dom';
 import { 
   FaEdit, 
-  FaCog,
+  FaUser, 
   FaWifi,
   FaExclamationTriangle,
-  // FaHistory
+  FaHistory
 } from 'react-icons/fa';
+import RequestCounter from './RequestCounter';
+import SubscriptionChoice from './SubscriptionChoice';
 import { useNavigate } from 'react-router-dom';
 
-const ChatInterface = () => {
+const ChatInterface = ({ user, subscription, onLogout }) => {
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -31,8 +33,8 @@ const ChatInterface = () => {
   const reconnectTimeoutRef = useRef(null);
   const isConnectingRef = useRef(false);
 
-  // // Add state for subscription choice modal
-  // const [showSubscriptionChoice, setShowSubscriptionChoice] = useState(false);
+  // Add state for subscription choice modal
+  const [showSubscriptionChoice, setShowSubscriptionChoice] = useState(false);
 
   // Add state for message input
   const [messageInput, setMessageInput] = useState('');
@@ -66,10 +68,9 @@ const ChatInterface = () => {
     const setupConnection = () => {
       if (!mounted || isConnectingRef.current) return;
       
-      // isConnectingRef.current = true;
+      isConnectingRef.current = true;
       
       try {
-        isConnectingRef.current = true;
         console.log('Setting up connection...');
         
         // Clear existing connection safely
@@ -272,15 +273,24 @@ const ChatInterface = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSendMessage = async (message) => {
-    // const shouldShowSubscription = !subscription.usingPersonalAPI && 
-    //                                !subscription.hasPersonalKeys && 
-    //                                subscription.remaining_requests <= 0;
+  useEffect(() => {
+    // Save chat when component unmounts if it has content
+    return () => {
+      if (messages.length > 0) {
+        saveCurrentChat();
+      }
+    };
+  }, [messages, saveCurrentChat]);
 
-    // if (shouldShowSubscription) {
-    //   setShowSubscriptionChoice(true);
-    //   return; 
-    // }
+  const handleSendMessage = async (message) => {
+    const shouldShowSubscription = !subscription.usingPersonalAPI && 
+                                   !subscription.hasPersonalKeys && 
+                                   subscription.remaining_requests <= 0;
+
+    if (shouldShowSubscription) {
+      setShowSubscriptionChoice(true);
+      return; 
+    }
 
     addMessage({
       type: 'user',
@@ -288,40 +298,40 @@ const ChatInterface = () => {
       timestamp: Date.now()
     });
 
-    // try {
-    //   if (!subscription.usingPersonalAPI && subscription.remaining_requests > 0) {
-    //     const response = await subscription.makeAIRequest(message);
+    try {
+      if (!subscription.usingPersonalAPI && subscription.remaining_requests > 0) {
+        const response = await subscription.makeAIRequest(message);
         
-    //     addMessage({
-    //       type: 'assistant',
-    //       content: response.response || response.content || 'No response generated',
-    //       timestamp: Date.now(),
-    //       isMarkdown: hasMarkdownContent(response.response || response.content)
-    //     });
+        addMessage({
+          type: 'assistant',
+          content: response.response || response.content || 'No response generated',
+          timestamp: Date.now(),
+          isMarkdown: hasMarkdownContent(response.response || response.content)
+        });
 
-    //     setTimeout(() => {
-    //       saveCurrentChat();
-    //     }, 100);
+        setTimeout(() => {
+          saveCurrentChat();
+        }, 100);
         
-    //     return;
-    //   }
-    // } catch (error) {
-    //   if (error.message === 'TRIAL_EXPIRED') {
-    //     if (!subscription.hasPersonalKeys) {
-    //       setShowSubscriptionChoice(true);
-    //       return;
-    //     }
-    //   } else if (error.message === 'USE_PERSONAL_API') {
+        return;
+      }
+    } catch (error) {
+      if (error.message === 'TRIAL_EXPIRED') {
+        if (!subscription.hasPersonalKeys) {
+          setShowSubscriptionChoice(true);
+          return;
+        }
+      } else if (error.message === 'USE_PERSONAL_API') {
         
-    //   } else {
-    //     addMessage({
-    //       type: 'error',
-    //       content: `❌ API Error: ${error.message}`,
-    //       timestamp: Date.now()
-    //     });
-    //     return;
-    //   }
-    // }
+      } else {
+        addMessage({
+          type: 'error',
+          content: `❌ API Error: ${error.message}`,
+          timestamp: Date.now()
+        });
+        return;
+      }
+    }
 
     // Fallback to background script (existing logic)
     if (portRef.current && connectionStatus === 'connected' && !isExecuting) {
@@ -369,24 +379,23 @@ const ChatInterface = () => {
   };
 
   const handleNewChat = async () => {
-    await clearMessages(); 
-    
-    setTaskStatus(null);
-    setIsExecuting(false);
-    
-    navigate('/chat', { replace: true });
-    
-    // Send new_chat message to background to clear backend state
-    if (portRef.current && connectionStatus === 'connected') {
-      try {
-        console.log('Sending new_chat message to background');
-        portRef.current.postMessage({
-          type: 'new_chat'
-        });
-      } catch (error) {
-        console.error('Error sending new_chat message:', error);
-      }
+    // Save current chat before clearing if it has content
+    if (messages.length > 0) {
+      await saveCurrentChat();
     }
+    
+    // Clear only current chat state
+    clearMessages();
+    
+    // Send new_chat message to background
+    if (portRef.current) {
+      portRef.current.postMessage({ type: 'new_chat' });
+    }
+    
+    // Reset UI state
+    setMessageInput('');
+    setIsExecuting(false);
+    setTaskStatus(null);
   };
 
   const getConnectionStatusColor = () => {
@@ -473,10 +482,10 @@ const ChatInterface = () => {
             {getConnectionIcon()}
             <span>{getConnectionStatusText()}</span>
             {isExecuting && <span>• Working...</span>}
-            {/* <RequestCounter 
+            <RequestCounter 
               subscriptionState={subscription} 
               onUpgradeClick={() => setShowSubscriptionChoice(true)}
-            /> */}
+            />
           </div>
         </div>
         <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
@@ -499,7 +508,7 @@ const ChatInterface = () => {
             <FaEdit />
           </button>
           
-          {/* <button 
+          <button 
             onClick={() => navigate('/history')}
             style={{ 
               padding: '6px 8px', 
@@ -516,11 +525,11 @@ const ChatInterface = () => {
             title="Chat History"
           >
             <FaHistory />
-          </button> */}
+          </button>
           
           <div style={{ position: 'relative' }}>
             <button 
-              onClick={() => navigate('/settings')}
+              onClick={() => navigate('/profile')}
               style={{ 
                 padding: '6px 8px',
                 backgroundColor: 'rgba(255, 220, 220, 0.2)',
@@ -533,9 +542,9 @@ const ChatInterface = () => {
                 alignItems: 'center',
                 justifyContent: 'center'
               }}
-              title="Settings"
+              title="Profile"
             >
-              <FaCog />
+              <FaUser />
             </button>
           </div>
         </div>
@@ -573,7 +582,7 @@ const ChatInterface = () => {
       />
       
       {/* Add subscription choice as overlay */}
-      {/* {showSubscriptionChoice && (
+      {showSubscriptionChoice && (
         <SubscriptionChoice 
           onSubscribe={() => {
             setShowSubscriptionChoice(false);
@@ -587,7 +596,7 @@ const ChatInterface = () => {
           onRefreshSubscription={() => subscription.loadSubscriptionData()}
           user={user}
         />
-      )} */}
+      )}
     </div>
   );
 };

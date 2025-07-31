@@ -11,6 +11,8 @@ export const useSubscription = (user) => {
     remaining_requests: 0,
     trial_end: null,
     usingPersonalAPI: false,
+    hasPersonalKeys: false,
+    userPreferPersonalAPI: false, // New: user's toggle preference
     loading: true,
     error: null
   });
@@ -50,9 +52,11 @@ export const useSubscription = (user) => {
       // Check if using personal API keys
       const hasPersonalKeys = await checkPersonalAPIKeys();
       
-      // Logic: Use personal API if (requests = 0 AND has keys) OR (requests > 0 AND no keys)
-      // But prefer their API when requests > 0
-      const shouldUsePersonalAPI = remaining <= 0 && hasPersonalKeys;
+      // Get user's toggle preference
+      const userPreference = await getUserAPIPreference();
+      
+      // Logic: Use personal API based on user preference, availability, and trial status
+      const shouldUsePersonalAPI = determineAPIUsage(remaining, hasPersonalKeys, userPreference);
       
       setSubscriptionState({
         status: subscription.status,
@@ -63,7 +67,8 @@ export const useSubscription = (user) => {
         trial_end: subscription.trial_end,
         current_period_end: subscription.current_period_end,
         usingPersonalAPI: shouldUsePersonalAPI,
-        hasPersonalKeys: hasPersonalKeys, // Track if keys are available
+        hasPersonalKeys: hasPersonalKeys,
+        userPreferPersonalAPI: userPreference,
         loading: false,
         error: null
       });
@@ -73,15 +78,32 @@ export const useSubscription = (user) => {
       
       // If API fails, check if we have personal keys as fallback
       const hasPersonalKeys = await checkPersonalAPIKeys();
+      const userPreference = await getUserAPIPreference();
       
       setSubscriptionState(prev => ({
         ...prev,
-        usingPersonalAPI: hasPersonalKeys,
+        usingPersonalAPI: hasPersonalKeys && userPreference,
         hasPersonalKeys: hasPersonalKeys,
+        userPreferPersonalAPI: userPreference,
         loading: false,
         error: error.message
       }));
     }
+  };
+
+  const determineAPIUsage = (remaining, hasPersonalKeys, userPreference) => {
+    // If trial expired and has keys, force personal API
+    if (remaining <= 0 && hasPersonalKeys) {
+      return true;
+    }
+    
+    // If user prefers personal API and has keys
+    if (userPreference && hasPersonalKeys) {
+      return true;
+    }
+    
+    // Otherwise use free trial
+    return false;
   };
 
   const checkPersonalAPIKeys = async () => {
@@ -97,26 +119,64 @@ export const useSubscription = (user) => {
     return false;
   };
 
-  const refreshUsage = async () => {
-    if (subscriptionState.usingPersonalAPI) {
-      return subscriptionState;
+  const getUserAPIPreference = async () => {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        const result = await chrome.storage.local.get(['userPreferPersonalAPI']);
+        return result.userPreferPersonalAPI || false;
+      }
+    } catch (error) {
+      console.error('Error getting user API preference:', error);
     }
+    return false;
+  };
 
+  const setUserAPIPreference = async (preference) => {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        await chrome.storage.local.set({ userPreferPersonalAPI: preference });
+        
+        // Update state and recalculate API usage
+        const hasPersonalKeys = await checkPersonalAPIKeys();
+        const shouldUsePersonalAPI = determineAPIUsage(
+          subscriptionState.remaining_requests, 
+          hasPersonalKeys, 
+          preference
+        );
+        
+        setSubscriptionState(prev => ({
+          ...prev,
+          userPreferPersonalAPI: preference,
+          usingPersonalAPI: shouldUsePersonalAPI
+        }));
+        
+        return true;
+      }
+    } catch (error) {
+      console.error('Error setting user API preference:', error);
+      return false;
+    }
+    return false;
+  };
+
+  const refreshUsage = async () => {
     try {
       const usage = await apiService.getUsageStats();
       const remaining = Math.max(0, usage.monthly_limit - usage.requests_used);
       
+      const hasPersonalKeys = await checkPersonalAPIKeys();
+      const userPreference = await getUserAPIPreference();
+      const shouldUsePersonalAPI = determineAPIUsage(remaining, hasPersonalKeys, userPreference);
+      
       setSubscriptionState(prev => ({
         ...prev,
+        monthly_request_limit: usage.monthly_limit,
         requests_used: usage.requests_used,
         remaining_requests: remaining,
-        monthly_request_limit: usage.monthly_limit
+        usingPersonalAPI: shouldUsePersonalAPI
       }));
-
-      return { ...usage, remaining_requests: remaining };
     } catch (error) {
       console.error('Error refreshing usage:', error);
-      throw error;
     }
   };
 
@@ -124,7 +184,7 @@ export const useSubscription = (user) => {
     try {
       let response;
       
-      // Use their API if we have remaining requests, otherwise use personal API
+      // Use their API if we have remaining requests and not forcing personal API
       if (subscriptionState.remaining_requests > 0 && !subscriptionState.usingPersonalAPI) {
         response = await apiService.generateContent(prompt, options);
         await refreshUsage();
@@ -198,6 +258,7 @@ export const useSubscription = (user) => {
     refreshUsage,
     makeAIRequest,
     isTrialExpired,
-    getStatusDisplay
+    getStatusDisplay,
+    setUserAPIPreference
   };
 };

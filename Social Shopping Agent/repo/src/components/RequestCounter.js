@@ -34,6 +34,22 @@ const RequestCounter = ({ subscriptionState, onUpgradeClick }) => {
     }
   };
 
+  const getTooltipText = () => {
+    if (subscriptionState.usingPersonalAPI) {
+      return subscriptionState.userPreferPersonalAPI 
+        ? 'Using your personal API key (user preference)'
+        : 'Using your personal API key (auto-switched - trial expired)';
+    }
+    
+    if (subscriptionState.remaining_requests <= 0) {
+      return subscriptionState.hasPersonalKeys 
+        ? 'Trial expired - Click to upgrade or switch to personal API'
+        : 'Click to upgrade or add API keys';
+    }
+    
+    return `${subscriptionState.requests_used} requests used`;
+  };
+
   return (
     <div 
       style={{
@@ -45,16 +61,12 @@ const RequestCounter = ({ subscriptionState, onUpgradeClick }) => {
         cursor: subscriptionState.remaining_requests <= 0 && !subscriptionState.usingPersonalAPI ? 'pointer' : 'default',
         padding: '2px 4px',
         borderRadius: '4px',
-        backgroundColor: subscriptionState.remaining_requests <= 0 ? 'rgba(224, 36, 94, 0.1)' : 'transparent'
+        backgroundColor: subscriptionState.remaining_requests <= 0 && !subscriptionState.usingPersonalAPI 
+          ? 'rgba(224, 36, 94, 0.1)' 
+          : 'transparent'
       }}
       onClick={handleClick}
-      title={
-        subscriptionState.usingPersonalAPI 
-          ? 'Using your personal API key'
-          : subscriptionState.remaining_requests <= 0 
-            ? 'Click to upgrade or add API keys'
-            : `${subscriptionState.requests_used} requests`
-      }
+      title={getTooltipText()}
     >
       {getIcon()}
       <span>{text}</span>

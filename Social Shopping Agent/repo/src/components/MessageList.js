@@ -105,8 +105,8 @@ const MessageList = ({ messages, onTemplateClick }) => {
       id: 'shopping_task',
       emoji: '🛒',
       title: 'Shopping Task',
-      description: 'Find the cheapest Labubu on Amazon and compare prices',
-      command: 'Find the cheapest Labubu on Amazon and compare prices'
+      description: 'Find the cheapest Labubu figure on Amazon and compare prices',
+      command: 'Find the cheapest Labubu figure on Amazon and compare prices'
     }
   ];
 

@@ -26,7 +26,7 @@ const SettingsModal = () => {
   }, [config]);
 
   const handleClose = () => {
-    navigate('/chat');
+    navigate('/profile');
   };
 
   const handleSave = async () => {
@@ -47,10 +47,10 @@ const SettingsModal = () => {
       if (saveButton) {
         saveButton.textContent = '✅ Saved!';
         setTimeout(() => {
-          navigate('/chat');
+          navigate('/profile');
         }, 500);
       } else {
-        navigate('/chat');
+        navigate('/profile');
       }
       
     } catch (error) {
@@ -88,8 +88,7 @@ const SettingsModal = () => {
         ];
       case 'gemini':
         return [
-          { value: 'gemini-2.0-flash-exp', label: 'Gemini 2.0 Flash Exp (Latest)', recommended: true },
-          { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro (Latest)'},
+          { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro (Latest)', recommended: true },
           { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash (Fast)' },
           { value: 'gemini-pro', label: 'Gemini Pro' }
         ];
