@@ -37,7 +37,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       
     case 'aiProcessingComplete':
       console.log('AI processing completed:', message.data);
-      // You can add UI updates here to show the results
       displayAIResults(message.data);
       sendResponse({
         type: 'aiResultsReceived',
@@ -94,16 +93,13 @@ function checkUrlChange() {
     currentUrl = newUrl;
     console.log('URL changed from:', oldUrl, 'to:', currentUrl);
     
-    // Clear storage for the new page
     clearStorageForNewPage();
     
-    // Capture DOM for the new page
     captureAndSendDOM();
     notifyBackgroundOfUrlChange();
   }
 }
 
-// Clear storage when navigating to a new page
 function clearStorageForNewPage() {
   chrome.storage.local.remove(['currentPage', 'aiResults', 'aiError', 'aiProcessingStatus'], () => {
     console.log('Storage cleared for URL change');
@@ -127,7 +123,6 @@ function captureAndSendDOM() {
 
     cleanDomData(domData);
 
-    // Send DOM data to background script for processing and storage
     chrome.runtime.sendMessage({
       type: 'domCaptured',
       data: domData
@@ -212,7 +207,6 @@ function notifyBackgroundOfUrlChange() {
 }
 
 function setupPageLoadListener() {
-  // Only capture DOM data, don't trigger AI processing automatically
   if (document.readyState === 'complete') {
     captureAndSendDOM();
     notifyBackgroundOfPageLoad();
@@ -232,7 +226,6 @@ function notifyBackgroundOfPageLoad() {
   });
 }
 
-// Display AI processing progress (log only)
 function displayAIProgress(progressData) {
   console.log('=== AI PROCESSING PROGRESS ===');
   console.log('Status:', progressData.status);
@@ -240,7 +233,6 @@ function displayAIProgress(progressData) {
   console.log('=== END PROGRESS ===');
 }
 
-// Display AI results (log only)
 function displayAIResults(aiData) {
   console.log('=== AI RESULTS ===');
   console.log('URL:', aiData.url);
@@ -252,7 +244,6 @@ function displayAIResults(aiData) {
   console.log('=== END AI RESULTS ===');
 }
 
-// Get stored DOM data from local storage
 function getStoredDOMData() {
   return new Promise((resolve) => {
     chrome.storage.local.get(['currentPage'], (result) => {
@@ -261,7 +252,6 @@ function getStoredDOMData() {
   });
 }
 
-// Get stored AI results from local storage
 function getStoredAIResults() {
   return new Promise((resolve) => {
     chrome.storage.local.get(['aiResults'], (result) => {
@@ -270,7 +260,6 @@ function getStoredAIResults() {
   });
 }
 
-// Get stored AI error from local storage
 function getStoredAIError() {
   return new Promise((resolve) => {
     chrome.storage.local.get(['aiError'], (result) => {
@@ -278,8 +267,7 @@ function getStoredAIError() {
     });
   });
 }
-
-// Get all stored data for current page
+  
 async function getAllStoredData() {
   const [domData, aiResults, aiError] = await Promise.all([
     getStoredDOMData(),

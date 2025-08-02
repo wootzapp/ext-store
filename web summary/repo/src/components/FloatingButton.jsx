@@ -19,24 +19,24 @@ const FloatingButton = React.memo(({ onAnalysePage, onFactsChecker }) => {
   }, [onFactsChecker]);
 
   return (
-    <div className="absolute bottom-16 right-2 z-50">
+    <div className="absolute bottom-24 right-5 z-50">
       {/* Main circular button */}
       <motion.button
         onClick={toggleDropdown}
-        className="w-10 h-10 bg-gradient-to-br from-red-500 to-red-600 rounded-full shadow-lg flex items-center justify-center text-white text-base cursor-pointer border-none outline-none"
+        className="w-14 h-14 bg-gradient-to-br from-red-500 to-red-600 rounded-full shadow-lg flex items-center justify-center text-white text-lg cursor-pointer border-none outline-none"
         whileHover={{ scale: 1.1, boxShadow: '0 4px 20px rgba(239, 68, 68, 0.6)' }}
         whileTap={{ scale: 0.95 }}
         transition={{ duration: 0.2 }}
         title="Web Summary Tools"
       >
-        🔍
+        ⚡
       </motion.button>
 
       {/* Dropdown menu */}
       <AnimatePresence>
         {isDropdownOpen && (
           <motion.div
-            className="absolute bottom-12 right-0 min-w-40 bg-black/95 backdrop-blur-lg rounded-xl shadow-2xl border border-white/10 overflow-hidden"
+            className="absolute bottom-16 right-0 min-w-40 bg-black/95 backdrop-blur-lg rounded-xl shadow-2xl border border-white/10 overflow-hidden"
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}

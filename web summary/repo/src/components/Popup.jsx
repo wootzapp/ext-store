@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import AIChat from './AIChat';
+import ResearchDisplay from './ResearchDisplay';
 import FloatingButton from './FloatingButton';
 import AnalysisPage from './AnalysisPage';
 import FactChecker from './FactChecker';
 import aiService from '../utils/aiService';
 
-// Landing Page Component - moved outside to prevent re-creation
 const LandingPage = React.memo(({ onGetStarted }) => (
   <motion.div 
     className="w-full h-full bg-black flex flex-col relative overflow-hidden"
@@ -65,7 +64,7 @@ const LandingPage = React.memo(({ onGetStarted }) => (
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.7, duration: 0.8 }}
       >
-        Chat with AI for instant answers, help, and information on any topic.
+        Conduct comprehensive research with AI for academic sources, credible articles, and expert insights on any topic.
       </motion.p>
       
       {/* Feature boxes */}
@@ -75,22 +74,22 @@ const LandingPage = React.memo(({ onGetStarted }) => (
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.9, duration: 0.8 }}
       >
-        {/* Instant */}
+        {/* Academic Sources */}
         <div className="flex-1 bg-black/20 border border-red-500/30 rounded-xl p-3 flex flex-col items-center">
-          <div className="text-red-500 text-lg mb-1">⚡</div>
-          <span className="text-white text-xs font-medium">Instant</span>
+          <div className="text-red-500 text-lg mb-1">🎓</div>
+          <span className="text-white text-xs font-medium">Academic</span>
         </div>
         
-        {/* Smart */}
+        {/* Credible Articles */}
         <div className="flex-1 bg-black/20 border border-red-500/30 rounded-xl p-3 flex flex-col items-center">
-          <div className="text-red-500 text-lg mb-1">📖</div>
-          <span className="text-white text-xs font-medium">Smart</span>
+          <div className="text-red-500 text-lg mb-1">📰</div>
+          <span className="text-white text-xs font-medium">Credible</span>
         </div>
         
-        {/* AI Powered */}
+        {/* Expert Insights */}
         <div className="flex-1 bg-black/20 border border-red-500/30 rounded-xl p-3 flex flex-col items-center">
-          <div className="text-red-500 text-lg mb-1">⭐</div>
-          <span className="text-white text-xs font-medium">AI Powered</span>
+          <div className="text-red-500 text-lg mb-1">👨‍🎓</div>
+          <span className="text-white text-xs font-medium">Expert</span>
         </div>
       </motion.div>
       
@@ -113,43 +112,33 @@ const LandingPage = React.memo(({ onGetStarted }) => (
 
 const Popup = () => {
   const [showLanding, setShowLanding] = useState(true);
-  const [showChat, setShowChat] = useState(false);
+  const [showResearch, setShowResearch] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showFactChecker, setShowFactChecker] = useState(false);
-  const [messages, setMessages] = useState([]);
+  const [researchResults, setResearchResults] = useState(null);
   const [inputMessage, setInputMessage] = useState('');
+  const [researchDepth, setResearchDepth] = useState('comprehensive');
   const [isLoading, setIsLoading] = useState(false);
   const [analysisData, setAnalysisData] = useState(null);
   const [factCheckData, setFactCheckData] = useState(null);
   const [currentPageUrl, setCurrentPageUrl] = useState('');
-  const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, []);
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
 
-  // Check if this is the first time the extension is being used
   useEffect(() => {
     const checkFirstTime = async () => {
       try {
         const storage = await chrome.storage.local.get(['hasSeenLanding']);
         
         if (!storage.hasSeenLanding) {
-          // First time user - show landing page
           setShowLanding(true);
         } else {
-          // Returning user - show chat
           setShowLanding(false);
-          setShowChat(true);
+          setShowResearch(true);
         }
       } catch (error) {
         console.error('Error checking first time status:', error);
-        // Fallback to showing landing page
         setShowLanding(true);
       }
     };
@@ -159,68 +148,47 @@ const Popup = () => {
 
   const handleSendMessage = useCallback(async (e) => {
     if (e) {
-      e.preventDefault(); // Prevent form submission and page reload
-      e.stopPropagation(); // Stop event bubbling
+      e.preventDefault();
+      e.stopPropagation();
     }
     
     if (!inputMessage.trim() || isLoading) return;
 
-    const userMessage = {
-      id: Date.now(),
-      text: inputMessage,
-      sender: 'user',
-      timestamp: new Date().toISOString()
-    };
-
-    const currentInputMessage = inputMessage; // Capture current value
-    setMessages(prev => [...prev, userMessage]);
+    const currentInputMessage = inputMessage;
+    const currentResearchDepth = researchDepth;
+    
     setInputMessage('');
     setIsLoading(true);
+    setResearchResults(null);
 
     try {
-      // Send message to background script for AI processing
-      const response = await chrome.runtime.sendMessage({
-        type: 'chatMessage',
-        message: currentInputMessage
-      });
-
-      if (response.success) {
-        const aiMessage = {
-          id: Date.now() + 1,
-          text: response.reply,
-          sender: 'ai',
-          timestamp: new Date().toISOString()
-        };
-        setMessages(prev => [...prev, aiMessage]);
+      const result = await aiService.performResearch(currentInputMessage, currentResearchDepth);
+      
+      if (result.success) {
+        setResearchResults(result);
       } else {
-        const errorMessage = {
-          id: Date.now() + 1,
-          text: 'Sorry, I encountered an error. Please try again.',
-          sender: 'ai',
-          timestamp: new Date().toISOString(),
-          isError: true
-        };
-        setMessages(prev => [...prev, errorMessage]);
+        setResearchResults({
+          error: true,
+          message: result.message || 'Failed to complete research',
+          details: result.details
+        });
       }
     } catch (error) {
-      console.error('Error sending message:', error);
-      const errorMessage = {
-        id: Date.now() + 1,
-        text: 'Sorry, I encountered an error. Please try again.',
-        sender: 'ai',
-        timestamp: new Date().toISOString(),
-        isError: true
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      console.error('Error performing research:', error);
+      setResearchResults({
+        error: true,
+        message: 'Failed to complete research',
+        details: error.message
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [inputMessage, isLoading]);
+  }, [inputMessage, researchDepth, isLoading]);
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault(); // Prevent default Enter behavior
-      e.stopPropagation(); // Stop event bubbling
+      e.preventDefault();
+      e.stopPropagation();
       handleSendMessage(e);
     }
   }, [handleSendMessage]);
@@ -229,36 +197,35 @@ const Popup = () => {
     setInputMessage(e.target.value);
   }, []);
 
+  const handleDepthChange = useCallback((e) => {
+    setResearchDepth(e.target.value);
+  }, []);
+
   const handleLandingButtonClick = useCallback(async () => {
     try {
-      // Mark that user has seen the landing page
       await chrome.storage.local.set({ hasSeenLanding: true });
       setShowLanding(false);
-      setShowChat(true);
+      setShowResearch(true);
     } catch (error) {
       console.error('Error saving landing page status:', error);
       setShowLanding(false);
-      setShowChat(true);
+      setShowResearch(true);
     }
   }, []);
 
   const handleAnalysePage = useCallback(async () => {
     try {
-      // Get current active tab
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
       if (tab && tab.url) {
-        // Set the current page URL
         setCurrentPageUrl(tab.url);
         
-        // Switch to analysis page
-        setShowChat(false);
+        setShowResearch(false);
         setShowLanding(false);
         setShowAnalysis(true);
         setIsLoading(true);
         setAnalysisData(null);
 
-        // Use aiService to generate page analysis
         const result = await aiService.generatePageAnalysis(tab.url);
         
         if (result.success) {
@@ -281,39 +248,31 @@ const Popup = () => {
       setIsLoading(false);
     }
   }, []);
-
-  // Handle going back from analysis page
   const handleBackFromAnalysis = useCallback(() => {
     setShowAnalysis(false);
-    setShowChat(true);
+    setShowResearch(true);
     setAnalysisData(null);
     setCurrentPageUrl('');
   }, []);
 
-  // Handle retry analysis
   const handleRetryAnalysis = useCallback(() => {
     handleAnalysePage();
   }, [handleAnalysePage]);
 
-  // Handle fact checker
   const handleFactChecker = useCallback(async () => {
     try {
-      // Get current active tab
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
       if (tab && tab.url) {
-        // Set the current page URL
         setCurrentPageUrl(tab.url);
         
-        // Switch to fact checker page
-        setShowChat(false);
+        setShowResearch(false);
         setShowLanding(false);
         setShowAnalysis(false);
         setShowFactChecker(true);
         setIsLoading(true);
         setFactCheckData(null);
 
-        // Use aiService to generate fact check
         const result = await aiService.generateFactCheck(tab.url);
         
         if (result.success) {
@@ -343,22 +302,19 @@ const Popup = () => {
     }
   }, []);
 
-  // Handle going back from fact checker page
   const handleBackFromFactChecker = useCallback(() => {
-    console.log('🔍 Fact Checker: Going back to chat');
+    console.log('🔍 Fact Checker: Going back to research');
     setShowFactChecker(false);
-    setShowChat(true);
+    setShowResearch(true);
     setFactCheckData(null);
     setCurrentPageUrl('');
   }, []);
 
-  // Handle retry fact check
   const handleRetryFactCheck = useCallback(() => {
     console.log('🔍 Fact Checker: Retrying fact check');
     handleFactsChecker();
   }, [handleFactsChecker]);
 
-  // Handle asking personalized questions about the current page
   const handleAskQuestion = useCallback(async (question, pageUrl) => {
     try {
       const questionPrompt = `Based on the webpage at ${pageUrl}, please answer the following question:
@@ -396,7 +352,6 @@ Please provide a detailed and helpful answer based on the content and context of
     console.log('🔍 Fact Checker: Starting fact check process...');
     
     try {
-      // Get current active tab
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       console.log('🔍 Fact Checker: Active tab found:', tab?.url);
       
@@ -405,15 +360,13 @@ Please provide a detailed and helpful answer based on the content and context of
         setFactCheckData(null);
         setIsLoading(true);
         
-        // Switch to fact checker view
         setShowLanding(false);
-        setShowChat(false);
+        setShowResearch(false);
         setShowAnalysis(false);
         setShowFactChecker(true);
         
         console.log('🔍 Fact Checker: Switched to fact checker view, calling AI service...');
         
-        // Call AI service directly with the URL
         const result = await aiService.generateFactCheck(tab.url);
         console.log('🔍 Fact Checker: AI service response:', result);
         
@@ -463,20 +416,20 @@ Please provide a detailed and helpful answer based on the content and context of
             onBack={handleBackFromFactChecker}
             onRetry={handleRetryFactCheck}
           />
-        ) : showChat ? (
+        ) : showResearch ? (
           <div className="relative w-full h-full">
-            <AIChat 
-              key="chat"
-              messages={messages}
+            <ResearchDisplay 
+              key="research"
+              researchResults={researchResults}
               isLoading={isLoading}
               inputMessage={inputMessage}
+              researchDepth={researchDepth}
               onInputChange={handleInputChange}
+              onDepthChange={handleDepthChange}
               onKeyDown={handleKeyDown}
               onSendMessage={handleSendMessage}
-              messagesEndRef={messagesEndRef}
               inputRef={inputRef}
-            />
-            {/* Floating Button - positioned relative to chat */}
+            />    
             <FloatingButton 
               onAnalysePage={handleAnalysePage}
               onFactsChecker={handleFactsChecker}

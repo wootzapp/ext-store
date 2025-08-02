@@ -26,7 +26,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'urlChanged':
       console.log('URL changed to:', message.url);
       
-      // Clear all storage when URL changes
       chrome.storage.local.remove(['currentPage', 'aiResults', 'aiError', 'aiProcessingStatus'], () => {
         console.log('All storage cleared due to URL change');
       });
@@ -57,7 +56,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       console.log('DOM Array:', domArray);
       console.log('=== END DOM ===');
       
-      // Store the current page data (this will override previous data when URL changes)
       const currentPageData = {
         currentPage: {
           url: message.data.url,
@@ -71,7 +69,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         console.log('Current page data stored:', currentPageData);
       });
       
-      // Don't automatically process with AI - wait for user to click process button
       console.log('DOM captured and stored. Waiting for user to trigger AI processing.');
       
       sendResponse({
@@ -83,7 +80,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'processWithAI':
       console.log('User requested AI processing');
       
-      // Get current page data from storage
       chrome.storage.local.get(['currentPage'], (result) => {
         if (result.currentPage && result.currentPage.cleanTextContent) {
           console.log('Starting AI processing for stored page data');
@@ -120,7 +116,6 @@ function setupTabListeners() {
   chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'loading' && tab.active) {
       console.log('Tab loading started:', tab.url);
-      // Clear storage when page starts loading
       clearStorageForNewPage();
     } else if (changeInfo.status === 'complete' && tab.active) {
       console.log('Active tab updated:', tab.url);
@@ -130,13 +125,11 @@ function setupTabListeners() {
   
   chrome.tabs.onActivated.addListener((activeInfo) => {
     console.log('Active tab changed to:', activeInfo.tabId);
-    // Clear storage when switching to a new tab
     clearStorageForNewPage();
     askContentForCurrentUrl(activeInfo.tabId);
   });
 }
 
-// Clear storage when navigating to a new page
 function clearStorageForNewPage() {
   chrome.storage.local.remove(['currentPage', 'aiResults', 'aiError', 'aiProcessingStatus'], () => {
     console.log('Storage cleared for new page navigation');
@@ -190,15 +183,12 @@ function injectContentScript(tabId) {
   });
 }
 
-// Import AI service statically at the top
 import aiService from './utils/aiService.js';
 
-// Handle chat messages
 async function handleChatMessage(message, sendResponse) {
   try {
     console.log('Processing chat message:', message);
     
-    // Check if API key is configured
     if (!aiService.validateApiKey()) {
       console.log('No API key configured for chat');
       sendResponse({
@@ -209,7 +199,6 @@ async function handleChatMessage(message, sendResponse) {
       return;
     }
     
-    // Process with AI using the new chat response function
     const result = await aiService.generateChatResponse(message);
     
     if (result.success) {
@@ -236,16 +225,13 @@ async function handleChatMessage(message, sendResponse) {
   }
 }
 
-// Process DOM data with AI using single batch processing
 async function processWithAI(domData) {
   try {
     console.log('Starting AI processing for:', domData.url);
     
-    // Check if API key is configured
     if (!aiService.validateApiKey()) {
       console.log('No API key configured, skipping AI processing');
-      
-      // Store a placeholder indicating no API key
+
       const noApiKeyData = {
         aiResults: {
           url: domData.url,
@@ -265,7 +251,6 @@ async function processWithAI(domData) {
       return;
     }
     
-    // Store initial processing status
     const initialStatus = {
       aiProcessingStatus: {
         url: domData.url,
@@ -278,7 +263,6 @@ async function processWithAI(domData) {
       console.log('Processing status stored:', initialStatus);
     });
     
-    // Process in single batch (first 6000 tokens)
     const result = await aiService.processSingleBatch(
       domData.cleanTextContent,
       domData.url,
@@ -288,7 +272,6 @@ async function processWithAI(domData) {
     if (result.success) {
       console.log('AI processing successful');
       
-      // Store AI results in local storage
       const aiResults = {
         aiResults: {
           url: domData.url,
@@ -303,7 +286,6 @@ async function processWithAI(domData) {
       chrome.storage.local.set(aiResults, () => {
         console.log('AI results stored in local storage:', aiResults);
         
-        // Set processing status to complete
         const completionStatus = {
           aiProcessingStatus: {
             url: domData.url,
@@ -317,7 +299,6 @@ async function processWithAI(domData) {
           console.log('Processing completion status stored');
         });
         
-        // Notify content script that AI processing is complete
         chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
           if (tabs.length > 0) {
             chrome.tabs.sendMessage(tabs[0].id, {
@@ -333,7 +314,6 @@ async function processWithAI(domData) {
     } else {
       console.error('AI processing failed:', result.error);
       
-      // Store error in local storage
       const errorData = {
         aiError: {
           url: domData.url,
@@ -349,8 +329,7 @@ async function processWithAI(domData) {
     
   } catch (error) {
     console.error('Error in AI processing:', error);
-    
-    // Store error in local storage
+        
     const errorData = {
       aiError: {
         url: domData.url,
