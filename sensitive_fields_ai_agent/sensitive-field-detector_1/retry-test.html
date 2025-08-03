@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retry Mechanism Test - Sensitive Field Detector</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2196F3;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #fafafa;
+        }
+        .test-section h3 {
+            color: #333;
+            margin-top: 0;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .sensitive-field {
+            border-color: #ff9800;
+            background: #fff3e0;
+        }
+        .status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+        }
+        .status.success {
+            background: #4caf50;
+        }
+        .status.error {
+            background: #f44336;
+        }
+        .status.info {
+            background: #2196F3;
+        }
+        .instructions {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .instructions h4 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+        .instructions ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Retry Mechanism Test</h1>
+        
+        <div class="instructions">
+            <h4>📋 Test Instructions:</h4>
+            <ul>
+                <li>This page contains various sensitive fields to test the extension</li>
+                <li>The extension should automatically detect these fields using AI</li>
+                <li>If the Gemini API is overloaded (503 error), the extension will retry automatically</li>
+                <li>Watch the console for retry attempts and fallback detection</li>
+                <li>A status indicator should appear in the top-right corner</li>
+                <li>Check that the extension gracefully handles API failures</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>🔐 Authentication Fields</h3>
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" placeholder="Enter your username" class="sensitive-field">
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" placeholder="Enter your password" class="sensitive-field">
+            </div>
+            <div class="form-group">
+                <label for="email">Email Address:</label>
+                <input type="email" id="email" name="email" placeholder="Enter your email" class="sensitive-field">
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>👤 Personal Information</h3>
+            <div class="form-group">
+                <label for="fullname">Full Name:</label>
+                <input type="text" id="fullname" name="fullname" placeholder="Enter your full name" class="sensitive-field">
+            </div>
+            <div class="form-group">
+                <label for="phone">Phone Number:</label>
+                <input type="tel" id="phone" name="phone" placeholder="Enter your phone number" class="sensitive-field">
+            </div>
+            <div class="form-group">
+                <label for="dob">Date of Birth:</label>
+                <input type="date" id="dob" name="dob" class="sensitive-field">
+            </div>
+            <div class="form-group">
+                <label for="ssn">Social Security Number:</label>
+                <input type="text" id="ssn" name="ssn" placeholder="XXX-XX-XXXX" class="sensitive-field">
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>💳 Financial Information</h3>
+            <div class="form-group">
+                <label for="cardnumber">Credit Card Number:</label>
+                <input type="text" id="cardnumber" name="cardnumber" placeholder="1234 5678 9012 3456" class="sensitive-field">
+            </div>
+            <div class="form-group">
+                <label for="cvv">CVV:</label>
+                <input type="text" id="cvv" name="cvv" placeholder="123" class="sensitive-field">
+            </div>
+            <div class="form-group">
+                <label for="expiry">Expiry Date:</label>
+                <input type="text" id="expiry" name="expiry" placeholder="MM/YY" class="sensitive-field">
+            </div>
+            <div class="form-group">
+                <label for="bankaccount">Bank Account Number:</label>
+                <input type="text" id="bankaccount" name="bankaccount" placeholder="Enter account number" class="sensitive-field">
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🏠 Address Information</h3>
+            <div class="form-group">
+                <label for="address">Street Address:</label>
+                <input type="text" id="address" name="address" placeholder="Enter your address" class="sensitive-field">
+            </div>
+            <div class="form-group">
+                <label for="city">City:</label>
+                <input type="text" id="city" name="city" placeholder="Enter your city" class="sensitive-field">
+            </div>
+            <div class="form-group">
+                <label for="state">State:</label>
+                <select id="state" name="state" class="sensitive-field">
+                    <option value="">Select state</option>
+                    <option value="CA">California</option>
+                    <option value="NY">New York</option>
+                    <option value="TX">Texas</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="zipcode">ZIP Code:</label>
+                <input type="text" id="zipcode" name="zipcode" placeholder="12345" class="sensitive-field">
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔒 Hidden Sensitive Fields</h3>
+            <input type="hidden" name="csrf_token" value="abc123def456">
+            <input type="hidden" name="auth_token" value="xyz789uvw012">
+            <input type="hidden" name="session_id" value="session_12345">
+            <p><em>These hidden fields contain sensitive tokens and should be detected by the extension.</em></p>
+        </div>
+
+        <div class="test-section">
+            <h3>📝 Additional Information</h3>
+            <div class="form-group">
+                <label for="notes">Notes:</label>
+                <textarea id="notes" name="notes" placeholder="Enter any additional notes" rows="4"></textarea>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🎯 Test Controls</h3>
+            <button onclick="simulateAPIOverload()" style="background: #ff9800; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px;">
+                🚨 Simulate API Overload
+            </button>
+            <button onclick="checkExtensionStatus()" style="background: #2196F3; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px;">
+                🔍 Check Extension Status
+            </button>
+            <button onclick="clearStatus()" style="background: #9e9e9e; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px;">
+                🧹 Clear Status
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Test functions
+        function showStatus(message, type = 'info') {
+            const status = document.createElement('div');
+            status.className = `status ${type}`;
+            status.textContent = message;
+            document.body.appendChild(status);
+            
+            setTimeout(() => {
+                if (status.parentNode) {
+                    status.parentNode.removeChild(status);
+                }
+            }, 5000);
+        }
+
+        function simulateAPIOverload() {
+            showStatus('🚨 Simulating API overload scenario...', 'error');
+            console.log('🧪 Test: Simulating API overload scenario');
+            console.log('💡 This would typically cause a 503 error in the Gemini API');
+            console.log('🔄 The extension should retry automatically with exponential backoff');
+        }
+
+        function checkExtensionStatus() {
+            showStatus('🔍 Checking extension status...', 'info');
+            console.log('🧪 Test: Checking extension status');
+            
+            // Check if extension is loaded
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                console.log('✅ Chrome extension API available');
+                
+                // Try to communicate with the extension
+                chrome.runtime.sendMessage({action: 'test'}, (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.log('⚠️ Extension not responding:', chrome.runtime.lastError);
+                        showStatus('⚠️ Extension not responding', 'error');
+                    } else {
+                        console.log('✅ Extension responding:', response);
+                        showStatus('✅ Extension is active', 'success');
+                    }
+                });
+            } else {
+                console.log('❌ Chrome extension API not available');
+                showStatus('❌ Extension API not available', 'error');
+            }
+        }
+
+        function clearStatus() {
+            const statusElements = document.querySelectorAll('.status');
+            statusElements.forEach(el => {
+                if (el.parentNode) {
+                    el.parentNode.removeChild(el);
+                }
+            });
+            console.log('🧹 Cleared all status indicators');
+        }
+
+        // Auto-check extension status on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                console.log('🧪 Test page loaded - extension should detect sensitive fields automatically');
+                console.log('📊 Expected sensitive fields: 15+ (username, password, email, name, phone, DOB, SSN, credit card, CVV, expiry, bank account, address, city, state, zip, hidden tokens)');
+                showStatus('🔍 Extension should be analyzing this page...', 'info');
+            }, 1000);
+        });
+
+        // Monitor for extension activity
+        const originalConsoleLog = console.log;
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            
+            // Check for extension-related logs
+            const message = args.join(' ');
+            if (message.includes('sensitive-field-detector') || 
+                message.includes('Raw DOM analysis') || 
+                message.includes('Gemini API') ||
+                message.includes('retry') ||
+                message.includes('fallback')) {
+                showStatus('🔍 Extension activity detected', 'success');
+            }
+        };
+    </script>
+</body>
+</html> 
