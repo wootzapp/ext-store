@@ -34,10 +34,6 @@ if (typeof chrome.wootz !== 'undefined' && chrome.wootz.onDropdownButtonClicked)
   chrome.wootz.onDropdownButtonClicked.addListener((eventData) => {
     console.log('🔥 WOOTZ DROPDOWN BUTTON CLICKED!');
     console.log('🔥 Selected Feature:', eventData.selectedFeature);
-    console.log('🔥 Extension ID:', eventData.extensionId);
-    console.log('🔥 Extension Name:', eventData.extensionName);
-    console.log('🔥 Timestamp:', eventData.timestamp);
-    console.log('🔥 Full event data:', eventData);
     
     // Handle navigation based on the selected feature
     const directMessage = {
@@ -70,12 +66,7 @@ if (typeof chrome.wootz !== 'undefined' && chrome.wootz.onDropdownButtonClicked)
   console.log('⚠️ WOOTZ API: onDropdownButtonClicked not available, using fallback Chrome message routing');
 }
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('📩 ALL MESSAGES RECEIVED:', message);
-  console.log('📩 MESSAGE TYPE:', message.type);
-  console.log('📩 MESSAGE DATA:', message.data);
-  console.log('📩 FULL MESSAGE OBJECT:', JSON.stringify(message, null, 2));
-  
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   switch (message.type) {
     case 'urlChanged':
       console.log('URL changed to:', message.url);
@@ -99,16 +90,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
       
     case 'domCaptured':
-      console.log('=== DOM CAPTURED ===');
-      console.log('URL:', message.data.url);
-      console.log('Title:', message.data.title);
-      console.log('Timestamp:', message.data.timestamp);
-      console.log('Text Content cleaned:', message.data.cleanTextContent);
-      console.log('Text Content cleaned length:', message.data.cleanTextContent.length);
-      const domArray = message.data.cleanTextContent.split(' ');
-      console.log('DOM Array length:', domArray.length);
-      console.log('DOM Array:', domArray);
-      console.log('=== END DOM ===');
       
       const currentPageData = {
         currentPage: {
@@ -158,47 +139,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       handleChatMessage(message.message, sendResponse);
       break;
       
-    case 'wootz.onDropdownButtonClicked':
-      console.log('🚀 BACKGROUND: Received wootz dropdown button click');
-      // Try multiple possible property names for the feature
-      const featureName = message.data?.selectedFeature || 
-                         message.data?.feature || 
-                         message.selectedFeature || 
-                         message.feature ||
-                         message.data?.name ||
-                         message.name;
-      console.log('🚀 BACKGROUND: Feature clicked:', featureName);
-      console.log('🚀 BACKGROUND: Full message data:', message.data);
-      console.log('🚀 BACKGROUND: Full message:', message);
-      
-      // Just send the message directly to popup for routing - no intermediate route messages
-      const directMessage = {
-        type: 'navigateToRoute',
-        route: featureName === 'Ai research' ? '/research' : 
-               featureName === 'page analysis' ? '/analysis' :
-               featureName === 'fact checker' ? '/fact-checker' : '/landing',
-        feature: featureName,
-        timestamp: new Date().toISOString()
-      };
-      
-      console.log('🚀 BACKGROUND: Sending direct navigation message:', directMessage);
-      
-      // Send directly to popup
-      chrome.runtime.sendMessage(directMessage).catch((error) => {
-        console.log('🚀 BACKGROUND: Direct message error (normal if popup closed):', error.message);
-      });
-      
-      // Store for popup to read if it opens later
-      chrome.storage.local.set({
-        pendingRouteMessage: directMessage,
-        pendingRouteTimestamp: Date.now()
-      });
-      
-      sendResponse({ success: true, feature: featureName });
-      break;
-      
     default:
-      console.log('Unknown message type:', message.type);
       break;
   }
   

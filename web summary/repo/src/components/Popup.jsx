@@ -140,37 +140,17 @@ const Popup = () => {
 
   // Chrome message listener for routing
   useEffect(() => {
-    console.log('📱 POPUP: Setting up Chrome message listener for routing');
     
-    const handleBackgroundMessage = (message, sender, sendResponse) => {
-      console.log('📨 MESSAGE RECEIVED:', {
-        type: message.type,
-        data: message,
-        sender: sender,
-        timestamp: new Date().toISOString()
-      });
-      
-      if (message.type === 'navigateToRoute') {
+    const handleBackgroundMessage = (message, _sender, sendResponse) => {
+      if (message?.type === 'navigateToRoute') {
         processRouteMessage(message);
-        
-        // Send acknowledgment back
-        if (sendResponse) {
-          sendResponse({
-            type: 'routeChangeAcknowledged',
-            newRoute: currentRoute,
-            timestamp: new Date().toISOString()
-          });
-        }
-      } else {
-        console.log('📱 POPUP: Message type not related to routing, ignoring');
+        if (sendResponse) sendResponse({ acknowledged: true });
       }
     };
 
     chrome.runtime.onMessage.addListener(handleBackgroundMessage);
-    console.log('📱 POPUP: Chrome message listener registered successfully');
     
     return () => {
-      console.log('📱 POPUP: Cleaning up Chrome message listener');
       chrome.runtime.onMessage.removeListener(handleBackgroundMessage);
     };
   }, []); // Remove currentRoute dependency to prevent infinite loop
@@ -211,37 +191,19 @@ const Popup = () => {
 
   // Helper function to process route messages
   const processRouteMessage = (message) => {
-    console.log('📱 POPUP: Processing navigation message');
-    console.log('📱 POPUP: Target route:', message.route);
-    console.log('📱 POPUP: Feature:', message.feature);
-    console.log('📱 POPUP: Current route before change:', currentRoute);
-    
-    let newRoute;
     switch (message.route) {
       case '/research':
-        newRoute = 'research';
-        console.log('📱 POPUP: Setting route to research');
         setCurrentRoute('research');
         break;
       case '/analysis':
-        newRoute = 'analysis';
-        console.log('📱 POPUP: Setting route to analysis and triggering API call');
-        // Trigger the analysis API call automatically
         handleAnalysePage();
         break;
       case '/fact-checker':
-        newRoute = 'fact-checker';
-        console.log('📱 POPUP: Setting route to fact-checker and triggering API call');
-        // Trigger the fact checker API call automatically
         handleFactChecker();
         break;
       default:
-        newRoute = 'landing';
-        console.log('📱 POPUP: Setting route to landing (default)');
         setCurrentRoute('landing');
     }
-    
-    console.log('📱 POPUP: Route change completed to:', newRoute);
   };
 
   // Load saved research results on component mount
@@ -526,32 +488,16 @@ const Popup = () => {
         console.log('📊 Analysis: Saved URL from storage:', storage.savedAnalysisUrl);
         console.log('📊 Analysis: Saved data exists:', !!storage.savedAnalysisData);
         
-        // Try multiple comparison methods for maximum compatibility
+        // Compare normalized URLs only (strips trailing slash/protocol but keeps full path)
         const currentNormalized = normalizeUrl(currentUrl);
         const savedNormalized = storage.savedAnalysisUrl ? normalizeUrl(storage.savedAnalysisUrl) : '';
-        const exactMatch = storage.savedAnalysisUrl === currentUrl;
-        const normalizedMatch = savedNormalized === currentNormalized;
-        
-        // Safe domain matching with proper error handling
-        let domainMatch = false;
-        try {
-          if (storage.savedAnalysisUrl && currentUrl) {
-            const currentHostname = new URL(currentUrl).hostname;
-            const savedHostname = new URL(storage.savedAnalysisUrl).hostname;
-            domainMatch = currentHostname === savedHostname;
-          }
-        } catch (error) {
-          console.log('📊 Analysis: Domain matching failed:', error.message);
-          domainMatch = false;
-        }
-        
-        console.log('📊 Analysis: Exact URL match:', exactMatch);
-        console.log('📊 Analysis: Normalized URL match:', normalizedMatch);
-        console.log('📊 Analysis: Domain match:', domainMatch);
-        console.log('📊 Analysis: Current normalized:', currentNormalized);
-        console.log('📊 Analysis: Saved normalized:', savedNormalized);
-        
-        if (storage.savedAnalysisData && (exactMatch || normalizedMatch || domainMatch)) {
+        const urlMatch = savedNormalized && savedNormalized === currentNormalized;
+
+        console.log('📊 Analysis: Saved normalized URL:', savedNormalized);
+        console.log('📊 Analysis: Current normalized URL:', currentNormalized);
+        console.log('📊 Analysis: URL match:', urlMatch);
+
+        if (storage.savedAnalysisData && urlMatch) {
           // Load saved data instead of making API call
           console.log('📊 Analysis: Loading saved analysis data for URL:', currentUrl);
           setAnalysisData(storage.savedAnalysisData);
@@ -595,8 +541,13 @@ const Popup = () => {
   }, []);
 
   const handleRetryAnalysis = useCallback(() => {
+    console.log('📊 Analysis: Retrying analysis');
+    // Reset analysis state before retry
+    setAnalysisData(null);
+    setIsAnalysisLoading(false);
+    // Trigger analysis
     handleAnalysePage();
-  }, [handleAnalysePage]);
+  }, []);
 
   const handleFactChecker = useCallback(async () => {
     console.log('🔍 Fact Checker: Starting fact check process...');
@@ -615,32 +566,16 @@ const Popup = () => {
         console.log('🔍 Fact Checker: Saved URL from storage:', storage.savedFactCheckUrl);
         console.log('🔍 Fact Checker: Saved data exists:', !!storage.savedFactCheckData);
         
-        // Try multiple comparison methods for maximum compatibility
+        // Compare normalized URLs only (no loose domain matches)
         const currentNormalized = normalizeUrl(currentUrl);
         const savedNormalized = storage.savedFactCheckUrl ? normalizeUrl(storage.savedFactCheckUrl) : '';
-        const exactMatch = storage.savedFactCheckUrl === currentUrl;
-        const normalizedMatch = savedNormalized === currentNormalized;
-        
-        // Safe domain matching with proper error handling
-        let domainMatch = false;
-        try {
-          if (storage.savedFactCheckUrl && currentUrl) {
-            const currentHostname = new URL(currentUrl).hostname;
-            const savedHostname = new URL(storage.savedFactCheckUrl).hostname;
-            domainMatch = currentHostname === savedHostname;
-          }
-        } catch (error) {
-          console.log('🔍 Fact Checker: Domain matching failed:', error.message);
-          domainMatch = false;
-        }
-        
-        console.log('🔍 Fact Checker: Exact URL match:', exactMatch);
-        console.log('🔍 Fact Checker: Normalized URL match:', normalizedMatch);
-        console.log('🔍 Fact Checker: Domain match:', domainMatch);
-        console.log('🔍 Fact Checker: Current normalized:', currentNormalized);
-        console.log('🔍 Fact Checker: Saved normalized:', savedNormalized);
-        
-        if (storage.savedFactCheckData && (exactMatch || normalizedMatch || domainMatch)) {
+        const urlMatch = savedNormalized && savedNormalized === currentNormalized;
+
+        console.log('🔍 Fact Checker: Saved normalized URL:', savedNormalized);
+        console.log('🔍 Fact Checker: Current normalized URL:', currentNormalized);
+        console.log('🔍 Fact Checker: URL match:', urlMatch);
+
+        if (storage.savedFactCheckData && urlMatch) {
           // Load saved data instead of making API call
           console.log('🔍 Fact Checker: Loading saved fact check data for URL:', currentUrl);
           setFactCheckData(storage.savedFactCheckData);
@@ -689,8 +624,12 @@ const Popup = () => {
 
   const handleRetryFactCheck = useCallback(() => {
     console.log('🔍 Fact Checker: Retrying fact check');
+    // Reset fact check state before retry
+    setFactCheckData(null);
+    setIsFactCheckerLoading(false);
+    // Trigger fact check
     handleFactChecker();
-  }, [handleFactChecker]);
+  }, []);
 
   const handleAskQuestion = useCallback(async (question, pageUrl) => {
     try {
@@ -784,6 +723,7 @@ Please provide a detailed and helpful answer based on the content and context of
     }
   }, []);
 
+
   // Update routing based on currentRoute state
   useEffect(() => {
     console.log('🔄 ROUTING: CurrentRoute changed to:', currentRoute);
@@ -802,6 +742,8 @@ Please provide a detailed and helpful answer based on the content and context of
         setShowResearch(false);
         setShowFactChecker(false);
         setShowAnalysis(true);
+        // Auto-trigger analysis using existing function (handles URL matching automatically)
+        handleAnalysePage();
         break;
       case 'fact-checker':
         console.log('🔄 ROUTING: Switching to fact-checker view');
@@ -809,6 +751,8 @@ Please provide a detailed and helpful answer based on the content and context of
         setShowResearch(false);
         setShowAnalysis(false);
         setShowFactChecker(true);
+        // Auto-trigger fact check using existing function (handles URL matching automatically)
+        handleFactChecker();
         break;
       case 'landing':
       default:
@@ -821,7 +765,7 @@ Please provide a detailed and helpful answer based on the content and context of
     }
     
     console.log('🔄 ROUTING: View switch completed for route:', currentRoute);
-  }, [currentRoute]); // Only depend on currentRoute to prevent infinite loop
+  }, [currentRoute, handleAnalysePage, handleFactChecker]); // Include the handler functions as dependencies
 
   return (
     <div className="relative w-full h-full">
