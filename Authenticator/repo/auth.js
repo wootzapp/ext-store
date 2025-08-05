@@ -10,7 +10,7 @@ const loginForm = document.getElementById('loginForm');
 const togglePassword = document.getElementById('togglePassword');
 const fallbackLink = document.getElementById('fallbackLink');
 
-const OKTA_URL = 'https://trial-7599136.okta.com/home/trial-7599136_testapp_1/0oasskc7oca3vLm1W697/alnsskld6bWGGNwua697';
+const OKTA_URL = 'https://integrator-2373294.okta.com/home/integrator-2373294_wootzapp_1/0oatpx2h4ye8vjezl697/alntpxch84VdDzIUW697';
 
 // Initialize the page
 document.addEventListener('DOMContentLoaded', function() {
