@@ -1,6 +1,14 @@
 
+console.log('Background script loaded');
+
+chrome.runtime.onStartup.addListener(() => {
+  console.log('Extension starting up', new Date().toISOString());
+});
+
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('Extension installed/updated');
+  console.log('Extension installed/updated', new Date().toISOString());
+  console.log('Web Summary extension installed');
+  console.log('Extension ID:', chrome.runtime.id);
   setupAlarm();
   setupTabListeners();
 });
@@ -19,8 +27,54 @@ function setupAlarm() {
   });
 }
 
+// Add Wootz-specific dropdown button listener
+if (typeof chrome.wootz !== 'undefined' && chrome.wootz.onDropdownButtonClicked) {
+  console.log('🎯 SETTING UP: chrome.wootz.onDropdownButtonClicked listener');
+  
+  chrome.wootz.onDropdownButtonClicked.addListener((eventData) => {
+    console.log('🔥 WOOTZ DROPDOWN BUTTON CLICKED!');
+    console.log('🔥 Selected Feature:', eventData.selectedFeature);
+    console.log('🔥 Extension ID:', eventData.extensionId);
+    console.log('🔥 Extension Name:', eventData.extensionName);
+    console.log('🔥 Timestamp:', eventData.timestamp);
+    console.log('🔥 Full event data:', eventData);
+    
+    // Handle navigation based on the selected feature
+    const directMessage = {
+      type: 'navigateToRoute',
+      route: eventData.selectedFeature === 'Ai research' ? '/research' : 
+             eventData.selectedFeature === 'page analysis' ? '/analysis' :
+             eventData.selectedFeature === 'fact checker' ? '/fact-checker' : '/landing',
+      feature: eventData.selectedFeature,
+      timestamp: new Date().toISOString()
+    };
+    
+    console.log('🔥 WOOTZ NAVIGATION: Sending direct navigation message:', directMessage);
+    
+    // Send directly to popup
+    chrome.runtime.sendMessage(directMessage).catch((error) => {
+      console.log('🔥 WOOTZ NAVIGATION: Direct message error (normal if popup closed):', error.message);
+    });
+    
+    // Store for popup to read if it opens later
+    chrome.storage.local.set({
+      pendingRouteMessage: directMessage,
+      pendingRouteTimestamp: Date.now()
+    });
+    
+    console.log('🔥 WOOTZ NAVIGATION: Route processing complete for feature:', eventData.selectedFeature);
+  });
+  
+  console.log('✅ WOOTZ LISTENER: chrome.wootz.onDropdownButtonClicked listener added successfully');
+} else {
+  console.log('⚠️ WOOTZ API: onDropdownButtonClicked not available, using fallback Chrome message routing');
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('Background received message:', message);
+  console.log('📩 ALL MESSAGES RECEIVED:', message);
+  console.log('📩 MESSAGE TYPE:', message.type);
+  console.log('📩 MESSAGE DATA:', message.data);
+  console.log('📩 FULL MESSAGE OBJECT:', JSON.stringify(message, null, 2));
   
   switch (message.type) {
     case 'urlChanged':
@@ -102,6 +156,45 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'chatMessage':
       console.log('User sent chat message:', message.message);
       handleChatMessage(message.message, sendResponse);
+      break;
+      
+    case 'wootz.onDropdownButtonClicked':
+      console.log('🚀 BACKGROUND: Received wootz dropdown button click');
+      // Try multiple possible property names for the feature
+      const featureName = message.data?.selectedFeature || 
+                         message.data?.feature || 
+                         message.selectedFeature || 
+                         message.feature ||
+                         message.data?.name ||
+                         message.name;
+      console.log('🚀 BACKGROUND: Feature clicked:', featureName);
+      console.log('🚀 BACKGROUND: Full message data:', message.data);
+      console.log('🚀 BACKGROUND: Full message:', message);
+      
+      // Just send the message directly to popup for routing - no intermediate route messages
+      const directMessage = {
+        type: 'navigateToRoute',
+        route: featureName === 'Ai research' ? '/research' : 
+               featureName === 'page analysis' ? '/analysis' :
+               featureName === 'fact checker' ? '/fact-checker' : '/landing',
+        feature: featureName,
+        timestamp: new Date().toISOString()
+      };
+      
+      console.log('🚀 BACKGROUND: Sending direct navigation message:', directMessage);
+      
+      // Send directly to popup
+      chrome.runtime.sendMessage(directMessage).catch((error) => {
+        console.log('🚀 BACKGROUND: Direct message error (normal if popup closed):', error.message);
+      });
+      
+      // Store for popup to read if it opens later
+      chrome.storage.local.set({
+        pendingRouteMessage: directMessage,
+        pendingRouteTimestamp: Date.now()
+      });
+      
+      sendResponse({ success: true, feature: featureName });
       break;
       
     default:

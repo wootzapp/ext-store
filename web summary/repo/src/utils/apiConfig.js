@@ -2,11 +2,11 @@
 const API_CONFIG = {
   gemini: {
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-    apiKey: 'AIzaSyCoNFODrVovsQEFa4nseHbv0d56eMqhtDU',
+    apiKey: '', // ADD API KEY HERE
     model: 'models/gemini-2.5-flash',
     maxTokens: 32000,
     temperature: 0.7,
-    timeout: 30000, 
+    timeout: 120000, // 120 seconds timeout 
   },
 
   defaultProvider: 'gemini',

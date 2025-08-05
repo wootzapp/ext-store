@@ -35,7 +35,7 @@ class AIService {
     }
   }
 
-  async performResearch(topic, researchDepth = 'comprehensive') {
+  async performResearch(topic, researchDepth = 'comprehensive', abortController = null) {
     console.log('🔬 AI Service: Starting research for topic:', topic, 'with depth:', researchDepth);
     
     if (!this.validateApiKey()) {
@@ -45,7 +45,7 @@ class AIService {
     const researchPrompt = this.buildResearchPrompt(topic, researchDepth);
     
     try {
-      const response = await this.makeResearchApiCall(researchPrompt);
+      const response = await this.makeResearchApiCall(researchPrompt, abortController);
       const parsed = this.parseResearchResponse(response);
       
       const result = {
@@ -58,6 +58,17 @@ class AIService {
       return result;
     } catch (error) {
       console.error('🔬 AI Service: Error performing research:', error);
+      
+      if (error.name === 'AbortError') {
+        return {
+          success: false,
+          error: true,
+          message: 'Research was cancelled',
+          details: 'Research was stopped by the user',
+          timestamp: new Date().toISOString()
+        };
+      }
+      
       return {
         success: false,
         error: true,
@@ -368,7 +379,7 @@ A5: [Answer]`;
 
     // Add timeout to the request
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), config.timeout || 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 seconds timeout
 
     try {
       const response = await this.callGemini(prompt, headers, config, controller.signal);
@@ -380,7 +391,7 @@ A5: [Answer]`;
       clearTimeout(timeoutId);
       
       if (error.name === 'AbortError') {
-        throw new Error(`Request timeout after ${config.timeout || 30000}ms`);
+        throw new Error(`Request timeout after 120 seconds`);
       }
       
       throw error;
@@ -423,9 +434,9 @@ A5: [Answer]`;
     const headers = getApiHeaders();
     const config = this.config;
 
-    // Add timeout to the request (longer timeout for fact checking with tools)
+    // Add timeout to the request
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 seconds for fact checking
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 seconds timeout
 
     try {
       const prompt = `You are a fact-checking expert with access to Google Search. Analyze the webpage at this URL: ${url}
@@ -1189,13 +1200,13 @@ CRITICAL:
     return prompt;
   }
 
-  async makeResearchApiCall(prompt) {
+  async makeResearchApiCall(prompt, abortController = null) {
     const headers = getApiHeaders();
     const config = this.config;
 
     console.log('🔬 AI Service: Making research API call with maxTokens:', config.maxTokens);
 
-    const controller = new AbortController();
+    const controller = abortController || new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 120000); 
 
     try {

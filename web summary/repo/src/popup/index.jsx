@@ -8,4 +8,4 @@ root.render(
   <React.StrictMode>
     <Popup />
   </React.StrictMode>
-); 
+);
