@@ -4,7 +4,9 @@ import ResearchDisplay from './ResearchDisplay';
 import FloatingButton from './FloatingButton';
 import AnalysisPage from './AnalysisPage';
 import FactChecker from './FactChecker';
+import ModelSelection from './ModelSelection';
 import aiService from '../utils/aiService';
+import StorageUtils from '../utils/storageUtils';
 import { normalizeUrl } from '../utils/urlUtils';
 
 const LandingPage = React.memo(({ onGetStarted }) => (
@@ -117,6 +119,7 @@ const Popup = () => {
   const [showResearch, setShowResearch] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showFactChecker, setShowFactChecker] = useState(false);
+  const [showModelSelection, setShowModelSelection] = useState(false);
   const [researchResults, setResearchResults] = useState(null);
   const [inputMessage, setInputMessage] = useState('');
   const [researchDepth, setResearchDepth] = useState('comprehensive');
@@ -132,9 +135,12 @@ const Popup = () => {
   const [isLoadingSavedResearch, setIsLoadingSavedResearch] = useState(true);
   const [isLoadingSavedAnalysis, setIsLoadingSavedAnalysis] = useState(true);
   const [isLoadingSavedFactCheck, setIsLoadingSavedFactCheck] = useState(true);
+  const [isCheckingSetup, setIsCheckingSetup] = useState(true);
+  const [setupCompleted, setSetupCompleted] = useState(false);
+  const [intendedRoute, setIntendedRoute] = useState(null); // Store intended route after setup
   
   // Routing state
-  const [currentRoute, setCurrentRoute] = useState('landing'); // 'landing', 'research', 'analysis', 'fact-checker'
+  const [currentRoute, setCurrentRoute] = useState('landing'); // 'landing', 'research', 'analysis', 'fact-checker', 'model-selection'
   
   const inputRef = useRef(null);
 
@@ -191,6 +197,21 @@ const Popup = () => {
 
   // Helper function to process route messages
   const processRouteMessage = (message) => {
+    console.log('📱 POPUP: Processing route message:', message);
+    
+    // If setup is required, go to model selection first
+    if (message.setupRequired) {
+      console.log('📱 POPUP: Setup required, storing intended route and going to model selection');
+      setIntendedRoute({
+        route: message.originalRoute || message.route,
+        feature: message.feature,
+        originalMessage: message
+      });
+      setCurrentRoute('model-selection');
+      return;
+    }
+    
+    // Normal route processing
     switch (message.route) {
       case '/research':
         setCurrentRoute('research');
@@ -200,6 +221,9 @@ const Popup = () => {
         break;
       case '/fact-checker':
         handleFactChecker();
+        break;
+      case '/model-selection':
+        setCurrentRoute('model-selection');
         break;
       default:
         setCurrentRoute('landing');
@@ -370,6 +394,54 @@ const Popup = () => {
     checkFirstTime();
   }, []);
 
+  // Check if setup is completed on component mount
+  useEffect(() => {
+    const checkSetupStatus = async () => {
+      setIsCheckingSetup(true);
+      try {
+        console.log('🔍 Checking setup status...');
+        const isSetupComplete = await StorageUtils.isSetupCompleted();
+        console.log('🔍 Setup completed:', isSetupComplete);
+        
+        setSetupCompleted(isSetupComplete);
+        
+        if (!isSetupComplete) {
+          console.log('🔍 Setup not completed, will show model selection');
+          // Setup is not complete, we'll show model selection when needed
+        } else {
+          console.log('🔍 Setup completed, initializing AI service...');
+          // Initialize AI service with saved config
+          await initializeAIService();
+        }
+      } catch (error) {
+        console.error('❌ Error checking setup status:', error);
+        setSetupCompleted(false);
+      } finally {
+        setIsCheckingSetup(false);
+      }
+    };
+
+    checkSetupStatus();
+  }, []);
+
+  // Initialize AI service with user's saved configuration
+  const initializeAIService = async () => {
+    try {
+      const config = await StorageUtils.getCurrentConfig();
+      if (config) {
+        console.log('🤖 Initializing AI service with model:', config.modelId);
+        await aiService.updateConfiguration(config);
+        console.log('🤖 AI service initialized successfully');
+      } else {
+        console.log('🤖 No saved configuration found');
+        setSetupCompleted(false);
+      }
+    } catch (error) {
+      console.error('❌ Error initializing AI service:', error);
+      setSetupCompleted(false);
+    }
+  };
+
   const handleSendMessage = useCallback(async (e) => {
     if (e) {
       e.preventDefault();
@@ -463,6 +535,14 @@ const Popup = () => {
 
   const handleLandingButtonClick = useCallback(async () => {
     console.log('🎯 GET STARTED: Button clicked');
+    
+    // Check if setup is completed before proceeding
+    if (!setupCompleted && !isCheckingSetup) {
+      console.log('🎯 GET STARTED: Setup not completed, showing model selection');
+      setCurrentRoute('model-selection');
+      return;
+    }
+
     try {
       await chrome.storage.local.set({ hasSeenLanding: true });
       console.log('🎯 GET STARTED: Saved landing status, navigating to research');
@@ -472,6 +552,55 @@ const Popup = () => {
       console.log('🎯 GET STARTED: Error occurred, still navigating to research');
       setCurrentRoute('research');
     }
+  }, [setupCompleted, isCheckingSetup]);
+
+  // Handle model selection completion
+  const handleModelSelectionComplete = useCallback(async () => {
+    console.log('🎯 MODEL SELECTION: Setup completed');
+    
+    // Re-initialize AI service with new configuration
+    await initializeAIService();
+    setSetupCompleted(true);
+    
+    // Mark that user has seen landing
+    try {
+      await chrome.storage.local.set({ hasSeenLanding: true });
+    } catch (error) {
+      console.error('Error saving landing page status:', error);
+    }
+    
+    // Navigate to intended route if there is one, otherwise go to research
+    if (intendedRoute) {
+      console.log('🎯 MODEL SELECTION: Navigating to intended route:', intendedRoute.route);
+      
+      // Clear the intended route
+      setIntendedRoute(null);
+      
+      // Navigate based on the original intended route
+      switch (intendedRoute.route) {
+        case '/research':
+          setCurrentRoute('research');
+          break;
+        case '/analysis':
+          handleAnalysePage();
+          break;
+        case '/fact-checker':
+          handleFactChecker();
+          break;
+        default:
+          setCurrentRoute('research');
+      }
+    } else {
+      console.log('🎯 MODEL SELECTION: No intended route, going to research');
+      setCurrentRoute('research');
+    }
+  }, [intendedRoute, handleAnalysePage, handleFactChecker]);
+
+  // Handle going back from model selection
+  const handleModelSelectionBack = useCallback(() => {
+    console.log('🎯 MODEL SELECTION: Going back to landing');
+    setIntendedRoute(null); // Clear any intended route
+    setCurrentRoute('landing');
   }, []);
 
   const handleAnalysePage = useCallback(async () => {
@@ -633,30 +762,38 @@ const Popup = () => {
 
   const handleAskQuestion = useCallback(async (question, pageUrl) => {
     try {
+      console.log('🤔 POPUP: Asking question:', question, 'for URL:', pageUrl);
+      
       const questionPrompt = `Based on the webpage at ${pageUrl}, please answer the following question:
 
 Question: ${question}
 
 Please provide a detailed and helpful answer based on the content and context of the webpage. If the question cannot be answered from the page content, please explain what information would be needed.`;
 
+      console.log('🤔 POPUP: Sending message to background with prompt:', questionPrompt);
+
       const response = await chrome.runtime.sendMessage({
         type: 'chatMessage',
         message: questionPrompt
       });
 
+      console.log('🤔 POPUP: Received response from background:', response);
+
       if (response && response.success) {
+        console.log('🤔 POPUP: Question answered successfully');
         return {
           success: true,
           answer: response.reply
         };
       } else {
+        console.log('🤔 POPUP: Question failed:', response);
         return {
           success: false,
-          answer: 'Sorry, I couldn\'t process your question at this time.'
+          answer: response?.reply || 'Sorry, I couldn\'t process your question at this time.'
         };
       }
     } catch (error) {
-      console.error('Error asking question:', error);
+      console.error('🤔 POPUP: Error asking question:', error);
       return {
         success: false,
         answer: 'An error occurred while processing your question.'
@@ -734,6 +871,7 @@ Please provide a detailed and helpful answer based on the content and context of
         setShowLanding(false);
         setShowAnalysis(false);
         setShowFactChecker(false);
+        setShowModelSelection(false);
         setShowResearch(true);
         break;
       case 'analysis':
@@ -741,6 +879,7 @@ Please provide a detailed and helpful answer based on the content and context of
         setShowLanding(false);
         setShowResearch(false);
         setShowFactChecker(false);
+        setShowModelSelection(false);
         setShowAnalysis(true);
         // Auto-trigger analysis using existing function (handles URL matching automatically)
         handleAnalysePage();
@@ -750,9 +889,18 @@ Please provide a detailed and helpful answer based on the content and context of
         setShowLanding(false);
         setShowResearch(false);
         setShowAnalysis(false);
+        setShowModelSelection(false);
         setShowFactChecker(true);
         // Auto-trigger fact check using existing function (handles URL matching automatically)
         handleFactChecker();
+        break;
+      case 'model-selection':
+        console.log('🔄 ROUTING: Switching to model selection view');
+        setShowLanding(false);
+        setShowResearch(false);
+        setShowAnalysis(false);
+        setShowFactChecker(false);
+        setShowModelSelection(true);
         break;
       case 'landing':
       default:
@@ -760,6 +908,7 @@ Please provide a detailed and helpful answer based on the content and context of
         setShowResearch(false);
         setShowAnalysis(false);
         setShowFactChecker(false);
+        setShowModelSelection(false);
         setShowLanding(true);
         break;
     }
@@ -797,6 +946,12 @@ Please provide a detailed and helpful answer based on the content and context of
             onBack={handleBackFromFactChecker}
             onRetry={handleRetryFactCheck}
             onClearHistory={handleClearFactCheckHistory}
+          />
+        ) : showModelSelection ? (
+          <ModelSelection
+            key="model-selection"
+            onSetupComplete={handleModelSelectionComplete}
+            onBack={handleModelSelectionBack}
           />
         ) : showResearch ? (
           <div className="relative w-full h-full">

@@ -31,17 +31,36 @@ function setupAlarm() {
 if (typeof chrome.wootz !== 'undefined' && chrome.wootz.onDropdownButtonClicked) {
   console.log('🎯 SETTING UP: chrome.wootz.onDropdownButtonClicked listener');
   
-  chrome.wootz.onDropdownButtonClicked.addListener((eventData) => {
+  chrome.wootz.onDropdownButtonClicked.addListener(async (eventData) => {
     console.log('🔥 WOOTZ DROPDOWN BUTTON CLICKED!');
     console.log('🔥 Selected Feature:', eventData.selectedFeature);
+    
+    // Check if API key is configured before navigating to AI features
+    const isSetupComplete = await StorageUtils.isSetupCompleted();
+    console.log('🔍 WOOTZ: Setup completed:', isSetupComplete);
+    
+    let targetRoute;
+    const needsAI = ['Ai research', 'page analysis', 'fact checker'].includes(eventData.selectedFeature);
+    
+    if (needsAI && !isSetupComplete) {
+      console.log('🔍 WOOTZ: AI feature requested but setup not completed, redirecting to model selection');
+      targetRoute = '/model-selection';
+    } else {
+      targetRoute = eventData.selectedFeature === 'Ai research' ? '/research' : 
+                   eventData.selectedFeature === 'page analysis' ? '/analysis' :
+                   eventData.selectedFeature === 'fact checker' ? '/fact-checker' : '/landing';
+    }
     
     // Handle navigation based on the selected feature
     const directMessage = {
       type: 'navigateToRoute',
-      route: eventData.selectedFeature === 'Ai research' ? '/research' : 
-             eventData.selectedFeature === 'page analysis' ? '/analysis' :
-             eventData.selectedFeature === 'fact checker' ? '/fact-checker' : '/landing',
+      route: targetRoute,
       feature: eventData.selectedFeature,
+      setupRequired: needsAI && !isSetupComplete,
+      originalRoute: needsAI && !isSetupComplete ? 
+        (eventData.selectedFeature === 'Ai research' ? '/research' : 
+         eventData.selectedFeature === 'page analysis' ? '/analysis' :
+         eventData.selectedFeature === 'fact checker' ? '/fact-checker' : '/research') : undefined,
       timestamp: new Date().toISOString()
     };
     
@@ -218,44 +237,64 @@ function injectContentScript(tabId) {
 }
 
 import aiService from './utils/aiService.js';
+import StorageUtils from './utils/storageUtils.js';
 
 async function handleChatMessage(message, sendResponse) {
   try {
-    console.log('Processing chat message:', message);
+    console.log('🤖 BACKGROUND: Processing chat message:', message);
     
-    if (!aiService.validateApiKey()) {
-      console.log('No API key configured for chat');
+    // Check if setup is completed before processing
+    const isSetupComplete = await StorageUtils.isSetupCompleted();
+    if (!isSetupComplete) {
+      console.log('🤖 BACKGROUND: AI service not configured for chat');
       sendResponse({
         success: false,
-        reply: 'Sorry, AI chat is not configured. Please add your API key in the configuration.',
+        reply: 'AI service not configured. Please set up your API key and model selection in the extension settings.',
         timestamp: new Date().toISOString()
       });
       return;
     }
     
+    console.log('🤖 BACKGROUND: Setup validated, calling generateChatResponse...');
+    // Generate chat response using the AI service
     const result = await aiService.generateChatResponse(message);
+    console.log('🤖 BACKGROUND: AI service response:', result);
     
     if (result.success) {
+      console.log('🤖 BACKGROUND: Chat response successful, sending reply');
       sendResponse({
         success: true,
         reply: result.reply,
         timestamp: new Date().toISOString()
       });
     } else {
+      // Use the error message from the AI service if available
+      const errorMessage = result.message || result.error || 'Sorry, I encountered an error processing your message. Please try again.';
+      console.log('🤖 BACKGROUND: Chat response failed:', errorMessage);
       sendResponse({
         success: false,
-        reply: 'Sorry, I encountered an error processing your message. Please try again.',
+        reply: errorMessage,
         timestamp: new Date().toISOString()
       });
     }
     
   } catch (error) {
-    console.error('Error handling chat message:', error);
-    sendResponse({
-      success: false,
-      reply: 'Sorry, I encountered an error. Please try again.',
-      timestamp: new Date().toISOString()
-    });
+    console.error('🤖 BACKGROUND: Error handling chat message:', error);
+    
+    // Check if it's a configuration error
+    if (error.message.includes('not configured')) {
+      sendResponse({
+        success: false,
+        reply: 'AI service not configured. Please set up your API key and model selection in the extension settings.',
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      sendResponse({
+        success: false,
+        reply: 'Sorry, I encountered an error. Please try again.',
+        timestamp: new Date().toISOString()
+      });
+    }
   }
 }
 
