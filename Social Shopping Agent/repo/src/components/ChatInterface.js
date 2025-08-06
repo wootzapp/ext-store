@@ -6,20 +6,23 @@ import ChatInput from './ChatInput';
 import TaskStatus from './TaskStatus';
 import { useChat } from '../hooks/useChat';
 import { useLocation } from 'react-router-dom';
+import { useConfig } from '../hooks/useConfig';
 import { 
   FaEdit, 
-  FaUser, 
+  // FaUser, 
   FaWifi,
   FaExclamationTriangle,
-  FaHistory
+  FaHistory,
+  FaCog
 } from 'react-icons/fa';
-import RequestCounter from './RequestCounter';
-import SubscriptionChoice from './SubscriptionChoice';
+// import RequestCounter from './RequestCounter';
+// import SubscriptionChoice from './SubscriptionChoice';
 import { useNavigate } from 'react-router-dom';
 
 const ChatInterface = ({ user, subscription, onLogout }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { config } = useConfig();
   
   // Get chat ID from URL params
   const urlParams = new URLSearchParams(location.search);
@@ -34,14 +37,22 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
   const isConnectingRef = useRef(false);
 
   // Add state for subscription choice modal
-  const [showSubscriptionChoice, setShowSubscriptionChoice] = useState(false);
+  // const [showSubscriptionChoice, setShowSubscriptionChoice] = useState(false);
 
   // Add state for message input
   const [messageInput, setMessageInput] = useState('');
 
+  // Add state for typing indicator
+  const [isTyping, setIsTyping] = useState(false);
+
   // Add function to handle template clicks
   const handleTemplateClick = (templateCommand) => {
     setMessageInput(templateCommand);
+  };
+
+  // Helper function to check if API keys are configured
+  const hasApiKeysConfigured = () => {
+    return !!(config.anthropicApiKey || config.openaiApiKey || config.geminiApiKey);
   };
 
   // Helper function to detect markdown content
@@ -103,6 +114,47 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
               portRef.current.postMessage({ type: 'get_status' });
               break;
 
+            case 'restore_message':
+              // Validate restored message structure
+              if (message.message && 
+                  message.message.type && 
+                  message.message.timestamp) {
+                
+                console.log('🔍 Restoring message:', message.message);
+                
+                // Ensure message has all required fields
+                const restoredMessage = {
+                  ...message.message,
+                  id: message.message.id || Date.now().toString(36) + Math.random().toString(36).substr(2),
+                  type: message.message.type,
+                  content: message.message.content || '',
+                  timestamp: message.message.timestamp,
+                  isMarkdown: message.message.isMarkdown || hasMarkdownContent(message.message.content)
+                };
+                
+                // Special handling for task_complete messages that might have nested result structure
+                if (message.message.type === 'task_complete' && message.message.result) {
+                  const responseContent = message.message.result.response || message.message.result.message;
+                  if (responseContent && responseContent !== restoredMessage.content) {
+                    console.log('🔄 Extracting content from task_complete result:', responseContent);
+                    restoredMessage.content = responseContent;
+                    restoredMessage.isMarkdown = message.message.result.isMarkdown || hasMarkdownContent(responseContent);
+                  }
+                }
+                
+                // Final validation before adding
+                if (!restoredMessage.content) {
+                  console.warn('⚠️ Restored message has no content:', restoredMessage);
+                  return;
+                }
+                
+                console.log('✅ Restoring message:', restoredMessage);
+                addMessage(restoredMessage);
+              } else {
+                console.warn('❌ Skipped invalid restored message:', message.message);
+              }
+              break;
+
             case 'status_response':
               // Handle execution state from background
               if (message.isExecuting) {
@@ -154,6 +206,7 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
               
             case 'task_complete':
               setIsExecuting(false);
+              setIsTyping(false); // Hide typing indicator
               setTaskStatus({ status: 'completed', message: 'Task completed!' });
               
               const responseContent = message.result.response || message.result.message;
@@ -169,6 +222,7 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
               
             case 'task_error':
               setIsExecuting(false);
+              setIsTyping(false); // Hide typing indicator
               setTaskStatus({ status: 'error', message: message.error });
               addMessage({
                 type: 'error',
@@ -179,6 +233,7 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
 
             case 'task_cancelled':
               setIsExecuting(false);
+              setIsTyping(false); // Hide typing indicator
               setTaskStatus({ status: 'cancelled', message: 'Task cancelled' });
               addMessage({
                 type: 'system',
@@ -188,6 +243,7 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
               break;
 
             case 'error':
+              setIsTyping(false); // Hide typing indicator
               addMessage({
                 type: 'error',
                 content: `❌ ${message.error}`,
@@ -273,24 +329,31 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    // Save chat when component unmounts if it has content
-    return () => {
-      if (messages.length > 0) {
-        saveCurrentChat();
-      }
-    };
-  }, [messages, saveCurrentChat]);
-
   const handleSendMessage = async (message) => {
-    const shouldShowSubscription = !subscription.usingPersonalAPI && 
-                                   !subscription.hasPersonalKeys && 
-                                   subscription.remaining_requests <= 0;
-
-    if (shouldShowSubscription) {
-      setShowSubscriptionChoice(true);
-      return; 
+    // Check if API keys are configured
+    if (!hasApiKeysConfigured()) {
+      addMessage({
+        type: 'system',
+        content: '🔧 **API Configuration Required**\n\nTo use the AI Social Shopping Agent, you need to configure at least one API key.\n\n**What you need to do:**\n• Go to Settings and add your API keys\n• Choose from Anthropic (Claude), OpenAI, or Google Gemini\n• Save your configuration\n\n**Why this is needed:**\nThe agent uses AI models to understand and execute your requests. Without API keys, it cannot function.\n\nClick the Settings button (⚙️) in the header to configure your API keys.',
+        timestamp: Date.now()
+      });
+      
+      // Navigate to settings after a short delay
+      setTimeout(() => {
+        navigate('/settings');
+      }, 2000);
+      
+      return;
     }
+
+    // const shouldShowSubscription = !subscription.usingPersonalAPI && 
+    //                                !subscription.hasPersonalKeys && 
+    //                                subscription.remaining_requests <= 0;
+
+    // if (shouldShowSubscription) {
+    //   setShowSubscriptionChoice(true);
+    //   return; 
+    // }
 
     addMessage({
       type: 'user',
@@ -298,40 +361,8 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
       timestamp: Date.now()
     });
 
-    try {
-      if (!subscription.usingPersonalAPI && subscription.remaining_requests > 0) {
-        const response = await subscription.makeAIRequest(message);
-        
-        addMessage({
-          type: 'assistant',
-          content: response.response || response.content || 'No response generated',
-          timestamp: Date.now(),
-          isMarkdown: hasMarkdownContent(response.response || response.content)
-        });
-
-        setTimeout(() => {
-          saveCurrentChat();
-        }, 100);
-        
-        return;
-      }
-    } catch (error) {
-      if (error.message === 'TRIAL_EXPIRED') {
-        if (!subscription.hasPersonalKeys) {
-          setShowSubscriptionChoice(true);
-          return;
-        }
-      } else if (error.message === 'USE_PERSONAL_API') {
-        
-      } else {
-        addMessage({
-          type: 'error',
-          content: `❌ API Error: ${error.message}`,
-          timestamp: Date.now()
-        });
-        return;
-      }
-    }
+    // Show typing indicator
+    setIsTyping(true);
 
     // Fallback to background script (existing logic)
     if (portRef.current && connectionStatus === 'connected' && !isExecuting) {
@@ -343,6 +374,7 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
         });
       } catch (error) {
         console.error('Error sending message:', error);
+        setIsTyping(false); // Hide typing indicator on error
         addMessage({
           type: 'error',
           content: '❌ Failed to send message. Connection lost.',
@@ -351,6 +383,7 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
         setConnectionStatus('disconnected');
       }
     } else {
+      setIsTyping(false); // Hide typing indicator if can't send
       const statusMessage = isExecuting 
         ? '⏳ Please wait for current task to complete...'
         : '❌ Not connected to background service. Please wait...';
@@ -379,12 +412,14 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
   };
 
   const handleNewChat = async () => {
-    // Save current chat before clearing if it has content
-    if (messages.length > 0) {
-      await saveCurrentChat();
+    if (messages.length >= 2) {
+      const userMessages = messages.filter(msg => msg.type === 'user' || msg.type === 'assistant');
+      if (userMessages.length >= 2) {
+        await saveCurrentChat();
+      }
     }
     
-    // Clear only current chat state
+    // Clear current chat state
     clearMessages();
     
     // Send new_chat message to background
@@ -399,6 +434,10 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
   };
 
   const getConnectionStatusColor = () => {
+    if (!hasApiKeysConfigured()) {
+      return '#ffad1f'; // Warning color for missing API keys
+    }
+    
     switch (connectionStatus) {
       case 'connected': return '#17bf63';
       case 'connecting': return '#ffad1f';
@@ -408,6 +447,10 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
   };
 
   const getConnectionStatusText = () => {
+    if (!hasApiKeysConfigured()) {
+      return 'API Keys Required';
+    }
+    
     switch (connectionStatus) {
       case 'connected': return 'Connected';
       case 'connecting': return 'Connecting...';
@@ -417,6 +460,10 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
   };
 
   const getConnectionIcon = () => {
+    if (!hasApiKeysConfigured()) {
+      return <FaExclamationTriangle />; // Warning icon for missing API keys
+    }
+    
     switch (connectionStatus) {
       case 'connected': return <FaWifi />;
       case 'connecting': return <FaWifi style={{ opacity: 0.6 }} />;
@@ -446,8 +493,15 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
       WebkitTouchCallout: 'none',
       touchAction: 'manipulation'
     }}>
+      {/* Background Animation */}
+      <div className="background-animation">
+        <div className="floating-orb chat-orb-1"></div>
+        <div className="floating-orb chat-orb-2"></div>
+        <div className="floating-orb chat-orb-3"></div>
+      </div>
+
       {/* Fixed Header - Updated with consistent styling */}
-      <div className="header" style={{ 
+      <div className="chat-header" style={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center', 
@@ -460,7 +514,7 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
         boxSizing: 'border-box'
       }}>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <h3 style={{ 
+          <h3 className="chat-title" style={{ 
             margin: 0, 
             color: '#FFDCDCFF', 
             fontSize: '15px', 
@@ -470,7 +524,7 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
           }}>
             SOCIAL SHOPPING AGENT
           </h3>
-          <div style={{ 
+          <div className="chat-status" style={{ 
             fontSize: '12px', 
             color: getConnectionStatusColor(),
             marginTop: '1px',
@@ -481,16 +535,17 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
           }}>
             {getConnectionIcon()}
             <span>{getConnectionStatusText()}</span>
-            {isExecuting && <span>• Working...</span>}
-            <RequestCounter 
+            {/* {isExecuting && <span>• Working...</span>} */}
+            {/* <RequestCounter 
               subscriptionState={subscription} 
               onUpgradeClick={() => setShowSubscriptionChoice(true)}
-            />
+            /> */}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+        <div className="chat-header-buttons" style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
           <button 
             onClick={handleNewChat}
+            className="chat-header-button"
             style={{ 
               padding: '6px 8px', 
               backgroundColor: 'rgba(255, 220, 220, 0.2)',
@@ -510,6 +565,7 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
           
           <button 
             onClick={() => navigate('/history')}
+            className="chat-header-button"
             style={{ 
               padding: '6px 8px', 
               backgroundColor: 'rgba(255, 220, 220, 0.2)',
@@ -529,22 +585,30 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
           
           <div style={{ position: 'relative' }}>
             <button 
-              onClick={() => navigate('/profile')}
+              onClick={() => navigate('/settings')}
+              className="chat-header-button"
               style={{ 
                 padding: '6px 8px',
-                backgroundColor: 'rgba(255, 220, 220, 0.2)',
-                border: '1px solid rgba(255, 220, 220, 0.3)',
-                color: '#FFDCDCFF',
+                backgroundColor: !hasApiKeysConfigured() 
+                  ? 'rgba(255, 173, 31, 0.3)' // Warning background when API keys missing
+                  : 'rgba(255, 220, 220, 0.2)',
+                border: !hasApiKeysConfigured()
+                  ? '1px solid rgba(255, 173, 31, 0.5)' // Warning border when API keys missing
+                  : '1px solid rgba(255, 220, 220, 0.3)',
+                color: !hasApiKeysConfigured()
+                  ? '#ffad1f' // Warning color when API keys missing
+                  : '#FFDCDCFF',
                 borderRadius: '8px',
                 cursor: 'pointer',
                 fontSize: '16px',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                animation: !hasApiKeysConfigured() ? 'pulse 2s infinite' : 'none'
               }}
-              title="Profile"
+              title={!hasApiKeysConfigured() ? "Configure API Keys (Required)" : "Settings"}
             >
-              <FaUser />
+              <FaCog />
             </button>
           </div>
         </div>
@@ -554,7 +618,7 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
       {isExecuting && taskStatus && <TaskStatus status={taskStatus} />}
 
       {/* Scrollable Messages Area */}
-      <div style={{ 
+      <div className="messages-container" style={{ 
         flex: 1, 
         display: 'flex', 
         flexDirection: 'column',
@@ -563,26 +627,31 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
         <MessageList 
           messages={messages} 
           onTemplateClick={handleTemplateClick}
+          isTyping={isTyping}
         />
       </div>
 
       {/* Fixed Input at Bottom - Pass stop handler and execution state */}
-      <ChatInput 
-        onSendMessage={handleSendMessage}
-        onStopExecution={handleStopExecution}
-        isExecuting={isExecuting}
-        disabled={connectionStatus !== 'connected'}
-        placeholder={
-          connectionStatus === 'connected' 
-            ? (isExecuting ? "Processing..." : "Ask me anything...")
-            : "Connecting..."
-        }
-        value={messageInput}
-        onChange={setMessageInput}
-      />
+      <div className="chat-input-container">
+        <ChatInput 
+          onSendMessage={handleSendMessage}
+          onStopExecution={handleStopExecution}
+          isExecuting={isExecuting}
+          disabled={!hasApiKeysConfigured() || connectionStatus !== 'connected'}
+          placeholder={
+            !hasApiKeysConfigured() 
+              ? "Configure API keys to start..."
+              : connectionStatus === 'connected' 
+                ? (isExecuting ? "Processing..." : "Ask me anything...")
+                : "Connecting..."
+          }
+          value={messageInput}
+          onChange={setMessageInput}
+        />
+      </div>
       
       {/* Add subscription choice as overlay */}
-      {showSubscriptionChoice && (
+      {/* {showSubscriptionChoice && (
         <SubscriptionChoice 
           onSubscribe={() => {
             setShowSubscriptionChoice(false);
@@ -596,7 +665,7 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
           onRefreshSubscription={() => subscription.loadSubscriptionData()}
           user={user}
         />
-      )}
+      )} */}
     </div>
   );
 };

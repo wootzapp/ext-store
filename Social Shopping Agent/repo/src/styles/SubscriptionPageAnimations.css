@@ -1,0 +1,407 @@
+/* Subscription Page Animations */
+
+.subscription-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.subscription-container .background-animation {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+/* Subscription specific orbs - premium theme */
+.subscription-orb-1 {
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(255, 215, 0, 0.12) 0%, rgba(255, 215, 0, 0.04) 70%, transparent 100%);
+  top: 8%;
+  left: -10%;
+  animation: floatGentle 12s ease-in-out infinite;
+  animation-delay: 0s;
+}
+
+.subscription-orb-2 {
+  width: 170px;
+  height: 170px;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.12) 0%, rgba(139, 92, 246, 0.04) 70%, transparent 100%);
+  top: 60%;
+  right: -10%;
+  animation: floatGentle 10s ease-in-out infinite;
+  animation-delay: 4s;
+}
+
+.subscription-orb-3 {
+  width: 140px;
+  height: 140px;
+  background: radial-gradient(circle, rgba(34, 197, 94, 0.12) 0%, rgba(34, 197, 94, 0.04) 70%, transparent 100%);
+  bottom: 12%;
+  left: 12%;
+  animation: floatGentle 11s ease-in-out infinite;
+  animation-delay: 8s;
+}
+
+/* Header Animation */
+.subscription-header {
+  animation: slideInDown 0.8s ease-out;
+  position: relative;
+  z-index: 1;
+}
+
+.subscription-back-button {
+  animation: slideInLeft 0.6s ease-out 0.2s both;
+  transition: all 0.3s ease;
+}
+
+.subscription-back-button:hover {
+  transform: translateX(-3px) scale(1.05);
+  background: rgba(255, 220, 220, 0.3);
+}
+
+.subscription-title {
+  animation: slideInDown 0.8s ease-out 0.3s both;
+}
+
+.subscription-subtitle {
+  animation: slideInDown 0.8s ease-out 0.4s both;
+}
+
+/* Content Animation */
+.subscription-content {
+  animation: slideInUp 0.9s ease-out 0.5s both;
+  position: relative;
+  z-index: 1;
+}
+
+/* Plans Grid */
+.subscription-plans {
+  animation: fadeInScale 0.8s ease-out 0.7s both;
+}
+
+.subscription-plan {
+  animation: slideInUp 0.7s ease-out both;
+  transition: all 0.4s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.subscription-plan:nth-child(1) { animation-delay: 0.8s; }
+.subscription-plan:nth-child(2) { animation-delay: 0.9s; }
+.subscription-plan:nth-child(3) { animation-delay: 1.0s; }
+
+.subscription-plan::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.6s ease;
+}
+
+.subscription-plan:hover::before {
+  left: 100%;
+}
+
+.subscription-plan:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.subscription-plan.recommended {
+  animation: glow 3s ease-in-out infinite;
+}
+
+.subscription-plan.selected {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Plan Content */
+.plan-header {
+  animation: slideInDown 0.6s ease-out both;
+}
+
+.plan-title {
+  animation: slideInLeft 0.6s ease-out 0.2s both;
+}
+
+.plan-price {
+  animation: slideInRight 0.6s ease-out 0.3s both;
+}
+
+.plan-description {
+  animation: fadeIn 0.6s ease-out 0.4s both;
+}
+
+.plan-features {
+  animation: slideInUp 0.6s ease-out 0.5s both;
+}
+
+.plan-feature {
+  animation: slideInLeft 0.4s ease-out both;
+  transition: all 0.3s ease;
+}
+
+.plan-feature:nth-child(1) { animation-delay: 0.6s; }
+.plan-feature:nth-child(2) { animation-delay: 0.7s; }
+.plan-feature:nth-child(3) { animation-delay: 0.8s; }
+.plan-feature:nth-child(4) { animation-delay: 0.9s; }
+
+.plan-feature:hover {
+  transform: translateX(5px);
+  color: #FFDCDCFF;
+}
+
+.plan-button {
+  animation: slideInUp 0.6s ease-out 1.0s both;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.plan-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.plan-button:hover::before {
+  left: 100%;
+}
+
+.plan-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+.plan-button.primary {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Badge Animations */
+.plan-badge {
+  animation: bounce 0.8s ease-out 1.2s both;
+}
+
+.recommended-badge {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.popular-badge {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Current Plan Section */
+.current-plan {
+  animation: slideInUp 0.7s ease-out 0.6s both;
+  transition: all 0.3s ease;
+}
+
+.current-plan:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.current-plan-status {
+  animation: slideInLeft 0.6s ease-out 0.8s both;
+}
+
+.current-plan-details {
+  animation: slideInRight 0.6s ease-out 0.9s both;
+}
+
+.usage-progress {
+  animation: slideInUp 0.6s ease-out 1.0s both;
+}
+
+.progress-bar {
+  animation: slideInLeft 1.2s ease-out 1.2s both;
+}
+
+.progress-fill {
+  animation: slideInLeft 1.8s ease-out 1.4s both;
+}
+
+/* Trial Banner */
+.trial-banner {
+  animation: slideInDown 0.6s ease-out 0.5s both;
+  transition: all 0.3s ease;
+}
+
+.trial-banner:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(255, 215, 0, 0.2);
+}
+
+.trial-info {
+  animation: slideInLeft 0.6s ease-out 0.7s both;
+}
+
+.trial-actions {
+  animation: slideInRight 0.6s ease-out 0.8s both;
+}
+
+/* Payment Section */
+.payment-section {
+  animation: slideInUp 0.8s ease-out 0.9s both;
+  transition: all 0.3s ease;
+}
+
+.payment-section:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+}
+
+.payment-methods {
+  animation: slideInLeft 0.6s ease-out 1.1s both;
+}
+
+.payment-method {
+  transition: all 0.3s ease;
+}
+
+.payment-method:hover {
+  transform: scale(1.05);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Button Animations */
+.subscription-button {
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.subscription-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.subscription-button:hover::before {
+  left: 100%;
+}
+
+.subscription-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.subscription-primary-button {
+  animation: glow 3s ease-in-out infinite;
+}
+
+.subscription-trial-button {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Loading States */
+.subscription-loading {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.subscription-processing {
+  animation: spin 1s linear infinite;
+}
+
+/* Success/Error Messages */
+.subscription-success {
+  animation: bounce 0.6s ease-out;
+}
+
+.subscription-error {
+  animation: bounce 0.4s ease-out;
+}
+
+/* Features List */
+.features-list {
+  animation: slideInUp 0.6s ease-out 0.8s both;
+}
+
+.feature-item {
+  animation: slideInLeft 0.4s ease-out both;
+  transition: all 0.3s ease;
+}
+
+.feature-item:nth-child(1) { animation-delay: 0.9s; }
+.feature-item:nth-child(2) { animation-delay: 1.0s; }
+.feature-item:nth-child(3) { animation-delay: 1.1s; }
+.feature-item:nth-child(4) { animation-delay: 1.2s; }
+
+.feature-item:hover {
+  transform: translateX(5px);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.feature-icon {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Pricing Animation */
+.price-amount {
+  animation: glow 3s ease-in-out infinite;
+}
+
+.price-currency {
+  animation: slideInLeft 0.5s ease-out 0.5s both;
+}
+
+.price-period {
+  animation: slideInRight 0.5s ease-out 0.6s both;
+}
+
+/* Responsive Orbs */
+@media (max-width: 500px) {
+  .subscription-orb-1 {
+    width: 120px;
+    height: 120px;
+  }
+  
+  .subscription-orb-2 {
+    width: 100px;
+    height: 100px;
+  }
+  
+  .subscription-orb-3 {
+    width: 80px;
+    height: 80px;
+  }
+}
+
+/* Special Effects */
+.premium-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.shimmer-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer-effect::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  animation: shimmer 2s ease-in-out infinite;
+}

@@ -108,7 +108,7 @@ export const useChatHistory = () => {
     try {
       setChatHistories([]);
       if (typeof chrome !== 'undefined' && chrome.storage) {
-        await chrome.storage.local.remove(['chatHistories']);
+        await chrome.storage.local.remove(['chatHistories', 'chatHistory']);
       }
     } catch (error) {
       console.error('Error clearing chat histories:', error);

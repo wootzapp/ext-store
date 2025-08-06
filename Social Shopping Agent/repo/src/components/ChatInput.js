@@ -69,6 +69,7 @@ const ChatInput = ({
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={disabled}
+            className="chat-input"
             style={{
               width: '100%',
               minHeight: '36px',
@@ -95,6 +96,7 @@ const ChatInput = ({
           <button
             type="button"
             onClick={handleStop}
+            className="chat-stop-button"
             style={{
               padding: '8px 16px',
               backgroundColor: '#e0245e',
@@ -120,6 +122,7 @@ const ChatInput = ({
           <button
             type="submit"
             disabled={!currentValue.trim() || disabled}
+            className="chat-send-button"
             style={{
               padding: '8px 16px',
               backgroundColor: (!currentValue.trim() || disabled) ? '#FFDCDCCB' : '#00694AFF',

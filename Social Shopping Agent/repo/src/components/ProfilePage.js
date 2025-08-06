@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   FaUser, 
@@ -20,6 +20,18 @@ import {
 const ProfilePage = ({ user, subscription, onLogout }) => {
   const navigate = useNavigate();
   const [isToggling, setIsToggling] = useState(false);
+  
+  // Refresh subscription data when component gains focus (returning from settings)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (subscription.loadSubscriptionData) {
+        subscription.loadSubscriptionData();
+      }
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [subscription]);
 
   const handleBack = () => {
     navigate('/chat');
@@ -167,11 +179,19 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
   };
 
   return (
-    <div style={containerStyle}>
+    <div className="profile-container" style={containerStyle}>
+      {/* Background Animation */}
+      <div className="background-animation">
+        <div className="floating-orb profile-orb-1"></div>
+        <div className="floating-orb profile-orb-2"></div>
+        <div className="floating-orb profile-orb-3"></div>
+      </div>
+
       {/* Header */}
-      <div style={headerStyle}>
+      <div className="profile-header" style={headerStyle}>
         <button 
           onClick={handleBack}
+          className="profile-back-button"
           style={{ 
             padding: '6px 8px', 
             backgroundColor: 'rgba(255, 220, 220, 0.2)',
@@ -190,7 +210,7 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
         </button>
         
         <div style={{ minWidth: 0, flex: 1, textAlign: 'center' }}>
-          <h3 style={{ 
+          <h3 className="profile-title" style={{ 
             margin: 0, 
             color: '#FFDCDCFF', 
             fontSize: '18px', 
@@ -204,7 +224,7 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
             <FaUser />
             PROFILE
           </h3>
-          <p style={{ 
+          <p className="profile-subtitle" style={{ 
             margin: 0, 
             color: 'rgba(255, 220, 220, 0.8)', 
             fontSize: '12px',
@@ -217,6 +237,7 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
         
         <button 
           onClick={() => navigate('/settings')}
+          className="profile-button"
           style={{ 
             padding: '6px 8px', 
             backgroundColor: 'rgba(255, 220, 220, 0.2)',
@@ -236,9 +257,9 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
       </div>
 
       {/* Scrollable Content */}
-      <div style={contentStyle}>
+      <div className="profile-content" style={contentStyle}>
         {/* User Info */}
-        <div style={sectionStyle}>
+        <div className="profile-user-info" style={sectionStyle}>
           <h4 style={{ 
             color: '#FFDCDCFF', 
             fontSize: '16px', 
@@ -259,7 +280,7 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
               gap: '12px',
               marginBottom: '12px'
             }}>
-              <div style={{
+              <div className="profile-avatar" style={{
                 width: '48px',
                 height: '48px',
                 borderRadius: '50%',
@@ -273,8 +294,8 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
               }}>
                 {user?.full_name?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ 
+              <div className="profile-user-details" style={{ flex: 1 }}>
+                <div className="profile-user-name" style={{ 
                   fontSize: '16px', 
                   fontWeight: '600', 
                   color: '#FFDCDCFF',
@@ -283,7 +304,7 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
                 }}>
                   {user?.full_name || 'User'}
                 </div>
-                <div style={{ 
+                <div className="profile-user-email" style={{ 
                   fontSize: '13px', 
                   color: 'rgba(255, 220, 220, 0.8)',
                   display: 'flex',
@@ -306,7 +327,7 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
               </div>
             </div>
 
-            <div style={{ 
+            <div className="profile-join-date" style={{ 
               fontSize: '12px', 
               color: 'rgba(255, 220, 220, 0.7)',
               display: 'flex',

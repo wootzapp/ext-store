@@ -121,7 +121,14 @@ const ChatHistoryPage = () => {
   };
 
   return (
-    <div style={containerStyle}>
+    <div className="chat-history-container" style={containerStyle}>
+      {/* Background Animation */}
+      <div className="background-animation">
+        <div className="floating-orb chat-orb-1"></div>
+        <div className="floating-orb chat-orb-2"></div>
+        <div className="floating-orb chat-orb-3"></div>
+      </div>
+
       <style>
         {`
           @keyframes swipeLeft {
@@ -144,9 +151,10 @@ const ChatHistoryPage = () => {
       </style>
 
       {/* Header */}
-      <div style={headerStyle}>
+      <div className="chat-history-header" style={headerStyle}>
         <button 
           onClick={handleBack}
+          className="chat-header-button"
           style={{ 
             padding: '6px 8px', 
             backgroundColor: 'rgba(255, 220, 220, 0.2)',
@@ -165,7 +173,7 @@ const ChatHistoryPage = () => {
         </button>
         
         <div style={{ minWidth: 0, flex: 1, textAlign: 'center' }}>
-          <h3 style={{ 
+          <h3 className="chat-title" style={{ 
             margin: 0, 
             color: '#FFDCDCFF', 
             fontSize: '18px', 
@@ -179,7 +187,7 @@ const ChatHistoryPage = () => {
             <FaHistory />
             RECENT CHATS
           </h3>
-          <p style={{ 
+          <p className="chat-subtitle" style={{ 
             margin: 0, 
             color: 'rgba(255, 220, 220, 0.8)', 
             fontSize: '12px',
@@ -193,6 +201,7 @@ const ChatHistoryPage = () => {
         <button 
           onClick={handleClearAll}
           disabled={chatHistories.length === 0}
+          className="chat-header-button"
           style={{ 
             padding: '6px 8px', 
             backgroundColor: chatHistories.length === 0 ? 'rgba(255, 220, 220, 0.1)' : 'rgba(224, 36, 94, 0.2)',
@@ -212,9 +221,9 @@ const ChatHistoryPage = () => {
       </div>
 
       {/* Content */}
-      <div style={contentStyle}>
+      <div className="chat-history-content" style={contentStyle}>
         {loading ? (
-          <div style={{ 
+          <div className="chat-history-loading" style={{ 
             display: 'flex', 
             justifyContent: 'center', 
             alignItems: 'center',
@@ -224,7 +233,7 @@ const ChatHistoryPage = () => {
             Loading chat history...
           </div>
         ) : chatHistories.length === 0 ? (
-          <div style={{ 
+          <div className="chat-history-empty" style={{ 
             display: 'flex', 
             flexDirection: 'column',
             justifyContent: 'center', 
@@ -234,7 +243,7 @@ const ChatHistoryPage = () => {
             textAlign: 'center',
             padding: '0 32px'
           }}>
-            <FaComment style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }} />
+            <FaComment className="empty-icon" style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }} />
             <h4 style={{ margin: '0 0 8px 0', color: '#FFDCDCFF' }}>No Chat History</h4>
             <p style={{ margin: 0, fontSize: '14px' }}>
               Start a conversation to see your chat history here

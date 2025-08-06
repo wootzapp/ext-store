@@ -1,3 +1,4 @@
+/* global chrome */
 import React, { useState, useEffect } from 'react';
 import { useConfig } from '../hooks/useConfig';
 import { useNavigate } from 'react-router-dom';
@@ -26,7 +27,7 @@ const SettingsModal = () => {
   }, [config]);
 
   const handleClose = () => {
-    navigate('/profile');
+    navigate('/chat');
   };
 
   const handleSave = async () => {
@@ -43,14 +44,30 @@ const SettingsModal = () => {
       // Update config
       await updateConfig(localConfig);
       
+      // If API keys were saved, automatically set user preference to use personal API
+      const hasApiKeys = !!(
+        localConfig.anthropicApiKey || 
+        localConfig.openaiApiKey || 
+        localConfig.geminiApiKey
+      );
+      
+      if (hasApiKeys && typeof chrome !== 'undefined' && chrome.storage) {
+        try {
+          await chrome.storage.local.set({ userPreferPersonalAPI: true });
+          console.log('✅ Automatically enabled personal API preference');
+        } catch (storageError) {
+          console.warn('Could not set API preference:', storageError);
+        }
+      }
+      
       // Show success briefly
       if (saveButton) {
         saveButton.textContent = '✅ Saved!';
         setTimeout(() => {
-          navigate('/profile');
+          navigate('/chat');
         }, 500);
       } else {
-        navigate('/profile');
+        navigate('/chat');
       }
       
     } catch (error) {
@@ -73,14 +90,18 @@ const SettingsModal = () => {
     switch (provider) {
       case 'anthropic':
         return [
+          { value: 'claude-3-7-sonnet-20250219', label: 'Claude 3.7 Sonnet (Latest, Reasoning)'},
           { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (Latest)', recommended: true },
+          { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku (Latest Fast)' },
           { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
           { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku (Fast)' },
           { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus (Most Capable)' }
         ];
       case 'openai':
         return [
-          { value: 'gpt-4o', label: 'GPT-4o (Latest)', recommended: true },
+          { value: 'o1-preview', label: 'o1-preview (Latest Reasoning)'},
+          { value: 'o1-mini', label: 'o1-mini (Fast Reasoning)' },
+          { value: 'gpt-4o', label: 'GPT-4o (Latest)' , recommended: true},
           { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Fast)' },
           { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
           { value: 'gpt-4', label: 'GPT-4' },
@@ -88,9 +109,11 @@ const SettingsModal = () => {
         ];
       case 'gemini':
         return [
-          { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro (Latest)', recommended: true },
-          { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash (Fast)' },
-          { value: 'gemini-pro', label: 'Gemini Pro' }
+          { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Latest)', recommended: true },
+          { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (Latest, Reasoning)' },
+          { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+          { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+          { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash (Fast)' }
         ];
       default:
         return [];
@@ -210,7 +233,14 @@ const SettingsModal = () => {
   };
 
   return (
-    <div style={containerStyle}>
+    <div className="settings-container" style={containerStyle}>
+      {/* Background Animation */}
+      <div className="background-animation">
+        <div className="floating-orb settings-orb-1"></div>
+        <div className="floating-orb settings-orb-2"></div>
+        <div className="floating-orb settings-orb-3"></div>
+      </div>
+
       {/* Custom CSS for placeholder styling */}
       <style>
         {`
@@ -231,9 +261,9 @@ const SettingsModal = () => {
       </style>
 
       {/* Header */}
-      <div style={headerStyle}>
+      <div className="settings-header" style={headerStyle}>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <h3 style={{ 
+          <h3 className="settings-title" style={{ 
             margin: 0, 
             color: '#FFDCDCFF', 
             fontSize: '18px', 
@@ -247,7 +277,7 @@ const SettingsModal = () => {
             <FaCog />
             SETTINGS
           </h3>
-          <p style={{ 
+          <p className="settings-subtitle" style={{ 
             margin: 0, 
             color: 'rgba(255, 220, 220, 0.8)', 
             fontSize: '12px',
@@ -259,6 +289,7 @@ const SettingsModal = () => {
         </div>
         <button 
           onClick={handleClose} 
+          className="settings-button"
           style={{ 
             padding: '6px 8px', 
             backgroundColor: 'rgba(255, 220, 220, 0.2)',
@@ -277,9 +308,9 @@ const SettingsModal = () => {
       </div>
 
       {/* Scrollable Content */}
-      <div style={contentStyle}>
+      <div className="settings-content" style={contentStyle}>
         {/* AI Provider Section */}
-        <div style={sectionStyle}>
+        <div className="settings-provider-section" style={sectionStyle}>
           <h4 style={{ 
             color: '#FFDCDCFF', 
             fontSize: '16px', 
@@ -389,6 +420,24 @@ const SettingsModal = () => {
           
           <div style={{ marginBottom: '12px' }}>
             <label style={labelStyle}>
+              <FaClipboardList style={{ marginRight: '6px' }} />
+              Planner (strategy):
+            </label>
+            <select
+              value={localConfig.plannerModel || getAvailableModels(localConfig.aiProvider || 'anthropic')[0]?.value}
+              onChange={(e) => setLocalConfig({...localConfig, plannerModel: e.target.value})}
+              style={selectStyle}
+            >
+              {getAvailableModels(localConfig.aiProvider || 'anthropic').map(model => (
+                <option key={model.value} value={model.value}>
+                  {model.label} {model.recommended ? '⭐' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <div style={{ marginBottom: '12px' }}>
+            <label style={labelStyle}>
               <FaCompass style={{ marginRight: '6px' }} />
               Navigator (actions):
             </label>
@@ -401,24 +450,6 @@ const SettingsModal = () => {
                 }
                 setLocalConfig(newConfig);
               }}
-              style={selectStyle}
-            >
-              {getAvailableModels(localConfig.aiProvider || 'anthropic').map(model => (
-                <option key={model.value} value={model.value}>
-                  {model.label} {model.recommended ? '⭐' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div style={{ marginBottom: '12px' }}>
-            <label style={labelStyle}>
-              <FaClipboardList style={{ marginRight: '6px' }} />
-              Planner (strategy):
-            </label>
-            <select
-              value={localConfig.plannerModel || getAvailableModels(localConfig.aiProvider || 'anthropic')[0]?.value}
-              onChange={(e) => setLocalConfig({...localConfig, plannerModel: e.target.value})}
               style={selectStyle}
             >
               {getAvailableModels(localConfig.aiProvider || 'anthropic').map(model => (

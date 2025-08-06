@@ -1,0 +1,393 @@
+/* Subscription Choice Modal Animations */
+
+.subscription-choice-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.subscription-choice-modal {
+  background: linear-gradient(135deg, #002550 0%, #1a1a2e 50%, #16213e 100%);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+  animation: slideInUp 0.4s ease-out;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.subscription-choice-modal .background-animation {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+  border-radius: 16px;
+}
+
+/* Modal specific orbs - small and subtle */
+.choice-orb-1 {
+  width: 80px;
+  height: 80px;
+  background: radial-gradient(circle, rgba(255, 107, 157, 0.15) 0%, rgba(255, 107, 157, 0.05) 70%, transparent 100%);
+  top: 10%;
+  left: 10%;
+  animation: floatGentle 6s ease-in-out infinite;
+  animation-delay: 0s;
+}
+
+.choice-orb-2 {
+  width: 60px;
+  height: 60px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 70%, transparent 100%);
+  bottom: 20%;
+  right: 15%;
+  animation: floatGentle 8s ease-in-out infinite;
+  animation-delay: 3s;
+}
+
+/* Header Animation */
+.choice-header {
+  animation: slideInDown 0.5s ease-out 0.2s both;
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.choice-close-button {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.7);
+  transition: all 0.3s ease;
+  animation: slideInRight 0.4s ease-out 0.1s both;
+}
+
+.choice-close-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  transform: scale(1.1);
+}
+
+.choice-title {
+  animation: slideInDown 0.5s ease-out 0.3s both;
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+
+.choice-subtitle {
+  animation: slideInDown 0.5s ease-out 0.4s both;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  margin: 0 0 20px 0;
+}
+
+/* Content Animation */
+.choice-content {
+  animation: slideInUp 0.6s ease-out 0.4s both;
+  position: relative;
+  z-index: 1;
+}
+
+/* Usage Info */
+.choice-usage-info {
+  animation: fadeInScale 0.5s ease-out 0.5s both;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+}
+
+.choice-usage-info:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+.usage-text {
+  animation: slideInLeft 0.4s ease-out 0.6s both;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  margin: 0;
+}
+
+.usage-progress {
+  animation: slideInRight 0.4s ease-out 0.7s both;
+  margin-top: 8px;
+}
+
+.usage-bar {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  height: 6px;
+  overflow: hidden;
+}
+
+.usage-fill {
+  background: linear-gradient(90deg, #FF6B9D, #4ECDC4);
+  height: 100%;
+  border-radius: 4px;
+  animation: slideInLeft 1s ease-out 0.8s both;
+  transition: width 0.3s ease;
+}
+
+/* Options */
+.choice-options {
+  animation: slideInUp 0.6s ease-out 0.6s both;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.choice-option {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  animation: slideInLeft 0.5s ease-out both;
+}
+
+.choice-option:nth-child(1) { animation-delay: 0.7s; }
+.choice-option:nth-child(2) { animation-delay: 0.8s; }
+
+.choice-option::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.4s ease;
+}
+
+.choice-option:hover::before {
+  left: 100%;
+}
+
+.choice-option:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+.choice-option.primary {
+  border-color: #4ECDC4;
+  animation: glow 3s ease-in-out infinite;
+}
+
+.choice-option.primary:hover {
+  border-color: #4ECDC4;
+  box-shadow: 0 8px 25px rgba(78, 205, 196, 0.3);
+}
+
+.option-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  animation: slideInLeft 0.4s ease-out both;
+}
+
+.option-icon {
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.option-title {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+  animation: slideInRight 0.4s ease-out 0.1s both;
+}
+
+.option-description {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  margin: 0;
+  line-height: 1.4;
+  animation: slideInUp 0.4s ease-out 0.2s both;
+}
+
+.option-features {
+  margin-top: 12px;
+  animation: slideInUp 0.4s ease-out 0.3s both;
+}
+
+.option-feature {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  margin: 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: slideInLeft 0.3s ease-out both;
+}
+
+.option-feature:nth-child(1) { animation-delay: 0.4s; }
+.option-feature:nth-child(2) { animation-delay: 0.5s; }
+.option-feature:nth-child(3) { animation-delay: 0.6s; }
+
+.feature-icon {
+  color: #4ECDC4;
+  font-size: 10px;
+}
+
+/* Action Buttons */
+.choice-actions {
+  animation: slideInUp 0.5s ease-out 0.9s both;
+  margin-top: 20px;
+  display: flex;
+  gap: 12px;
+}
+
+.choice-button {
+  flex: 1;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.choice-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.4s ease;
+}
+
+.choice-button:hover::before {
+  left: 100%;
+}
+
+.choice-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.choice-primary-button {
+  background: linear-gradient(135deg, #4ECDC4, #45B7D1);
+  color: #ffffff;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.choice-secondary-button {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.choice-secondary-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Refresh Button */
+.choice-refresh {
+  animation: slideInDown 0.4s ease-out 1.0s both;
+  text-align: center;
+  margin-top: 16px;
+}
+
+.refresh-button {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.refresh-button:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.05);
+}
+
+/* Loading States */
+.choice-loading {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.choice-spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* Error States */
+.choice-error {
+  animation: bounce 0.4s ease-out;
+  color: #FF6B6B;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .subscription-choice-modal {
+    margin: 20px;
+    padding: 20px;
+  }
+  
+  .choice-actions {
+    flex-direction: column;
+  }
+  
+  .choice-orb-1 {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .choice-orb-2 {
+    width: 40px;
+    height: 40px;
+  }
+}

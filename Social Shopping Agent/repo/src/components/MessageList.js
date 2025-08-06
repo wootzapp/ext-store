@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-const MessageList = ({ messages, onTemplateClick }) => {
+const MessageList = ({ messages, onTemplateClick, isTyping }) => {
   const messagesEndRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -17,12 +17,12 @@ const MessageList = ({ messages, onTemplateClick }) => {
   };
 
   useEffect(() => {
-    if (messages.length === 0) {
+    if (messages.length === 0 && !isTyping) {
       scrollToTop();
     } else {
       scrollToBottom();
     }
-  }, [messages]);
+  }, [messages, isTyping]);
 
   const getMessageStyle = (type) => {
     const baseStyle = {
@@ -33,7 +33,11 @@ const MessageList = ({ messages, onTemplateClick }) => {
       wordWrap: 'break-word',
       fontSize: '13px',
       fontWeight: '600',
-      lineHeight: '1.3'
+      lineHeight: '1.3',
+      transition: 'all 0.3s ease',
+      opacity: 1,
+      transform: 'translateY(0)',
+      animation: 'fadeInUp 0.3s ease-out'
     };
 
     switch (type) {
@@ -44,7 +48,9 @@ const MessageList = ({ messages, onTemplateClick }) => {
           color: 'white',
           alignSelf: 'flex-end',
           marginLeft: 'auto',
-          borderBottomRightRadius: '4px'
+          borderBottomRightRadius: '4px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          animation: 'slideInRight 0.3s ease-out'
         };
       case 'assistant':
         return {
@@ -54,7 +60,9 @@ const MessageList = ({ messages, onTemplateClick }) => {
           alignSelf: 'flex-start',
           border: '1px solid #e1e8ed',
           borderBottomLeftRadius: '4px',
-          textAlign: 'left' 
+          textAlign: 'left',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          animation: 'slideInLeft 0.3s ease-out'
         };
       case 'system':
         return {
@@ -67,7 +75,9 @@ const MessageList = ({ messages, onTemplateClick }) => {
           border: '1px solid #ffeaa7',
           textAlign: 'left',
           maxWidth: '88%',
-          margin: '2px 8px'
+          margin: '2px 8px',
+          animation: 'fadeIn 0.3s ease-out',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
         };
       case 'error':
         return {
@@ -76,10 +86,12 @@ const MessageList = ({ messages, onTemplateClick }) => {
           color: '#721c24',
           alignSelf: 'center',
           border: '1px solid #f5c6cb',
-          textAlign: 'center',
+          textAlign: 'left',
           maxWidth: '88%',
           fontSize: '11px',
-          margin: '2px 8px'
+          margin: '2px 8px',
+          animation: 'shake 0.5s ease-out',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
         };
       default:
         return baseStyle;
@@ -91,22 +103,22 @@ const MessageList = ({ messages, onTemplateClick }) => {
       id: 'general_chat',
       emoji: '💬',
       title: 'General Chat',
-      description: 'Explain how artificial intelligence works in simple terms',
-      command: 'Explain how artificial intelligence works in simple terms'
+      description: 'Explain how Artificial Intelligence works in simple terms',
+      command: 'Explain how Artificial Intelligence works in simple terms'
     },
     {
       id: 'social_media',
       emoji: '🐦',
       title: 'Social Media Task',
-      description: 'Post a tweet about the benefits of AI automation in daily life',
-      command: 'Post a tweet about the benefits of AI automation in daily life'
+      description: 'Search for AI Agents video on YouTube and play the first one',
+      command: 'Search for AI Agents video on YouTube and play the first one'
     },
     {
       id: 'shopping_task',
       emoji: '🛒',
       title: 'Shopping Task',
-      description: 'Find the cheapest Labubu figure on Amazon and compare prices',
-      command: 'Find the cheapest Labubu figure on Amazon and compare prices'
+      description: 'Find the Labubu Doll on Amazon and add to cart the first one',
+      command: 'Find the Labubu Doll on Amazon and add to cart the first one'
     }
   ];
 
@@ -431,61 +443,121 @@ const MessageList = ({ messages, onTemplateClick }) => {
     >
       {messages.length === 0 && (
         <>
-          <WelcomeMessage />
-          <TemplateCommands />
+          <div className="welcome-message">
+            <WelcomeMessage />
+          </div>
+          <div className="template-commands">
+            <TemplateCommands />
+          </div>
         </>
       )}
       
-      {messages.map((message, index) => (
-        <div key={index} style={getMessageStyle(message.type)}>
-          {/* Render content with proper markdown support */}
-          <div style={{ textAlign: 'left', width: '100%' }}>
-            {message.isMarkdown ? (
-              <ReactMarkdown 
-                components={markdownComponents}
-                remarkPlugins={[remarkGfm]}
-                style={{ textAlign: 'left' }}
-              >
-                {message.content}
-              </ReactMarkdown>
-            ) : (
-              message.content
+      {messages.map((message, index) => {
+        const prevMessage = index > 0 ? messages[index - 1] : null;
+        const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
+        const isFirstInGroup = !prevMessage || prevMessage.type !== message.type;
+        const isLastInGroup = !nextMessage || nextMessage.type !== message.type;
+        
+        // Get base style
+        const baseStyle = getMessageStyle(message.type);
+        
+        // Modify style for grouped messages
+        const style = {
+          ...baseStyle,
+          marginBottom: isLastInGroup ? '8px' : '2px',
+          marginTop: isFirstInGroup ? '8px' : '2px',
+          borderRadius: (() => {
+            if (message.type === 'user') {
+              if (isFirstInGroup && isLastInGroup) return '14px 14px 4px 14px';
+              if (isFirstInGroup) return '14px 14px 4px 4px';
+              if (isLastInGroup) return '4px 14px 4px 14px';
+              return '4px 14px 4px 4px';
+            } else if (message.type === 'assistant') {
+              if (isFirstInGroup && isLastInGroup) return '14px 14px 14px 4px';
+              if (isFirstInGroup) return '14px 4px 4px 4px';
+              if (isLastInGroup) return '4px 14px 14px 4px';
+              return '4px 4px 4px 4px';
+            }
+            return baseStyle.borderRadius;
+          })()
+        };
+
+        return (
+          <div key={message.id || index} className={`message-item message-${message.type}`} style={style}>
+            {/* Render content with proper markdown support */}
+            <div style={{ textAlign: 'left', width: '100%' }}>
+              {message.isMarkdown ? (
+                <ReactMarkdown 
+                  components={markdownComponents}
+                  remarkPlugins={[remarkGfm]}
+                  style={{ textAlign: 'left' }}
+                >
+                  {message.content}
+                </ReactMarkdown>
+              ) : (
+                              message.type === 'error' ? (
+                <ReactMarkdown 
+                  components={markdownComponents}
+                  remarkPlugins={[remarkGfm]}
+                  style={{ textAlign: 'left' }}
+                >
+                  {message.content}
+                </ReactMarkdown>
+              ) : message.content
+            )}
+            </div>
+            {message.actions && message.actions.length > 0 && (
+              <div style={{ 
+                marginTop: '6px', 
+                fontSize: '10px', 
+                opacity: 0.9,
+                borderTop: '1px solid rgba(0,0,0,0.1)',
+                paddingTop: '4px'
+              }}>
+                <strong>Actions:</strong>
+                <div style={{ marginTop: '2px' }}>
+                  {message.actions.map((action, i) => (
+                    <div key={i} style={{ 
+                      margin: '1px 0',
+                      padding: '2px 6px',
+                      backgroundColor: action.success ? '#d4edda' : '#f8d7da',
+                      borderRadius: '6px',
+                      fontSize: '9px'
+                    }}>
+                      {action.success ? '✅' : '❌'} {action.message || action.description}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* Only show timestamp for last message in group */}
+            {isLastInGroup && (
+              <div style={{ 
+                fontSize: '9px', 
+                opacity: 0.6, 
+                marginTop: '2px',
+                textAlign: message.type === 'user' ? 'right' : 'left'
+              }}>
+                {new Date(message.timestamp).toLocaleTimeString()}
+              </div>
             )}
           </div>
-          {message.actions && message.actions.length > 0 && (
-            <div style={{ 
-              marginTop: '6px', 
-              fontSize: '10px', 
-              opacity: 0.9,
-              borderTop: '1px solid rgba(0,0,0,0.1)',
-              paddingTop: '4px'
-            }}>
-              <strong>Actions:</strong>
-              <div style={{ marginTop: '2px' }}>
-                {message.actions.map((action, i) => (
-                  <div key={i} style={{ 
-                    margin: '1px 0',
-                    padding: '2px 6px',
-                    backgroundColor: action.success ? '#d4edda' : '#f8d7da',
-                    borderRadius: '6px',
-                    fontSize: '9px'
-                  }}>
-                    {action.success ? '✅' : '❌'} {action.message || action.description}
-                  </div>
-                ))}
-              </div>
+        );
+      })}
+      
+      {/* Typing Indicator */}
+      {isTyping && (
+        <div className="message-item message-assistant typing-indicator" style={getMessageStyle('assistant')}>
+          <div style={{ textAlign: 'left', width: '100%' }}>
+            <div className="typing-dots">
+              <div className="typing-dot"></div>
+              <div className="typing-dot"></div>
+              <div className="typing-dot"></div>
             </div>
-          )}
-          <div style={{ 
-            fontSize: '9px', 
-            opacity: 0.6, 
-            marginTop: '2px',
-            textAlign: message.type === 'user' ? 'right' : 'left'
-          }}>
-            {new Date(message.timestamp).toLocaleTimeString()}
           </div>
         </div>
-      ))}
+      )}
+      
       <div ref={messagesEndRef} />
     </div>
   );

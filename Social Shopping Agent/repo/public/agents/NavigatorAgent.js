@@ -6,7 +6,7 @@ export class NavigatorAgent {
   }
 
   async navigate(plan, currentState) {
-    const context = this.memoryManager.compressForPrompt(1200);  
+    const context = this.memoryManager.compressForPrompt(2000);
     
     // Enhanced context analysis for navigation
     const recentActions = this.formatRecentActions(context.recentMessages);
@@ -26,20 +26,36 @@ export class NavigatorAgent {
                 'sequenceGuidance:', sequenceGuidance,
                 'failedActionsNav:', failedActionsNav);
     
-    const navigatorPrompt = `## CTX: ${context.currentStep}-${context.proceduralSummaries.length}
+    const navigatorPrompt = `## ENHANCED NAVIGATION CONTEXT: ${context.currentStep}-${context.proceduralSummaries.length}
 
-Execute planned action using mobile elements efficiently.
+Execute planned action using mobile elements with enhanced context awareness and task progress tracking.
+
+# **KNOWLEDGE CUTOFF & RESPONSE REQUIREMENTS**
+* **Knowledge Cutoff**: July 2025 - You have current data and knowledge up to July 2025
+* **REAL-TIME DATA**: You have access to real-time information from the internet and current page state
+* **CRITICAL**: ALWAYS provide COMPLETE responses - NEVER slice, trim, or truncate any section
+* **IMPORTANT**: Do not stop until all blocks are output. DO NOT OMIT ANY SECTION.
+* **DELIMITER REQUIREMENT**: Always output all required JSON delimiter blocks exactly as specified
+
+# **TASK CONTEXT & PROGRESS**
+Current Step: ${context.currentStep}/25
+Task Components Completed: ${context.taskState?.completedComponents?.length || 0}
+Task History: ${context.taskHistory?.map(h => h.component).join(' → ') || 'Starting navigation'}
 
 # **PLAN TO EXECUTE**
 Strategy: ${plan.strategy}
 Action: ${plan.next_action}
 
-# **CURRENT STATE**
+# **ENHANCED CURRENT STATE**
 URL: ${currentState.pageInfo?.url}
+Page Title: ${currentState.pageInfo?.title || 'unknown'}
+Platform: ${currentState.pageInfo?.platform || 'unknown'}
+Page Type: ${currentState.pageContext?.pageType || 'unknown'}
 Elements: ${currentState.interactiveElements?.length || 0}
+Is Logged In: ${currentState.pageContext?.isLoggedIn || false}
 
-# **TOP ELEMENTS**
-${this.formatElementsWithDetails(currentState.interactiveElements?.slice(0, 40) || [])}
+# **TOP ELEMENTS (Current Page Only, 40 elements)**
+${this.formatElementsForNavigation(currentState.interactiveElements?.slice(0, 40) || [])}
 
 # **SEQUENCE GUIDANCE**
 ${sequenceGuidance}
@@ -58,7 +74,9 @@ ${failedActionsNav ? `# **RECENT FAILURES**\n${failedActionsNav}` : ''}
 # **AVAILABLE ACTIONS**
 navigate(url), click(index), type(index,text), scroll(direction,amount), wait(duration)
 
-# **OUTPUT FORMAT**
+# **OUTPUT FORMAT - MUST BE COMPLETE**
+**CRITICAL**: Return COMPLETE JSON response - NO TRUNCATION OR TRIMMING ALLOWED
+
 {
   "thinking": "Brief analysis",
   "action": {
@@ -70,16 +88,47 @@ navigate(url), click(index), type(index,text), scroll(direction,amount), wait(du
   }
 }
 
-**RULES**: Use exact element indices. Skip index/selector for navigate/wait/scroll.`;
+**RULES**: Use exact element indices. Skip index/selector for navigate/wait/scroll.
+**ENSURE ALL FIELDS ARE POPULATED - NO INCOMPLETE RESPONSES ALLOWED**`;
 
     try {
       const response = await this.llmService.call([
         { role: 'user', content: navigatorPrompt }
-      ], { maxTokens: 800 }, 'navigator');
+      ], { maxTokens: 2000 }, 'navigator');
       
       console.log('[NavigatorAgent] LLM response:', response);
       
-      const navResult = JSON.parse(this.cleanJSONResponse(response));
+      let navResult;
+      try {
+        navResult = JSON.parse(this.cleanJSONResponse(response));
+        
+        // Validate required fields
+        if (!navResult.thinking) {
+          throw new Error('Missing required field: thinking');
+        }
+        if (!navResult.action || !navResult.action.name) {
+          throw new Error('Missing required field: action.name');
+        }
+        
+      } catch (parseError) {
+        console.error('NavigatorAgent JSON parsing error:', parseError.message);
+        console.error('Raw response that failed to parse:', response);
+        
+        // Enhanced error with more context
+        let errorMessage;
+        if (parseError.message.includes('Unexpected end of JSON input')) {
+          errorMessage = `NavigatorAgent response parsing failed: The AI response was incomplete or cut off. This often happens with complex navigation tasks. Try simplifying your request. Original error: ${parseError.message}`;
+        } else if (parseError.message.includes('Unexpected token')) {
+          errorMessage = `NavigatorAgent response parsing failed: The AI response contained invalid formatting. This may be due to model overload. Try again with a simpler request. Original error: ${parseError.message}`;
+        } else if (parseError.message.includes('Missing required field')) {
+          errorMessage = `NavigatorAgent response validation failed: ${parseError.message}. The AI response was incomplete. Try again or break down your task into smaller steps.`;
+        } else {
+          errorMessage = `NavigatorAgent response parsing failed: Unable to process AI response due to formatting issues. Original error: ${parseError.message}. Raw response length: ${response?.length || 0} characters.`;
+        }
+        
+        // Throw the enhanced error which will be caught by the outer catch and trigger fallback
+        throw new Error(errorMessage);
+      }
       
       // Validate the action with context awareness
       if (navResult.action && navResult.action.name) {
@@ -358,6 +407,33 @@ navigate(url), click(index), type(index,text), scroll(direction,amount), wait(du
       
       return description;
     }).join('\n');
+  }
+
+  // NEW: Optimized element formatting for navigation with essential details
+  formatElementsForNavigation(elements) {
+    if (!elements || elements.length === 0) return "No interactive elements found on this page.";
+    
+    return elements.map(el => {
+      // Limit text content to prevent token explosion
+      const textContent = (el.textContent || '').trim();
+      const limitedTextContent = textContent.length > 80 ? textContent.substring(0, 80) + '...' : textContent;
+      
+      const text = (el.text || '').trim();
+      const limitedText = text.length > 80 ? text.substring(0, 80) + '...' : text;
+      
+      return `[Index: ${el.index}] TagName: ${el.tagName || 'UNKNOWN'} {
+    Category: ${el.category || 'unknown'}
+    Purpose: ${el.purpose || 'general'} 
+    Type: ${el.type || 'unknown'}
+    Selector: ${el.selector || 'none'}
+    XPath: ${el.xpath || 'none'}
+    Interactive: ${el.isInteractive}, Visible: ${el.isVisible}
+    TextContent: "${limitedTextContent}"
+    Text: "${limitedText}"
+    Attributes: ${JSON.stringify(el.attributes || {})}
+    Bounds: ${JSON.stringify(el.bounds || {})}
+}`;
+    }).join('\n\n');
   }
 
   formatAvailableActions() {

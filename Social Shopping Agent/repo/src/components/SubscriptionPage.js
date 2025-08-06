@@ -213,16 +213,24 @@ const SubscriptionPage = ({ onSubscribe, onLogout, onOpenSettings, user }) => {
   }
 
   return (
-    <div style={{...containerStyle, overflowY: 'auto'}} onClick={(e) => {
+    <div className="subscription-container" style={{...containerStyle, overflowY: 'auto'}} onClick={(e) => {
       if (e.target === e.currentTarget) {
         onOpenSettings();
       }
     }}>
+      {/* Background Animation */}
+      <div className="background-animation">
+        <div className="floating-orb subscription-orb-1"></div>
+        <div className="floating-orb subscription-orb-2"></div>
+        <div className="floating-orb subscription-orb-3"></div>
+      </div>
+
       {/* Header */}
-      <div style={headerStyle}>
+      <div className="subscription-header" style={headerStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <button 
             onClick={() => navigate('/profile')}
+            className="subscription-back-button"
             style={{ 
               padding: '6px 8px', 
               backgroundColor: 'rgba(255, 220, 220, 0.2)',
@@ -242,22 +250,22 @@ const SubscriptionPage = ({ onSubscribe, onLogout, onOpenSettings, user }) => {
           </button>
           
           <div style={{ flex: 1, textAlign: 'center' }}>
-            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            <h3 className="subscription-title" style={{ margin: 0, fontSize: '18px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
               Unleash AI's full powers with Premium
             </h3>
           </div>
           
           <div style={{ width: '40px' }}></div> {/* Spacer for centering */}
         </div>
-        <p style={{ margin: '8px 0 0 0', fontSize: '13px', opacity: 0.9, color: '#FFDCDCFF' }}>
+        <p className="subscription-subtitle" style={{ margin: '8px 0 0 0', fontSize: '13px', opacity: 0.9, color: '#FFDCDCFF' }}>
           Welcome, {user?.name || user?.email}!
         </p>
       </div>
 
       {/* Content */}
-      <div style={contentStyle}>
+      <div className="subscription-content" style={contentStyle}>
         {/* Features */}
-        <div style={{ marginBottom: '20px' }}>
+        <div className="features-list" style={{ marginBottom: '20px' }}>
           <div style={{ 
             display: 'flex', 
             alignItems: 'center', 

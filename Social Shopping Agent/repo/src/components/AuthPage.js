@@ -202,7 +202,14 @@ const AuthPage = ({ onLogin }) => {
   };
 
   return (
-    <div style={{...containerStyle, overflowY: 'auto'}}>
+    <div className="auth-container" style={{...containerStyle, overflowY: 'auto'}}>
+      {/* Background Animation */}
+      <div className="background-animation">
+        <div className="floating-orb auth-orb-1"></div>
+        <div className="floating-orb auth-orb-2"></div>
+        <div className="floating-orb auth-orb-3"></div>
+      </div>
+
       {/* Custom CSS for placeholder styling */}
       <style>
         {`
@@ -238,21 +245,21 @@ const AuthPage = ({ onLogin }) => {
       </style>
 
       {/* Header */}
-      <div style={headerStyle}>
-        <div style={{ fontSize: '40px', marginBottom: '-5px',marginTop: '5px', color: '#FFD1D1FF' }}>
-          <FaRobot className="robot-icon" />
+      <div className="auth-header" style={headerStyle}>
+        <div className="auth-robot-icon" style={{ fontSize: '40px', marginBottom: '-5px',marginTop: '5px', color: '#FFD1D1FF' }}>
+          <FaRobot />
         </div>
-        <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>
+        <h2 className="auth-title" style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>
           SOCIAL SHOPPING AGENT
         </h2>
-        <p style={{ margin: '5px 0 0 0', fontSize: '12px', opacity: 0.9 }}>
+        <p className="auth-subtitle" style={{ margin: '5px 0 0 0', fontSize: '12px', opacity: 0.9 }}>
           Your intelligent web automation companion
         </p>
       </div>
 
       {/* Content */}
-      <div style={contentStyle}>
-        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+      <div className="auth-content" style={contentStyle}>
+        <div className="auth-welcome-section" style={{ textAlign: 'center', marginBottom: '20px' }}>
           <h3 style={{ 
             fontSize: '18px', 
             fontWeight: '600', 
@@ -270,9 +277,9 @@ const AuthPage = ({ onLogin }) => {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form className="auth-form" onSubmit={handleSubmit}>
           {!isLogin && (
-            <div style={inputContainerStyle}>
+            <div className="auth-input-group signup-only" style={inputContainerStyle}>
               <input
                 type="text"
                 value={formData.name}
@@ -300,7 +307,7 @@ const AuthPage = ({ onLogin }) => {
           )}
 
           {!isLogin && (
-            <div style={inputContainerStyle}>
+            <div className="auth-input-group signup-only" style={inputContainerStyle}>
               <input
                 type="text"
                 value={formData.username}
@@ -327,7 +334,7 @@ const AuthPage = ({ onLogin }) => {
             </div>
           )}
           
-          <div style={inputContainerStyle}>
+          <div className="auth-input-group common-field" style={inputContainerStyle}>
             <input
               type="email"
               value={formData.email}
@@ -353,7 +360,7 @@ const AuthPage = ({ onLogin }) => {
             </label>
           </div>
           
-          <div style={{...passwordContainerStyle, ...inputContainerStyle}}>
+          <div className="auth-input-group common-field" style={{...passwordContainerStyle, ...inputContainerStyle}}>
             <input
               type={showPassword ? "text" : "password"}
               value={formData.password}
@@ -380,6 +387,7 @@ const AuthPage = ({ onLogin }) => {
             <button 
               type="button"
               onClick={() => setShowPassword(!showPassword)}
+              className="auth-eye-button"
               style={eyeButtonStyle}
             >
               {showPassword ? <FaEye /> : <FaEyeSlash />}
@@ -387,7 +395,7 @@ const AuthPage = ({ onLogin }) => {
           </div>
 
           {!isLogin && (
-            <div style={{...passwordContainerStyle, ...inputContainerStyle}}>
+            <div className="auth-input-group signup-only" style={{...passwordContainerStyle, ...inputContainerStyle}}>
               <input
                 type={showConfirmPassword ? "text" : "password"}
                 value={formData.confirmPassword}
@@ -414,6 +422,7 @@ const AuthPage = ({ onLogin }) => {
               <button 
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="auth-eye-button"
                 style={eyeButtonStyle}
               >
                 {showConfirmPassword ? <FaEye /> : <FaEyeSlash />}
@@ -422,7 +431,7 @@ const AuthPage = ({ onLogin }) => {
           )}
 
           {error && (
-            <div style={{
+            <div className="auth-error" style={{
               backgroundColor: '#fee2e2',
               border: '1px solid #fca5a5',
               borderRadius: '8px',
@@ -442,18 +451,18 @@ const AuthPage = ({ onLogin }) => {
 
           <button
             type="submit"
+            className="auth-button auth-primary-button"
             style={primaryButtonStyle}
             disabled={loading}
           >
             {loading ? (
               <>
-                <div style={{
+                <div className="auth-loading-spinner" style={{
                   width: '16px',
                   height: '16px',
                   border: '2px solid transparent',
                   borderTop: '2px solid #ffffff',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite'
+                  borderRadius: '50%'
                 }} />
                 Processing...
               </>
@@ -478,6 +487,7 @@ const AuthPage = ({ onLogin }) => {
               username: '' 
             });
           }}
+          className="auth-button auth-secondary-button"
           style={secondaryButtonStyle}
           disabled={loading}
         >
@@ -494,7 +504,7 @@ const AuthPage = ({ onLogin }) => {
           )}
         </button>
 
-        <div style={{
+        <div className="auth-trial-info" style={{
           marginTop: '16px',
           padding: '12px',
           backgroundColor: '#FFF9C3FF',

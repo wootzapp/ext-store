@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Social Shopping Agent",
   "version": "1.0.0",
-  "description": "AI-powered chat agent",
+  "description": "AI-powered Social Shopping Agent",
   "permissions": [
     "storage",
     "alarms",
@@ -10,10 +10,16 @@
     "scripting",
     "tabs",
     "debugger",
-    "webNavigation"
+    "webNavigation",
+    "wootz",
+    "notifications"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "<all_urls>",
+    "https://popmart.com/*",
+    "https://m.popmart.com/*",
+    "https://www.popmart.com/*",
+    "https://generativelanguage.googleapis.com/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -25,7 +31,7 @@
   },
   "icons": {
     "16": "icons/icon.png",
-    "48": "icons/icon.png",
+    "48": "icons/icon.png", 
     "128": "icons/icon.png"
   },
   "web_accessible_resources": [

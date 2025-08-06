@@ -1,0 +1,213 @@
+/* Auth Page Animations */
+
+.auth-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-container .background-animation {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+/* Auth specific orbs - smaller and more subtle */
+.auth-orb-1 {
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(255, 182, 193, 0.15) 0%, rgba(255, 182, 193, 0.05) 70%, transparent 100%);
+  top: 5%;
+  left: -10%;
+  animation: floatGentle 8s ease-in-out infinite;
+  animation-delay: 0s;
+}
+
+.auth-orb-2 {
+  width: 150px;
+  height: 150px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 70%, transparent 100%);
+  top: 70%;
+  right: -10%;
+  animation: floatGentle 6s ease-in-out infinite;
+  animation-delay: 2s;
+}
+
+.auth-orb-3 {
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, rgba(139, 92, 246, 0.05) 70%, transparent 100%);
+  bottom: 10%;
+  left: 10%;
+  animation: floatGentle 7s ease-in-out infinite;
+  animation-delay: 4s;
+}
+
+/* Header Animation - reduced, no animation on switch */
+.auth-header {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-robot-icon {
+  animation: robotBounce 2s ease-in-out infinite;
+  display: inline-block;
+}
+
+/* Title and subtitle don't animate on form switch */
+.auth-title {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-subtitle {
+  position: relative;
+  z-index: 1;
+}
+
+/* Content Animation */
+.auth-content {
+  animation: slideInUp 0.8s ease-out 0.3s both;
+  position: relative;
+  z-index: 1;
+}
+
+.auth-welcome-section {
+  animation: fadeInScale 0.6s ease-out 0.5s both;
+}
+
+/* Form Animation */
+.auth-form {
+  animation: slideInUp 0.8s ease-out 0.4s both;
+}
+
+/* Don't animate any fields during navigation between login/signup */
+.auth-input-group.signup-only {
+  animation: none;
+}
+
+.auth-input-group.signup-only:nth-child(1) { animation-delay: 0s; }
+.auth-input-group.signup-only:nth-child(2) { animation-delay: 0s; }
+
+/* Don't animate common fields (email, password) or headers */
+.auth-input-group.common-field {
+  animation: none;
+}
+
+/* Input Focus Animation */
+.auth-input {
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.auth-input:focus {
+  animation: pulseGlow 0.5s ease-out;
+}
+
+/* Label Float Animation */
+.floating-label {
+  transition: all 0.3s ease;
+}
+
+.floating-label.active {
+  animation: slideInUp 0.3s ease-out;
+}
+
+/* Button Animations */
+.auth-button {
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.auth-button:hover::before {
+  left: 100%;
+}
+
+.auth-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.auth-primary-button {
+  animation: slideInUp 0.6s ease-out 1.0s both;
+}
+
+.auth-secondary-button {
+  animation: slideInUp 0.6s ease-out 1.1s both;
+}
+
+/* Error Animation */
+.auth-error {
+  animation: slideInLeft 0.4s ease-out;
+}
+
+/* Trial Info Animation */
+.auth-trial-info {
+  animation: slideInUp 0.6s ease-out 1.2s both;
+}
+
+/* Eye Button Animation */
+.auth-eye-button {
+  transition: all 0.3s ease;
+}
+
+.auth-eye-button:hover {
+  transform: scale(1.1);
+  color: #FFDCDCFF;
+}
+
+/* Loading Spinner */
+.auth-loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* Shimmer Effect for Inputs */
+.auth-input-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-input-shimmer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+/* Responsive Orbs for smaller screens */
+@media (max-width: 500px) {
+  .auth-orb-1 {
+    width: 120px;
+    height: 120px;
+  }
+  
+  .auth-orb-2 {
+    width: 100px;
+    height: 100px;
+  }
+  
+  .auth-orb-3 {
+    width: 80px;
+    height: 80px;
+  }
+}

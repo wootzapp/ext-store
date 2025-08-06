@@ -5,14 +5,17 @@ import { ValidatorAgent } from './agents/ValidatorAgent.js';
 import { AITaskRouter } from './agents/AITaskRouter.js';
 
 console.log('AI Universal Agent Background Script Loading...');
+const API_BASE_URL = "";
 
 class ProceduralMemoryManager {
   constructor() {
     this.messages = [];
     this.proceduralSummaries = [];
-    this.maxMessages = 30;     
-    this.maxSummaries = 5;      
+    this.maxMessages = 50;  
+    this.maxSummaries = 10;     
     this.stepCounter = 0;
+    this.taskHistory = [];     
+    this.currentTaskState = null; 
   }
 
   addMessage(message) {
@@ -64,16 +67,20 @@ class ProceduralMemoryManager {
     };
   }
 
-  // lightweight context compressor
-  compressForPrompt(maxTokens = 1200) {
+  // Enhanced context compressor with increased limits
+  compressForPrompt(maxTokens = 4000) {
     const ctx = this.getContext();
     const json = JSON.stringify(ctx);
     if (json.length > maxTokens * 4 && ctx.proceduralSummaries.length) {
       ctx.proceduralSummaries.shift();
     }
-    while (JSON.stringify(ctx).length > maxTokens * 4 && ctx.recentMessages.length > 5) {
+    while (JSON.stringify(ctx).length > maxTokens * 4 && ctx.recentMessages.length > 10) {
       ctx.recentMessages.shift();
     }
+    
+    ctx.taskState = this.currentTaskState;
+    ctx.taskHistory = this.taskHistory.slice(-5); 
+    
     return ctx;
   }
 
@@ -81,6 +88,70 @@ class ProceduralMemoryManager {
     this.messages = [];
     this.proceduralSummaries = [];
     this.stepCounter = 0;
+    this.taskHistory = [];
+    this.currentTaskState = null;
+  }
+
+  setCurrentTask(task) {
+    this.currentTaskState = {
+      originalTask: task,
+      components: this.decomposeTask(task),
+      completedComponents: [],
+      startTime: Date.now()
+    };
+  }
+
+  markComponentCompleted(component, evidence) {
+    if (this.currentTaskState) {
+      this.currentTaskState.completedComponents.push({
+        component: component,
+        evidence: evidence,
+        timestamp: Date.now(),
+        step: this.stepCounter
+      });
+      this.taskHistory.push({
+        component: component,
+        evidence: evidence,
+        timestamp: Date.now()
+      });
+    }
+  }
+
+  decomposeTask(task) {
+    const taskLower = task.toLowerCase();
+    const components = [];
+    
+    // Navigation component
+    if (taskLower.includes('go to') || taskLower.includes('open') || taskLower.includes('visit')) {
+      components.push('navigate_to_site');
+    }
+    
+    // Search component
+    if (taskLower.includes('search') || taskLower.includes('find') || taskLower.includes('look for')) {
+      components.push('perform_search');
+    }
+    
+    // Click/interaction component
+    if (taskLower.includes('click') || taskLower.includes('select') || taskLower.includes('choose')) {
+      components.push('interact_with_element');
+    }
+    
+    // Data extraction component
+    if (taskLower.includes('get') || taskLower.includes('extract') || taskLower.includes('show')) {
+      components.push('extract_information');
+    }
+    
+    // Social media components
+    if (taskLower.includes('post') || taskLower.includes('tweet') || taskLower.includes('share')) {
+      components.push('create_post');
+    }
+    
+    // Shopping components
+    if (taskLower.includes('buy') || taskLower.includes('purchase') || taskLower.includes('cart')) {
+      components.push('shopping_action');
+    }
+    
+    return components.length > 0 ? components : ['complete_task'];
   }
 }
 
@@ -244,6 +315,7 @@ class UniversalActionRegistry {
           const newTab = await chrome.tabs.create({ url: url, active: true });
           this.browserContext.activeTabId = newTab.id;
           await this.browserContext.waitForReady(newTab.id);
+          await new Promise(resolve => setTimeout(resolve, 1000));
           
           return {
             success: true,
@@ -629,7 +701,7 @@ class MultiAgentExecutor {
     this.determinePageType = helpers.determinePageType;
     this.detectPlatform = helpers.detectPlatform;
     
-    this.maxSteps = 20;
+    this.maxSteps = 20; 
     this.executionHistory = [];
     this.currentStep = 0;
     this.cancelled = false;
@@ -642,26 +714,37 @@ class MultiAgentExecutor {
 
   async execute(userTask, connectionManager, initialPlan = null) {
     this.currentStep = 0;
-    this.executionHistory = [];
     this.cancelled = false;
+    this.executionHistory = [];
     this.actionQueue = [];
     this.currentBatchPlan = null;
     this.failedElements = new Set();
-    
+    this.lastPageState = null;
+    this.lastValidationResult = null; 
+
     console.log(`🚀 Universal Multi-agent execution: ${userTask}`);
     console.log(`🧹 State cleaned - Starting fresh`);
     
     // Store current task for completion detection
     this.currentUserTask = userTask;
     
-    try {
-      let taskCompleted = false;
-      let finalResult = null;
+    // Initialize enhanced task tracking in memory manager
+    this.memoryManager.setCurrentTask(userTask);
+    
+    // Broadcast initial task setup
+    connectionManager.broadcast({
+      type: 'status_update',
+      message: `🎯 Task Started: "${userTask}"`,
+      details: `Task components identified: ${this.memoryManager.currentTaskState?.components?.join(', ') || 'analyzing...'}`
+    });
+    
+    let taskCompleted = false;
+    let finalResult = null;
 
-      console.log(`🚀 Universal Multi-agent execution: ${userTask}`);
+    try {
       connectionManager.broadcast({
-        type: 'task_start',
-        message: `🚀 Starting universal task: ${userTask}`
+        type: 'execution_start',
+        message: `🚀 Starting task: ${userTask}`
       });
 
       while (!taskCompleted && this.currentStep < this.maxSteps && !this.cancelled) {
@@ -670,8 +753,8 @@ class MultiAgentExecutor {
         console.log(`🔄 Step ${this.currentStep}/${this.maxSteps}`);
         connectionManager.broadcast({
           type: 'status_update',
-          message: `🔄 Step ${this.currentStep}/${this.maxSteps}: Analyzing page...`,
-          isStatus: true
+          step: this.currentStep,
+          message: `🔄 Step ${this.currentStep}: Planning next actions...`
         });
 
         if (this.cancelled) {
@@ -704,7 +787,7 @@ class MultiAgentExecutor {
             });
           }
           
-          continue; // Execute this batch immediately
+          // continue; // Execute this batch immediately
         }
 
         // 1. Execute batch actions if available
@@ -721,37 +804,105 @@ class MultiAgentExecutor {
             message: `📋 Batch completed: ${batchResults.executedActions.length} actions executed`
           });
           
-          // Call ValidatorAgent after each batch
-          if (batchResults.anySuccess) {
+          // Enhanced validation with progressive checking and smart triggers
+          const shouldRunValidation = batchResults.anySuccess && (
+            this.currentBatchPlan?.shouldValidate || 
+            this.currentStep >= 10 || // Validate every 10 steps to check progress
+            this.currentStep % 5 === 0 || // Validate every 5 steps
+            this.executionHistory.filter(h => h.success).length >= 3 // Validate after 3 successful actions
+          );
+          
+          if (shouldRunValidation) {
+            console.log('🔍 Running progressive validation as requested by planner...');
             const currentState = await this.getCurrentState();
-            // Call ValidatorAgent after each batch
             const validation = await this.validator.validate(userTask, this.executionHistory, currentState);
+            
+            // Store validation result for use in next planning cycle
+            this.lastValidationResult = validation;
 
-            if (validation.is_valid && validation.confidence >= 0.7 && validation.answer && validation.answer.trim() !== '' && !validation.answer.includes('incomplete')) {
+            console.log('📊 Validation result:', {
+              is_valid: validation.is_valid,
+              confidence: validation.confidence,
+              progress: validation.progress_percentage,
+              completed: validation.completed_components,
+              missing: validation.missing_components
+            });
+
+            // Mark completed components in memory manager
+            if (validation.completed_components && validation.completed_components.length > 0) {
+              validation.completed_components.forEach(component => {
+                this.memoryManager.markComponentCompleted(component, validation.evidence || 'Validation confirmed completion');
+              });
+            }
+
+            // Progressive completion criteria (more lenient but accurate)
+            if (validation.is_valid && 
+                validation.confidence >= 0.85 && 
+                validation.progress_percentage >= 90 &&
+                validation.answer && 
+                validation.answer.trim() !== '' && 
+                !validation.answer.includes('incomplete') &&
+                validation.missing_components && 
+                validation.missing_components.length === 0) {
+              
               taskCompleted = true;
               finalResult = {
                 success: true,
                 response: `✅ ${validation.answer}`,
                 reason: validation.reason,
                 steps: this.currentStep,
-                confidence: validation.confidence
+                confidence: validation.confidence,
+                progress_percentage: validation.progress_percentage,
+                completed_components: validation.completed_components
               };
               
               // Broadcast task completion observation
               connectionManager.broadcast({
                 type: 'status_update',
-                message: `🎯 Task Completed: ${validation.answer}`,
-                details: validation.reason || ''
+                message: `🎯 Task Completed (${validation.progress_percentage}%): ${validation.answer}`,
+                details: `${validation.reason} | Completed: ${validation.completed_components?.join(', ') || 'all components'}`
               });
               break;
-            } else if (validation.confidence < 0.5) {
-              // If confidence is very low, continue with more actions
-              console.log(`🔄 Validation confidence too low (${validation.confidence}), continuing task...`);
+            } else {
+              // Provide detailed progress feedback
+              const progressMsg = `🔄 Task Progress: ${validation.progress_percentage || 0}% complete`;
+              const componentMsg = validation.completed_components?.length > 0 
+                ? ` | Completed: ${validation.completed_components.join(', ')}`
+                : '';
+              const nextMsg = validation.next_required_action 
+                ? ` | Next: ${validation.next_required_action}`
+                : '';
+              
+              console.log(`${progressMsg}${componentMsg}${nextMsg}`);
+              
+              connectionManager.broadcast({
+                type: 'status_update',
+                message: `${progressMsg}${componentMsg}`,
+                details: validation.reason || 'Continuing task execution...'
+              });
             }
+          } else if (batchResults.anySuccess) {
+            console.log('📋 Batch completed successfully, continuing without validation...');
+          }
 
-            // If not complete, call PlannerAgent for next batch
+          // If not complete, call PlannerAgent for next batch
+          if (!taskCompleted) {
+            const currentState = await this.getCurrentState();
+            const enhancedContext = this.buildEnhancedContextWithHistory();
+            
+            // Add validation results to context for planner
+            if (this.lastValidationResult) {
+              enhancedContext.lastValidation = {
+                progress_percentage: this.lastValidationResult.progress_percentage || 0,
+                completed_components: this.lastValidationResult.completed_components || [],
+                missing_components: this.lastValidationResult.missing_components || [],
+                next_required_action: this.lastValidationResult.next_required_action || '',
+                confidence: this.lastValidationResult.confidence || 0
+              };
+            }
+            
             const plan = await this.planner.plan(userTask, currentState, this.executionHistory, 
-              this.buildEnhancedContextWithHistory(), this.failedElements);
+              enhancedContext, this.failedElements);
             
             // Broadcast planner's observation and strategy
             if (plan && plan.observation) {
@@ -771,28 +922,33 @@ class MultiAgentExecutor {
               };
               break;
             }
+            
             this.actionQueue = this.validateAndPreprocessBatchActions(plan.batch_actions || []);
-            this.currentBatchPlan = plan;
-            continue;
+            this.currentBatchPlan = plan; 
           }
 
-          // Call NavigatorAgent when batch fails
+          // Handle critical failures (no recovery needed for now)
           if (batchResults.criticalFailure) {
+            connectionManager.broadcast({
+              type: 'status_update',
+              message: '⚠️ Multiple action failures detected. Attempting navigator recovery...',
+              details: 'Trying alternative approach'
+            });
+            
             const currentState = await this.getCurrentState();
-            // Use NavigatorAgent to try to recover
-            const navResult = await this.navigator.navigate(this.currentBatchPlan, currentState);
-            if (navResult && navResult.action) {
-              this.actionQueue = [navResult.action];
-              continue;
+            const recoveryAction = await this.navigator.navigate(this.currentBatchPlan, currentState);
+            
+            if (recoveryAction && recoveryAction.action) {
+              this.actionQueue = [recoveryAction.action];
+            } else {
+              // If navigator can't recover, replan
+              const plan = await this.planner.plan(userTask, currentState, this.executionHistory, 
+              this.buildEnhancedContextWithHistory(), this.failedElements);
+              this.actionQueue = this.validateAndPreprocessBatchActions(plan.batch_actions || []);
+              this.currentBatchPlan = plan;
             }
-            // If navigator can't recover, replan
-            const plan = await this.planner.plan(userTask, currentState, this.executionHistory, 
-            this.buildEnhancedContextWithHistory(), this.failedElements);
-            this.actionQueue = this.validateAndPreprocessBatchActions(plan.batch_actions || []);
-            this.currentBatchPlan = plan;
-            continue;
           }
-          
+
           continue;
         }
 
@@ -807,6 +963,17 @@ class MultiAgentExecutor {
         if (initialPlan && this.currentStep === 1) {
           plan = initialPlan;
         } else {
+          // Add any recent validation results to context for better planning
+          if (this.lastValidationResult) {
+            enhancedContext.lastValidation = {
+              progress_percentage: this.lastValidationResult.progress_percentage || 0,
+              completed_components: this.lastValidationResult.completed_components || [],
+              missing_components: this.lastValidationResult.missing_components || [],
+              next_required_action: this.lastValidationResult.next_required_action || '',
+              confidence: this.lastValidationResult.confidence || 0
+            };
+          }
+          
           plan = await this.planner.plan(userTask, currentState, this.executionHistory, enhancedContext, this.failedElements);
         }
 
@@ -823,7 +990,7 @@ class MultiAgentExecutor {
           taskCompleted = true;
           finalResult = {
             success: true,
-            response: `✅ Task completed by AI: ${plan.completion_reason || plan.reasoning}`,
+            response: `✅ ${plan.completion_criteria || plan.reasoning}`,
             steps: this.currentStep
           };
           break;
@@ -844,34 +1011,65 @@ class MultiAgentExecutor {
               intent: a.parameters?.intent || `${a.action_type} action`
             }))
           });
-          
-          continue;
+        } else {
+          console.log('⚠️ No valid batch actions received from planner');
+          break;
         }
 
         await this.delay(1000);
       }
 
-      // Final validation if max steps reached
+      // Enhanced final validation with progressive assessment
       if (!taskCompleted && this.currentStep >= this.maxSteps) {
-        console.log('🔍 Max steps reached - running AI validator');
+        console.log('🔍 Max steps reached - running enhanced final validation');
         const finalState = await this.getCurrentState();
         const validation = await this.validator.validate(userTask, this.executionHistory, finalState);
         
-        if (validation.is_valid && validation.confidence > 0.7 && validation.answer && validation.answer.trim() !== '') {
+        console.log('📊 Final validation result:', {
+          is_valid: validation.is_valid,
+          confidence: validation.confidence,
+          progress: validation.progress_percentage,
+          completed: validation.completed_components,
+          missing: validation.missing_components
+        });
+        
+        // More lenient final validation - accept partial completion if substantial progress
+        if (validation.is_valid && 
+            validation.confidence >= 0.8 && 
+            validation.progress_percentage >= 80 &&
+            validation.answer && 
+            validation.answer.trim() !== '') {
           finalResult = {
             success: true,
             response: `✅ ${validation.answer}`,
             reason: validation.reason,
             steps: this.currentStep,
-            confidence: validation.confidence
+            confidence: validation.confidence,
+            progress_percentage: validation.progress_percentage,
+            completed_components: validation.completed_components
           };
-        } else {
+        } else if (validation.progress_percentage >= 50) {
+          // Partial success for significant progress
           finalResult = {
             success: false,
-            response: `⚠️ Task incomplete after ${this.currentStep} steps. ${validation.reason || 'Maximum steps reached'}`,
+            response: `🔄 Task partially completed (${validation.progress_percentage}%) after ${this.currentStep} steps. ${validation.reason || 'Maximum steps reached'}`,
             reason: validation.reason || 'Task could not be completed within step limit',
             steps: this.currentStep,
-            confidence: validation.confidence || 0.3
+            confidence: validation.confidence || 0.3,
+            progress_percentage: validation.progress_percentage,
+            completed_components: validation.completed_components || []
+          };
+        } else {
+          // Minimal progress - task incomplete
+          finalResult = {
+            success: false,
+            response: `❌ Task incomplete after ${this.currentStep} steps. Progress: ${validation.progress_percentage || 0}%. ${validation.reason || 'Maximum steps reached with insufficient progress'}`,
+            reason: validation.reason || 'Task could not be completed within step limit',
+            steps: this.currentStep,
+            confidence: validation.confidence || 0.2,
+            progress_percentage: validation.progress_percentage || 0,
+            completed_components: validation.completed_components || [],
+            next_required_action: validation.next_required_action || 'Task needs to be restarted or refined'
           };
         }
       }
@@ -903,16 +1101,25 @@ class MultiAgentExecutor {
 
     } catch (error) {
       console.error('❌ Universal multi-agent execution error:', error);
+      
+      // Use enhanced error formatting for better user experience
+      const userFriendlyError = this.formatErrorForUser(error);
+      
       const errorResult = {
         success: false,
-        response: `❌ Execution error: ${error.message}`,
+        response: userFriendlyError,
+        reason: 'System error during task execution',
         message: error.message,
-        steps: this.currentStep
+        steps: this.currentStep || 0,
+        confidence: 0.1,
+        originalError: error.message
       };
 
       connectionManager.broadcast({
         type: 'task_error',
-        result: errorResult
+        result: errorResult,
+        error: userFriendlyError,
+        originalError: error.message
       });
 
       return errorResult;
@@ -994,13 +1201,50 @@ class MultiAgentExecutor {
         }
         
         // Check for page state change after each action
-        const currentState = await this.getCurrentState();
+        let currentState = await this.getCurrentState();
+        
+        // If page has 0 elements after navigation/click, wait for it to load
+        if ((action.name === 'navigate' || action.name === 'click') && 
+            (currentState.interactiveElements?.length || 0) === 0) {
+          console.log(`🔄 Page loading after ${action.name} - waiting for page to fully load...`);
+          await this.delay(3000);
+          currentState = await this.getCurrentState();
+          console.log(`📊 After wait - Found ${currentState.interactiveElements?.length || 0} elements`);
+          
+          // If still 0 elements after wait, try one more time with longer delay
+          if ((currentState.interactiveElements?.length || 0) === 0) {
+            console.log(`🔄 Still loading - waiting additional 2 seconds...`);
+            await this.delay(2000);
+            currentState = await this.getCurrentState();
+            console.log(`📊 Final attempt - Found ${currentState.interactiveElements?.length || 0} elements`);
+          }
+        }
+        
         const urlChanged = currentState.pageInfo?.url !== this.lastPageState?.pageInfo?.url;
         const elementCountChanged = Math.abs((currentState.interactiveElements?.length || 0) - 
                                            (this.lastPageState?.interactiveElements?.length || 0)) > 5;
         const titleChanged = currentState.pageInfo?.title !== this.lastPageState?.pageInfo?.title;
         
-        const pageChanged = urlChanged || elementCountChanged || titleChanged;
+        // NEW: Detect modal/dropdown openings by checking for new element types
+        const hasNewModals = (currentState.interactiveElements || []).some(el => 
+          el.attributes?.class?.includes('modal') || 
+          el.attributes?.class?.includes('dropdown') ||
+          el.attributes?.class?.includes('menu') ||
+          el.attributes?.role === 'dialog' ||
+          el.attributes?.role === 'menu'
+        );
+
+        const previousModals = (this.lastPageState?.interactiveElements || []).some(el => 
+          el.attributes?.class?.includes('modal') || 
+          el.attributes?.class?.includes('dropdown') ||
+          el.attributes?.class?.includes('menu') ||
+          el.attributes?.role === 'dialog' ||
+          el.attributes?.role === 'menu'
+        );
+
+        const modalStateChanged = hasNewModals !== previousModals;
+
+        const pageChanged = urlChanged || elementCountChanged || titleChanged || modalStateChanged;
         
         if (action.name === 'click' && action.parameters?.index !== undefined && 
             actionResult.success && !pageChanged) {
@@ -1536,7 +1780,7 @@ class MultiAgentExecutor {
 
   determineExecutionPhase() {
     if (this.currentStep <= 3) return "INITIAL_EXPLORATION";
-    if (this.currentStep <= 8) return "ACTIVE_EXECUTION";
+    if (this.currentStep <= 10) return "ACTIVE_EXECUTION";
     if (this.currentStep <= 15) return "REFINEMENT";
     return "FINAL_ATTEMPTS";
   }
@@ -1726,7 +1970,7 @@ class MultiLLMService {
     console.log('🤖 Universal LLM Service initialized with provider:', this.config.aiProvider || 'anthropic');
   }
 
-  getModelName(provider, agentType = 'navigator') {
+  getModelName(provider, agentType = 'planner') {
     const configuredModel = agentType === 'navigator' ? this.config.navigatorModel : 
                            agentType === 'planner' ? this.config.plannerModel :
                            agentType === 'validator' ? this.config.validatorModel : null;
@@ -1747,9 +1991,15 @@ class MultiLLMService {
         'validator': 'gpt-4o-mini'
       },
       'gemini': {
-        'navigator': 'gemini-1.5-pro',
-        'planner': 'gemini-1.5-pro',
-        'validator': 'gemini-1.5-flash'
+        'navigator': 'gemini-2.5-flash',
+        'planner': 'gemini-2.5-flash',
+        'validator': 'gemini-2.5-flash'
+      },
+      'geminiGenerate': {
+        'navigator': 'gemini-2.5-flash',
+        'planner': 'gemini-2.5-flash',
+        'validator': 'gemini-2.5-flash',
+        'chat': 'gemini-2.5-flash'
       }
     };
     
@@ -1758,31 +2008,43 @@ class MultiLLMService {
 
   isModelValidForProvider(model, provider) {
     const modelProviderMap = {
+      'claude-3-7-sonnet-20250219': 'anthropic',
       'claude-3-5-sonnet-20241022': 'anthropic',
+      'claude-3-5-haiku-20241022': 'anthropic',
       'claude-3-sonnet-20240229': 'anthropic', 
       'claude-3-haiku-20240307': 'anthropic',
       'claude-3-opus-20240229': 'anthropic',
+      'o1-preview': 'openai',
+      'o1-mini': 'openai',
       'gpt-4o': 'openai',
       'gpt-4o-mini': 'openai',
       'gpt-4-turbo': 'openai',
       'gpt-4': 'openai',
       'gpt-3.5-turbo': 'openai',
-      'gemini-2.0-flash-exp': 'gemini',
+      'gemini-2.5-flash': 'gemini',
+      'gemini-2.5-pro': 'gemini',
+      'gemini-2.0-flash': 'gemini',
       'gemini-1.5-pro': 'gemini',
-      'gemini-1.5-flash': 'gemini',
-      'gemini-pro': 'gemini'
+      'gemini-1.5-flash': 'gemini'
     };
+    
+    // For geminiGenerate provider, all Gemini models are valid
+    if (provider === 'geminiGenerate') {
+      return modelProviderMap[model] === 'gemini';
+    }
     
     return modelProviderMap[model] === provider;
   }
 
-  async call(messages, options = {}, agentType = 'navigator') {
-    const provider = this.config.aiProvider || 'anthropic';
-    const modelName = this.getModelName(provider, agentType);
+  async call(messages, options = {}, agentType = 'planner') {
+    return await this.callForAgent(messages, options, agentType);
+  }
+
+  async callForChat(messages, options = {}) {
+    const provider = await this.determineProvider(true);
+    const modelName = this.getModelName(provider, 'chat');
     
-    console.log(`🎯 DEBUG: Provider=${provider}, AgentType=${agentType}, ModelName=${modelName}`);
-    
-    console.log(`🤖 ${agentType} using ${provider} model: ${modelName}`);
+    console.log(`🎯 DEBUG: Chat Provider=${provider}, ModelName=${modelName}`);
     
     const hasApiKey = this.checkApiKey(provider);
     if (!hasApiKey) {
@@ -1797,6 +2059,51 @@ class MultiLLMService {
     }
   }
 
+  async callForAgent(messages, options = {}, agentType = 'navigator') {
+    const provider = await this.determineProvider(false);
+    const modelName = this.getModelName(provider, agentType);
+    
+    console.log(`🎯 DEBUG: Agent Provider=${provider}, AgentType=${agentType}, ModelName=${modelName}`);
+    
+    const hasApiKey = this.checkApiKey(provider);
+    if (!hasApiKey) {
+      throw new Error(`${provider} API key not configured. Please add your API key in settings.`);
+    }
+    
+    try {
+      return await this.callProvider(provider, messages, { ...options, model: modelName });
+    } catch (error) {
+      console.error(`❌ ${provider} failed:`, error);
+      throw error;
+    }
+  }
+
+  async determineProvider(forChat = false) {
+    try {
+      // Check user preference for personal API
+      const storage = await chrome.storage.local.get(['userPreferPersonalAPI']);
+      const userPreferPersonalAPI = storage.userPreferPersonalAPI || false;
+      
+      // Check if personal API keys are configured
+      const hasPersonalKeys = !!(
+        this.config.anthropicApiKey || 
+        this.config.openaiApiKey || 
+        this.config.geminiApiKey
+      );
+      
+      // If user prefers personal API and keys are available, use configured provider
+      if (userPreferPersonalAPI && hasPersonalKeys) {
+        return this.config.aiProvider || 'gemini';
+      }
+      
+      // Otherwise, use geminiGenerate (free trial)
+      return 'geminiGenerate';
+    } catch (error) {
+      console.warn('Error determining provider, defaulting to geminiGenerate:', error);
+      return 'geminiGenerate';
+    }
+  }
+
   checkApiKey(provider) {
     switch (provider) {
       case 'anthropic':
@@ -1805,6 +2112,8 @@ class MultiLLMService {
         return !!this.config.openaiApiKey;
       case 'gemini':
         return !!this.config.geminiApiKey;
+      case 'geminiGenerate':
+        return true; 
       default:
         return false;
     }
@@ -1818,6 +2127,8 @@ class MultiLLMService {
         return await this.callOpenAI(messages, options);
       case 'gemini':
         return await this.callGemini(messages, options);
+      case 'geminiGenerate':
+        return await this.callGeminiGenerate(messages, options);
       default:
         throw new Error(`Unsupported provider: ${provider}`);
     }
@@ -1841,8 +2152,8 @@ class MultiLLMService {
       },
       body: JSON.stringify({
         model: model,
-        max_tokens: options.maxTokens || 1000,
-        temperature: options.temperature || 0.3,
+        max_tokens: options.maxTokens || 4000,
+        temperature: options.temperature || 0.4,
         messages: messages
       })
     });
@@ -1873,8 +2184,8 @@ class MultiLLMService {
       body: JSON.stringify({
         model: model,
         messages: messages,
-        max_tokens: options.maxTokens || 1000,
-        temperature: options.temperature || 0.3
+        max_tokens: options.maxTokens || 4000,
+        temperature: options.temperature || 0.4
       })
     });
 
@@ -1903,8 +2214,8 @@ class MultiLLMService {
     const requestBody = {
       contents: geminiMessages,
       generationConfig: {
-        maxOutputTokens: options.maxTokens || 4096,
-        temperature: options.temperature || 0.3
+        maxOutputTokens: options.maxTokens || 4000,
+        temperature: options.temperature || 0.4
       }
     };
 
@@ -1923,12 +2234,79 @@ class MultiLLMService {
     }
 
     const data = await response.json();
+    console.log('🔍 Raw Gemini response:', JSON.stringify(data, null, 2));
     
-    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
-      throw new Error('Invalid response from Gemini API');
+    // Handle empty or incomplete responses
+    if (!data.candidates || data.candidates.length === 0) {
+      throw new Error('Empty response from Gemini API');
     }
 
-    return data.candidates[0].content.parts[0].text;
+    const candidate = data.candidates[0];
+    
+    // Handle MAX_TOKENS case
+    if (candidate.finishReason === 'MAX_TOKENS') {
+      throw new Error('Response exceeded maximum token limit. Try breaking down the task into smaller steps.');
+    }
+
+    // Handle empty content
+    if (!candidate.content || !candidate.content.parts || !candidate.content.parts[0]) {
+      throw new Error('Incomplete response from Gemini API - missing content parts');
+    }
+
+    // Handle missing text
+    if (!candidate.content.parts[0].text) {
+      throw new Error('Incomplete response from Gemini API - missing text content');
+    }
+
+    return candidate.content.parts[0].text;
+  }
+
+  async callGeminiGenerate(messages, options = {}) {
+    console.log(`🔥 Calling GeminiGenerate API`);
+    
+    try {
+      // Get access token from chrome storage
+      const storage = await chrome.storage.local.get(['userAuth']);
+      const accessToken = storage.userAuth?.access_token;
+      
+      if (!accessToken) {
+        throw new Error('Access token not found. Please log in again.');
+      }
+
+      // Convert messages to prompt format
+      const prompt = messages.map(msg => msg.content).join('\n\n');
+      
+      const requestBody = {
+        prompt: prompt,
+        max_tokens: options.maxTokens || 1500,
+        temperature: options.temperature || 0.5
+      };
+
+      const response = await fetch(`${API_BASE_URL}/gemini/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`GeminiGenerate API error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.response) {
+        throw new Error('Invalid response from GeminiGenerate API');
+      }
+
+      return data.response;
+    } catch (error) {
+      console.error('GeminiGenerate API error:', error);
+      throw error;
+    }
   }
 }
 
@@ -1942,7 +2320,7 @@ class PersistentConnectionManager {
     this.currentSessionId = null; // Track current session
   }
 
-  addConnection(connectionId, port) {
+  async addConnection(connectionId, port) {
     console.log(`🔗 Adding connection: ${connectionId}`);
     
     // Ensure we have a current session
@@ -1958,58 +2336,121 @@ class PersistentConnectionManager {
       sessionId: this.currentSessionId
     });
 
-    // ONLY send messages from current session that haven't been sent to this specific connection
-    const lastSentId = this.lastSentMessageId.get(connectionId) || 0;
-    const newMessages = this.messageQueue.filter(msg => 
-      msg.id > lastSentId && 
-      msg.sessionId === this.currentSessionId && // Only current session messages
-      (msg.type === 'status_update' || 
-       msg.type === 'task_start' || 
-       msg.type === 'task_complete' || 
-       msg.type === 'task_error' ||
-       msg.type === 'task_cancelled')
-    );
+    try {
+      // Get stored messages and execution state
+      const storage = await chrome.storage.local.get([
+        'currentSessionMessages',
+        'isExecuting',
+        'activeTaskId',
+        'sessionId',
+        'disconnectedMessages'
+      ]);
 
-    // IMPORTANT: Only send messages if there's an active task in this session
-    const executionState = chrome.storage.local.get(['isExecuting', 'activeTaskId', 'sessionId']);
-    executionState.then(state => {
-      if (state.isExecuting && state.sessionId === this.currentSessionId && newMessages.length > 0) {
-        console.log(`📤 Sending ${newMessages.length} active session messages to ${connectionId}`);
-        newMessages.forEach(message => {
-          this.safePortMessage(port, message);
-        });
-        
-        const latestMessageId = Math.max(...newMessages.map(msg => msg.id));
-        this.lastSentMessageId.set(connectionId, latestMessageId);
-      } else {
-        console.log(`📝 No active task or messages for connection ${connectionId}`);
+      // Merge and deduplicate messages
+      let allMessages = [];
+      
+      // Add current session messages first (if any)
+      if (storage.currentSessionMessages?.length > 0) {
+        allMessages.push(...storage.currentSessionMessages);
+      }
+      
+      // Add disconnected messages (if any)
+      if (storage.disconnectedMessages?.length > 0) {
+        allMessages.push(...storage.disconnectedMessages);
       }
 
-      // Send current execution state from storage
-      if (state.isExecuting && state.sessionId === this.currentSessionId) {
+      // Remove duplicates and sort by timestamp
+      if (allMessages.length > 0) {
+        const uniqueMessages = allMessages
+          .filter((message, index, self) => 
+            index === self.findIndex((m) => m.id === message.id))
+          .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+        console.log(`📤 Sending ${uniqueMessages.length} unique messages after deduplication`);
+        
+        // Store the deduplicated messages
+        await chrome.storage.local.set({ currentSessionMessages: uniqueMessages });
+        await chrome.storage.local.remove(['disconnectedMessages']);
+
+        // Send messages in order
+        uniqueMessages.forEach(message => {
+          this.safePortMessage(port, {
+            type: 'restore_message',
+            message
+          });
+        });
+      }
+
+      // Send current execution state if needed
+      if (storage.isExecuting && storage.sessionId === this.currentSessionId) {
         this.safePortMessage(port, {
           type: 'execution_state',
           isExecuting: true,
-          activeTaskId: state.activeTaskId,
+          activeTaskId: storage.activeTaskId,
           sessionId: this.currentSessionId
         });
       }
-    });
+
+      // Send connected status
+      this.safePortMessage(port, {
+        type: 'connected',
+        sessionId: this.currentSessionId
+      });
+
+    } catch (error) {
+      console.error('Error handling connection setup:', error);
+    }
   }
 
-  removeConnection(connectionId) {
+  async removeConnection(connectionId) {
     console.log(`🔌 Removing connection: ${connectionId}`);
-    this.connections.delete(connectionId);
-    // Keep the lastSentMessageId for potential reconnection within same session
+    
+    try {
+      // Get current session messages and execution state
+      const storage = await chrome.storage.local.get([
+        'currentSessionMessages',
+        'isExecuting',
+        'activeTaskId'
+      ]);
+      
+      const currentMessages = storage.currentSessionMessages || [];
+      
+      // Only store messages if there's an active task or there are messages
+      if ((storage.isExecuting && storage.activeTaskId) || currentMessages.length > 0) {
+        console.log(`📥 Storing ${currentMessages.length} messages for disconnected state`);
+        
+        // Store messages with timestamps for proper ordering
+        const timestampedMessages = currentMessages.map(msg => ({
+          ...msg,
+          timestamp: msg.timestamp || Date.now(),
+          disconnectedAt: Date.now()
+        }));
+        
+        await chrome.storage.local.set({
+          disconnectedMessages: timestampedMessages
+        });
+        
+        // Clear current session messages to prevent duplicates
+        await chrome.storage.local.remove(['currentSessionMessages']);
+      }
+      
+      this.connections.delete(connectionId);
+      
+    } catch (error) {
+      console.error('Error handling connection removal:', error);
+      this.connections.delete(connectionId);
+    }
   }
 
-  broadcast(message) {
-    // Add unique ID and session ID to message
+  async broadcast(message) {
+    // Add unique ID, session ID, and timestamp
     message.id = Date.now() + Math.random();
     message.sessionId = this.currentSessionId;
+    message.timestamp = Date.now();
     
     let messageSent = false;
     
+    // Send to all connected ports
     this.connections.forEach((connection, connectionId) => {
       if (connection.connected && this.safePortMessage(connection.port, message)) {
         messageSent = true;
@@ -2017,16 +2458,57 @@ class PersistentConnectionManager {
       }
     });
 
-    // Add to queue for future connections (only current session)
-    this.messageQueue.push(message);
-    
-    // Keep only last 20 messages to prevent memory issues
-    if (this.messageQueue.length > 20) {
-      this.messageQueue = this.messageQueue.slice(-20);
-    }
+    try {
+      // Get current messages
+      const storage = await chrome.storage.local.get(['currentSessionMessages']);
+      let currentMessages = storage.currentSessionMessages || [];
+      
+      // For task_complete messages, ensure the content is properly extracted and stored
+      let messageToStore = { ...message };
+      
+      // Special handling for task_complete messages to ensure content is accessible
+      if (message.type === 'task_complete' && message.result) {
+        const responseContent = message.result.response || message.result.message;
+        if (responseContent) {
+          // Ensure the message has the content directly accessible for restoration
+          messageToStore.content = responseContent;
+          messageToStore.isMarkdown = message.result.isMarkdown || false;
+          console.log('📝 Storing task_complete message with extracted content:', responseContent.substring(0, 100) + '...');
+        } else {
+          console.warn('⚠️ task_complete message has no response content:', message.result);
+        }
+      }
+      
+      // Add new message
+      currentMessages.push(messageToStore);
+      
+      // Remove duplicates by ID and sort by timestamp
+      currentMessages = currentMessages
+        .filter((msg, index, self) => 
+          index === self.findIndex((m) => m.id === msg.id))
+        .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      
+      // Keep only last 100 messages to prevent memory issues
+      if (currentMessages.length > 100) {
+        currentMessages = currentMessages.slice(-100);
+      }
+      
+      // Store updated messages
+      await chrome.storage.local.set({ currentSessionMessages: currentMessages });
+      
+      // Add to queue for future connections (only current session)
+      this.messageQueue.push(messageToStore);
+      
+      // Keep only last 20 messages in memory queue
+      if (this.messageQueue.length > 20) {
+        this.messageQueue = this.messageQueue.slice(-20);
+      }
 
-    if (!messageSent) {
-      console.log('📦 Queued for background persistence:', message.type);
+      if (!messageSent) {
+        console.log('📦 Message stored for background persistence:', message.type);
+      }
+    } catch (error) {
+      console.error('Error storing message:', error);
     }
   }
 
@@ -2409,33 +2891,209 @@ class BackgroundScriptAgent {
     }
   }
 
-  // Add better error formatting
+  // Enhanced error formatting with demo responses
   formatErrorForUser(error) {
     const errorMessage = error.message || 'Unknown error';
+    const timestamp = new Date().toLocaleTimeString();
+    
+    // Handle empty responses from Gemini
+    if (errorMessage.includes('Empty response') || errorMessage.includes('missing content parts')) {
+      return `🤖 **AI Model Error** (${timestamp})
+
+The AI model returned an empty or invalid response.
+
+**What happened:**
+• The model failed to generate a complete response
+• This can happen with complex tasks or when the model is overloaded
+• Original error: ${errorMessage}
+
+**What you can do:**
+• Try again - these errors are often temporary
+• Break your request into smaller, simpler steps
+• Try a different AI model in Settings
+• Consider using your personal API key for better reliability`;
+    }
+
+    // Handle MAX_TOKENS errors
+    if (errorMessage.includes('MAX_TOKENS') || errorMessage.includes('maximum token limit')) {
+      return `📝 **Response Too Long** (${timestamp})
+
+The AI model's response exceeded its length limit.
+
+**What happened:**
+• Your task requires a longer response than the model can provide
+• The model stopped mid-response to avoid exceeding limits
+• Original error: ${errorMessage}
+
+**What you can do:**
+• Break your task into smaller steps
+• Make your request more specific
+• Try a different model with higher limits
+• Use simpler instructions`;
+    }
+    
+    // Handle JSON parsing errors specifically
+    if (errorMessage.includes('JSON') || errorMessage.includes('parse') || errorMessage.includes('SyntaxError')) {
+      return `🔧 **Response Parsing Error** (${timestamp})
+
+The AI model's response couldn't be processed due to formatting issues.
+
+**What happened:**
+• The AI response was incomplete or malformed
+• This often occurs with complex tasks or when the model is overloaded
+
+**What you can do:**
+• Try again with a simpler, more specific task
+• Break complex requests into smaller steps
+• Wait a moment and retry the same task
+
+**Technical Details:** ${errorMessage}`;
+    }
+    
+    // Handle response truncation/incompleteness
+    if (errorMessage.includes('incomplete') || errorMessage.includes('truncated') || errorMessage.includes('cut off')) {
+      return `✂️ **Incomplete Response Error** (${timestamp})
+
+The AI model provided an incomplete response, likely due to length limits.
+
+**What happened:**
+• The response was cut off before completion
+• Complex tasks may exceed response limits
+
+**What you can do:**
+• Try breaking your task into smaller, simpler steps
+• Reduce the complexity of your request
+• Retry with more specific instructions
+
+**Technical Details:** ${errorMessage}`;
+    }
     
     // Handle API-specific errors with more detail
     if (errorMessage.includes('429')) {
-      return `⚠️ Rate limit exceeded. Please wait a moment and try again.\nDetails: ${errorMessage}`;
+      return `⚠️ **Rate Limit Exceeded** (${timestamp})
+
+The AI service is currently receiving too many requests. This is temporary.
+
+**What you can do:**
+• Wait 1-2 minutes and try again
+• Try a simpler task to reduce processing time
+• Check if you have multiple agents running
+• Consider using your personal API key in Settings
+
+**Technical Details:** ${errorMessage}`;
     }
     
     if (errorMessage.includes('500') || errorMessage.includes('502') || errorMessage.includes('503')) {
-      return `🚫 AI service temporarily unavailable. Please try again in a few minutes.\nDetails: ${errorMessage}`;
+      return `🚫 **AI Service Temporarily Unavailable** (${timestamp})
+
+The AI provider is experiencing technical difficulties.
+
+**What you can do:**
+• Try again in 5-10 minutes
+• Switch to a different AI provider in settings
+• Use your personal API key for more reliability
+• Check the service status page
+
+**Technical Details:** ${errorMessage}`;
     }
     
     if (errorMessage.includes('401') || errorMessage.includes('authentication') || errorMessage.includes('API key')) {
-      return `🔑 Authentication failed. Please check your API key in settings.\nDetails: ${errorMessage}`;
+      return `🔑 **Authentication Failed** (${timestamp})
+
+Your API key is invalid or missing.
+
+**What you can do:**
+• Go to Settings and check your API key
+• Make sure the key is copied correctly (no extra spaces)
+• Verify the key is active on your AI provider's dashboard
+• Try using the free trial option instead
+
+**Technical Details:** ${errorMessage}`;
     }
     
     if (errorMessage.includes('403') || errorMessage.includes('forbidden')) {
-      return `🚫 Access denied. Please check your API key permissions.\nDetails: ${errorMessage}`;
+      return `🚫 **Access Denied** (${timestamp})
+
+Your API key doesn't have the required permissions.
+
+**What you can do:**
+• Check your AI provider's billing/usage limits
+• Ensure your API key has proper permissions
+• Contact your AI provider if you're within limits
+• Try using the free trial option
+
+**Technical Details:** ${errorMessage}`;
     }
     
     if (errorMessage.includes('400') || errorMessage.includes('invalid')) {
-      return `❌ Invalid request. Please try rephrasing your task.\nDetails: ${errorMessage}`;
+      return `❌ **Invalid Request** (${timestamp})
+
+The request couldn't be processed due to formatting issues.
+
+**What you can do:**
+• Try rephrasing your task more clearly
+• Use simple commands like "search for X on Y"
+• Avoid special characters in your request
+• Make sure your task is specific and actionable
+
+**Technical Details:** ${errorMessage}`;
     }
     
-    // For any other error, show the actual error message
-    return `❌ Error: ${errorMessage}`;
+    if (errorMessage.includes('timeout') || errorMessage.includes('network')) {
+      return `⏱️ **Network Timeout** (${timestamp})
+
+The request took too long to process.
+
+**What you can do:**
+• Check your internet connection
+• Try the task again (it may work now)
+• Break complex tasks into smaller steps
+• Ensure you're not behind a restrictive firewall
+
+**Technical Details:** ${errorMessage}`;
+    }
+    
+    // Handle model-specific errors (Gemini, GPT, Claude)
+    if (errorMessage.includes('quota') || errorMessage.includes('usage') || errorMessage.includes('limit')) {
+      return `📊 **Usage Limit Reached** (${timestamp})
+
+You've reached your API usage limit for this period.
+
+**What you can do:**
+• Wait for your quota to reset (usually monthly)
+• Upgrade your API plan with your provider
+• Switch to a different AI provider in Settings
+• Use the free trial option
+
+**Technical Details:** ${errorMessage}`;
+    }
+    
+    if (errorMessage.includes('model') || errorMessage.includes('unsupported') || errorMessage.includes('deprecated')) {
+      return `🤖 **Model Error** (${timestamp})
+
+The selected AI model is not available or supported.
+
+**What you can do:**
+• Try switching to a different model in Settings
+• Update your API configuration
+• Check if the model name is correct
+• Use the default model instead
+
+**Technical Details:** ${errorMessage}`;
+    }
+    
+    // For any other error, show enhanced message with demo
+    return `❌ **Unexpected Error** (${timestamp})
+
+Something went wrong while processing your request.
+
+**What you can do:**
+• Try your request again
+• Simplify the task if it's complex
+• Check the browser console for more details
+• Report this issue if it persists
+
+**Technical Details:** ${errorMessage}`;
   }
 
   async getConfig() {
@@ -2522,6 +3180,29 @@ class BackgroundScriptAgent {
       };
     }
   }
+
+  hasMarkdownContent(content) {
+    if (!content || typeof content !== 'string') {
+      return false;
+    }
+    
+    // Check for common markdown patterns
+    const markdownPatterns = [
+      /\*\*(.*?)\*\*/, // bold
+      /\*(.*?)\*/, // italic
+      /`(.*?)`/, // inline code
+      /```[\s\S]*?```/, // code blocks
+      /^#{1,6}\s/, // headers
+      /^[-*+]\s/, // unordered lists
+      /^\d+\.\s/, // ordered lists
+      /\[(.*?)\]\((.*?)\)/, // links
+      /!\[(.*?)\]\((.*?)\)/, // images
+      /^\|.*\|$/, // tables
+      /^>/, // blockquotes
+    ];
+    
+    return markdownPatterns.some(pattern => pattern.test(content));
+  }
 }
 
 // Initialize
@@ -2550,3 +3231,4 @@ chrome.runtime.onStartup.addListener(() => {
 chrome.runtime.onInstalled.addListener(() => {
   console.log('⚡ Universal extension installed/updated');
 });
+

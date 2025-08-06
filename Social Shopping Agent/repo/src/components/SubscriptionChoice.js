@@ -49,17 +49,23 @@ const SubscriptionChoice = ({ onSubscribe, onUseAPI, onClose, onRefreshSubscript
   };
 
   return (
-    <div style={containerStyle} onClick={(e) => {
+    <div className="subscription-choice-overlay" style={containerStyle} onClick={(e) => {
       if (e.target === e.currentTarget) {
         onClose();
       }
     }}>
-      <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h3 style={{ color: '#FFDCDCFF', margin: 0, fontSize: '20px' }}>
+      <div className="subscription-choice-modal" style={modalStyle} onClick={(e) => e.stopPropagation()}>
+        {/* Background Animation */}
+        <div className="background-animation">
+          <div className="floating-orb choice-orb-1"></div>
+          <div className="floating-orb choice-orb-2"></div>
+        </div>
+
+        <div className="choice-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h3 className="choice-title" style={{ color: '#FFDCDCFF', margin: 0, fontSize: '20px' }}>
             Choose Your Path
           </h3>
-          <button onClick={onClose} style={{ 
+          <button onClick={onClose} className="choice-close-button" style={{ 
             background: 'none', 
             border: 'none', 
             color: '#FFDCDCFF', 
@@ -70,34 +76,40 @@ const SubscriptionChoice = ({ onSubscribe, onUseAPI, onClose, onRefreshSubscript
           </button>
         </div>
 
-        <p style={{ color: 'rgba(255, 220, 220, 0.8)', marginBottom: '24px', textAlign: 'center' }}>
-          Your free trial has ended. Choose how you'd like to continue:
-        </p>
+        <div className="choice-content">
+          <p className="choice-subtitle" style={{ color: 'rgba(255, 220, 220, 0.8)', marginBottom: '24px', textAlign: 'center' }}>
+            Your free trial has ended. Choose how you'd like to continue:
+          </p>
 
-        <button
-          onClick={onSubscribe}
-          style={{
-            ...buttonStyle,
-            backgroundColor: '#3b82f6',
-            color: 'white'
-          }}
-        >
-          <FaStar />
-          Subscribe to Premium
-        </button>
+          <div className="choice-options">
+            <button
+              onClick={onSubscribe}
+              className="choice-option choice-button choice-primary-button"
+              style={{
+                ...buttonStyle,
+                backgroundColor: '#3b82f6',
+                color: 'white'
+              }}
+            >
+              <FaStar />
+              Subscribe to Premium
+            </button>
 
-        <button
-          onClick={handleUseAPI}
-          style={{
-            ...buttonStyle,
-            backgroundColor: 'transparent',
-            color: '#FFDCDCFF',
-            border: '1px solid rgba(255, 220, 220, 0.3)'
-          }}
-        >
-          <FaKey />
-          Use Your Own API Keys
-        </button>
+            <button
+              onClick={handleUseAPI}
+              className="choice-option choice-button choice-secondary-button"
+              style={{
+                ...buttonStyle,
+                backgroundColor: 'transparent',
+                color: '#FFDCDCFF',
+                border: '1px solid rgba(255, 220, 220, 0.3)'
+              }}
+            >
+              <FaKey />
+              Use Your Own API Keys
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
