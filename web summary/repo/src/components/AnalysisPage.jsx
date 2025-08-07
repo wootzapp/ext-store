@@ -2,6 +2,13 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { truncateUrl } from '../utils/urlUtils';
 
+// Helper function to open URLs in new Chrome tabs
+const openInNewTab = (url) => {
+  if (typeof chrome !== 'undefined' && chrome.tabs) {
+    chrome.tabs.create({ url: url });
+  }
+};
+
 const AnalysisPage = ({ 
   analysisData, 
   currentPageUrl, 

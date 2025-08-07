@@ -7,8 +7,6 @@ chrome.runtime.onStartup.addListener(() => {
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('Extension installed/updated', new Date().toISOString());
-  console.log('Web Summary extension installed');
-  console.log('Extension ID:', chrome.runtime.id);
   setupAlarm();
   setupTabListeners();
 });
@@ -17,7 +15,6 @@ function setupAlarm() {
   chrome.alarms.create('keepAlive', {
     delayInMinutes: 0.5,
     periodInMinutes: 0.5
-    
   });
   
   chrome.alarms.onAlarm.addListener((alarm) => {
@@ -27,62 +24,41 @@ function setupAlarm() {
   });
 }
 
-// Add Wootz-specific dropdown button listener
 if (typeof chrome.wootz !== 'undefined' && chrome.wootz.onDropdownButtonClicked) {
-  console.log('🎯 SETTING UP: chrome.wootz.onDropdownButtonClicked listener');
-  
   chrome.wootz.onDropdownButtonClicked.addListener(async (eventData) => {
-    console.log('🔥 WOOTZ DROPDOWN BUTTON CLICKED!');
-    console.log('🔥 Selected Feature:', eventData.selectedFeature);
-    
-    // Check if API key is configured before navigating to AI features
     const isSetupComplete = await StorageUtils.isSetupCompleted();
-    console.log('🔍 WOOTZ: Setup completed:', isSetupComplete);
     
     let targetRoute;
-    const needsAI = ['Ai research', 'page analysis', 'fact checker'].includes(eventData.selectedFeature);
+    const needsAI = ['AI Research', 'Page Analysis', 'Fact Checker'].includes(eventData.selectedFeature);
     
     if (needsAI && !isSetupComplete) {
-      console.log('🔍 WOOTZ: AI feature requested but setup not completed, redirecting to model selection');
       targetRoute = '/model-selection';
     } else {
-      targetRoute = eventData.selectedFeature === 'Ai research' ? '/research' : 
-                   eventData.selectedFeature === 'page analysis' ? '/analysis' :
-                   eventData.selectedFeature === 'fact checker' ? '/fact-checker' : '/landing';
+      targetRoute = eventData.selectedFeature === 'AI Research' ? '/research' : 
+                   eventData.selectedFeature === 'Page Analysis' ? '/analysis' :
+                   eventData.selectedFeature === 'Fact Checker' ? '/fact-checker' : '/landing';
     }
-    
-    // Handle navigation based on the selected feature
     const directMessage = {
       type: 'navigateToRoute',
       route: targetRoute,
       feature: eventData.selectedFeature,
       setupRequired: needsAI && !isSetupComplete,
       originalRoute: needsAI && !isSetupComplete ? 
-        (eventData.selectedFeature === 'Ai research' ? '/research' : 
-         eventData.selectedFeature === 'page analysis' ? '/analysis' :
-         eventData.selectedFeature === 'fact checker' ? '/fact-checker' : '/research') : undefined,
+        (eventData.selectedFeature === 'AI Research' ? '/research' : 
+         eventData.selectedFeature === 'Page Analysis' ? '/analysis' :
+         eventData.selectedFeature === 'Fact Checker' ? '/fact-checker' : '/research') : undefined,
       timestamp: new Date().toISOString()
     };
     
-    console.log('🔥 WOOTZ NAVIGATION: Sending direct navigation message:', directMessage);
-    
-    // Send directly to popup
     chrome.runtime.sendMessage(directMessage).catch((error) => {
-      console.log('🔥 WOOTZ NAVIGATION: Direct message error (normal if popup closed):', error.message);
+      console.log('Direct message error (normal if popup closed):', error.message);
     });
     
-    // Store for popup to read if it opens later
     chrome.storage.local.set({
       pendingRouteMessage: directMessage,
       pendingRouteTimestamp: Date.now()
     });
-    
-    console.log('🔥 WOOTZ NAVIGATION: Route processing complete for feature:', eventData.selectedFeature);
   });
-  
-  console.log('✅ WOOTZ LISTENER: chrome.wootz.onDropdownButtonClicked listener added successfully');
-} else {
-  console.log('⚠️ WOOTZ API: onDropdownButtonClicked not available, using fallback Chrome message routing');
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -109,7 +85,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       break;
       
     case 'domCaptured':
-      
       const currentPageData = {
         currentPage: {
           url: message.data.url,
@@ -192,7 +167,6 @@ function clearStorageForNewPage() {
 function askContentForCurrentUrl(tabId = null) {
   if (!tabId) {
     chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-      
       if (tabs.length > 0) {
         requestUrlFromContent(tabs[0].id);
       }
@@ -241,12 +215,8 @@ import StorageUtils from './utils/storageUtils.js';
 
 async function handleChatMessage(message, sendResponse) {
   try {
-    console.log('🤖 BACKGROUND: Processing chat message:', message);
-    
-    // Check if setup is completed before processing
     const isSetupComplete = await StorageUtils.isSetupCompleted();
     if (!isSetupComplete) {
-      console.log('🤖 BACKGROUND: AI service not configured for chat');
       sendResponse({
         success: false,
         reply: 'AI service not configured. Please set up your API key and model selection in the extension settings.',
@@ -255,22 +225,16 @@ async function handleChatMessage(message, sendResponse) {
       return;
     }
     
-    console.log('🤖 BACKGROUND: Setup validated, calling generateChatResponse...');
-    // Generate chat response using the AI service
     const result = await aiService.generateChatResponse(message);
-    console.log('🤖 BACKGROUND: AI service response:', result);
     
     if (result.success) {
-      console.log('🤖 BACKGROUND: Chat response successful, sending reply');
       sendResponse({
         success: true,
         reply: result.reply,
         timestamp: new Date().toISOString()
       });
     } else {
-      // Use the error message from the AI service if available
       const errorMessage = result.message || result.error || 'Sorry, I encountered an error processing your message. Please try again.';
-      console.log('🤖 BACKGROUND: Chat response failed:', errorMessage);
       sendResponse({
         success: false,
         reply: errorMessage,
@@ -279,9 +243,8 @@ async function handleChatMessage(message, sendResponse) {
     }
     
   } catch (error) {
-    console.error('🤖 BACKGROUND: Error handling chat message:', error);
+    console.error('Error handling chat message:', error);
     
-    // Check if it's a configuration error
     if (error.message.includes('not configured')) {
       sendResponse({
         success: false,
@@ -303,8 +266,6 @@ async function processWithAI(domData) {
     console.log('Starting AI processing for:', domData.url);
     
     if (!aiService.validateApiKey()) {
-      console.log('No API key configured, skipping AI processing');
-
       const noApiKeyData = {
         aiResults: {
           url: domData.url,

@@ -2,6 +2,15 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { truncateUrl } from '../utils/urlUtils';
 
+// Helper function to open URLs in new Chrome tabs
+const openInNewTab = (url) => {
+  if (typeof chrome !== 'undefined' && chrome.tabs) {
+    chrome.tabs.create({ url: url });
+  } else {
+    console.log('🔗 Failed to open URL in new tab');
+  }
+};
+
 const FactChecker = ({ 
   factCheckData, 
   currentPageUrl, 
@@ -226,14 +235,12 @@ const FactChecker = ({
                 <div className="space-y-3">
                   {factCheckData.sources.map((source, index) => (
                     <div key={index} className="text-xs">
-                      <a 
-                        href={source.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-700 underline break-all font-medium"
+                      <button 
+                        onClick={() => openInNewTab(source.url)}
+                        className="text-blue-600 hover:text-blue-700 underline break-all font-medium cursor-pointer bg-transparent border-none p-0 text-left"
                       >
                         {source.title || source.url}
-                      </a>
+                      </button>
                       {source.description && (
                         <p className="text-gray-600 mt-1">{source.description}</p>
                       )}

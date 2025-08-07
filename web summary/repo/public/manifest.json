@@ -24,9 +24,9 @@
   ],
   "action": {
     "features": [
-      "Ai research",
-      "page analysis",
-      "fact checker"
+      "AI Research",
+      "Page Analysis",
+      "Fact Checker"
     ],
     "default_popup": "popup.html",
     "default_title": "Web Summary"

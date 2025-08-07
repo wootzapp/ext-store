@@ -2,6 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 
+// Helper function to open URLs in new Chrome tabs
+const openInNewTab = (url) => {
+  if (typeof chrome !== 'undefined' && chrome.tabs) {
+    chrome.tabs.create({ url: url });
+  }
+};
+
 const ResearchDisplay = React.memo(({ 
   researchResults, 
   isLoading, 
@@ -132,14 +139,12 @@ const ResearchDisplay = React.memo(({
               <p className="text-gray-500 text-xs">Method: {source.methodology}</p>
             )}
             {source.doi_or_url && (
-              <a 
-                href={source.doi_or_url} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-700 text-xs underline font-medium"
+              <button 
+                onClick={() => openInNewTab(source.doi_or_url)}
+                className="text-blue-600 hover:text-blue-700 text-xs underline font-medium cursor-pointer bg-transparent border-none p-0"
               >
                 {source.doi_or_url.includes('doi') ? 'DOI Link' : 'Source Link'}
-              </a>
+              </button>
             )}
           </div>
         ))}
@@ -187,14 +192,12 @@ const ResearchDisplay = React.memo(({
               </div>
             )}
             {article.url && (
-              <a 
-                href={article.url} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-700 text-xs underline font-medium"
+              <button 
+                onClick={() => openInNewTab(article.url)}
+                className="text-blue-600 hover:text-blue-700 text-xs underline font-medium cursor-pointer bg-transparent border-none p-0"
               >
                 Read Article
-              </a>
+              </button>
             )}
           </div>
         ))}
