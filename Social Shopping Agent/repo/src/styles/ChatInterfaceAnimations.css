@@ -233,7 +233,7 @@
 
 /* Welcome Message Animation */
 .welcome-message {
-  animation: fadeInScale 0.8s ease-out 0.7s both;
+  animation: fadeInScale 0.2s ease-out 0.2s both;
 }
 
 .welcome-features {

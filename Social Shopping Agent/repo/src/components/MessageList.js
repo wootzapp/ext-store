@@ -74,7 +74,7 @@ const MessageList = ({ messages, onTemplateClick, isTyping }) => {
           fontStyle: 'italic',
           border: '1px solid #ffeaa7',
           textAlign: 'left',
-          maxWidth: '88%',
+          maxWidth: '80%', 
           margin: '2px 8px',
           animation: 'fadeIn 0.3s ease-out',
           boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
@@ -87,7 +87,7 @@ const MessageList = ({ messages, onTemplateClick, isTyping }) => {
           alignSelf: 'center',
           border: '1px solid #f5c6cb',
           textAlign: 'left',
-          maxWidth: '88%',
+          maxWidth: '80%', 
           fontSize: '11px',
           margin: '2px 8px',
           animation: 'shake 0.5s ease-out',
@@ -494,8 +494,7 @@ const MessageList = ({ messages, onTemplateClick, isTyping }) => {
                 >
                   {message.content}
                 </ReactMarkdown>
-              ) : (
-                              message.type === 'error' ? (
+              ) : message.type === 'error' ? (
                 <ReactMarkdown 
                   components={markdownComponents}
                   remarkPlugins={[remarkGfm]}
@@ -503,8 +502,9 @@ const MessageList = ({ messages, onTemplateClick, isTyping }) => {
                 >
                   {message.content}
                 </ReactMarkdown>
-              ) : message.content
-            )}
+              ) : (
+                message.content
+              )}
             </div>
             {message.actions && message.actions.length > 0 && (
               <div style={{ 

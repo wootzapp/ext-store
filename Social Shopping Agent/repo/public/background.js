@@ -225,6 +225,13 @@ class BackgroundTaskManager {
     } catch (error) {
       console.error(`❌ BackgroundTaskManager error: ${taskId}`, error);
       
+      // Clear element highlighting on error
+      if (executor && typeof executor.clearElementHighlighting === 'function') {
+        executor.clearElementHighlighting().catch(err => 
+          console.warn('Failed to clear highlighting on error:', err)
+        );
+      }
+      
       // Clear execution state from storage on error
       chrome.storage.local.set({
         isExecuting: false,
@@ -266,6 +273,14 @@ class BackgroundTaskManager {
     const task = this.runningTasks.get(taskId);
     if (task && task.executor) {
       console.log(`🛑 BackgroundTaskManager cancelling: ${taskId}`);
+      
+      // Clear element highlighting when cancelling
+      if (typeof task.executor.clearElementHighlighting === 'function') {
+        task.executor.clearElementHighlighting().catch(err => 
+          console.warn('Failed to clear highlighting on cancel:', err)
+        );
+      }
+      
       task.executor.cancel();
       task.status = 'cancelled';
       task.endTime = Date.now();
@@ -885,6 +900,18 @@ class MultiAgentExecutor {
             console.log('📋 Batch completed successfully, continuing without validation...');
           }
 
+          // Check if task should be completed after executing batch actions
+          if (!taskCompleted && this.currentBatchPlan && this.currentBatchPlan.done) {
+            console.log('🎯 Task marked as complete by planner after executing batch actions');
+            taskCompleted = true;
+            finalResult = {
+              success: true,
+              response: `✅ ${this.currentBatchPlan.completion_criteria || this.currentBatchPlan.reasoning}`,
+              steps: this.currentStep,
+              isMarkdown: true 
+            };
+          }
+
           // If not complete, call PlannerAgent for next batch
           if (!taskCompleted) {
             const currentState = await this.getCurrentState();
@@ -913,12 +940,14 @@ class MultiAgentExecutor {
               });
             }
             
-            if (plan.done) {
+            // If planner says done AND there are no batch actions to execute, complete the task
+            if (plan.done && (!this.actionQueue || this.actionQueue.length === 0)) {
               taskCompleted = true;
               finalResult = {
                 success: true,
                 response: `✅ ${plan.completion_criteria || plan.reasoning}`,
-                steps: this.currentStep
+                steps: this.currentStep,
+                isMarkdown: true // Enable markdown formatting
               };
               break;
             }
@@ -1084,23 +1113,28 @@ class MultiAgentExecutor {
         };
       }
 
+      // Clear element highlighting on task completion
+      this.clearElementHighlighting().catch(err => 
+        console.warn('Failed to clear highlighting on completion:', err)
+      );
+
       // Broadcast final result
-      if (finalResult.success) {
-        connectionManager.broadcast({
-          type: 'task_complete',
-          result: finalResult
-        });
-      } else {
-        connectionManager.broadcast({
-          type: 'task_complete',
-          result: finalResult
-        });
-      }
+      finalResult.isMarkdown = true; 
+      
+      connectionManager.broadcast({
+        type: 'task_complete',
+        result: finalResult
+      });
 
       return finalResult;
 
     } catch (error) {
       console.error('❌ Universal multi-agent execution error:', error);
+      
+      // Clear element highlighting on error
+      this.clearElementHighlighting().catch(err => 
+        console.warn('Failed to clear highlighting on error:', err)
+      );
       
       // Use enhanced error formatting for better user experience
       const userFriendlyError = this.formatErrorForUser(error);
@@ -1295,6 +1329,25 @@ class MultiAgentExecutor {
     }
     
     return results;
+  }
+
+  // Clear element highlighting by calling getPageState with debugMode: false
+  async clearElementHighlighting() {
+    try {
+      console.log('🧹 Clearing element highlighting from page');
+      
+      return new Promise((resolve) => {
+        chrome.wootz.getPageState({
+          debugMode: false,
+          includeHidden: false
+        }, (result) => {
+          console.log('✅ Element highlighting cleared');
+          resolve(result);
+        });
+      });
+    } catch (error) {
+      console.warn('⚠️ Failed to clear element highlighting:', error);
+    }
   }
 
   async getCurrentState() {
@@ -1692,6 +1745,10 @@ class MultiAgentExecutor {
   cancel() {
     console.log('🛑 Cancelling universal multi-agent execution');
     this.cancelled = true;
+    // Clear element highlighting when task is cancelled
+    this.clearElementHighlighting().catch(err => 
+      console.warn('Failed to clear highlighting on cancel:', err)
+    );
   }
 
   formatRecentActions(recentMessages = []) {
@@ -2867,6 +2924,13 @@ class BackgroundScriptAgent {
       
     } catch (error) {
       console.error('Intelligent task execution error:', error);
+      
+      // Clear element highlighting on error
+      if (this.multiAgentExecutor && typeof this.multiAgentExecutor.clearElementHighlighting === 'function') {
+        this.multiAgentExecutor.clearElementHighlighting().catch(err => 
+          console.warn('Failed to clear highlighting on error:', err)
+        );
+      }
       
       // Clear execution state from storage on error
       await chrome.storage.local.set({

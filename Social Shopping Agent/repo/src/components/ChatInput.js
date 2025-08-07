@@ -39,13 +39,9 @@ const ChatInput = ({
   };
 
   const handleKeyDown = (e) => { 
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && isExecuting) {
       e.preventDefault();
-      if (isExecuting) {
-        handleStop(e);
-      } else {
-        handleSubmit(e);
-      }
+      handleStop(e);
     }
   };
 

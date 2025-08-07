@@ -92,7 +92,7 @@ ${executionHistory.map((h, i) => {
 - Has Login: ${finalState.pageContext?.isLoggedIn || false}
 
 # **VISIBLE PAGE ELEMENTS (first 30 for better context)**
-${this.formatElements(finalState.interactiveElements?.slice(0, 40) || [])}
+${this.formatElements(finalState.interactiveElements?.slice(0, 30) || [])}
 
 # **PROGRESSIVE VALIDATION RULES:**
 
@@ -353,14 +353,10 @@ Break down the original task into logical components and assess each:
       return `[Index: ${el.index}] TagName: ${el.tagName || 'UNKNOWN'} {
     Category: ${el.category || 'unknown'}
     Purpose: ${el.purpose || 'general'} 
-    Type: ${el.type || 'unknown'}
     Selector: ${el.selector || 'none'}
     XPath: ${el.xpath || 'none'}
-    Interactive: ${el.isInteractive}, Visible: ${el.isVisible}
     TextContent: "${limitedTextContent}"
     Text: "${limitedText}"
-    Attributes: ${JSON.stringify(el.attributes || {})}
-    Bounds: ${JSON.stringify(el.bounds || {})}
 }`;
     }).join('\n\n');
   }

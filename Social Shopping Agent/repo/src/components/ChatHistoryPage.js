@@ -282,7 +282,7 @@ const ChatHistoryPage = () => {
                     transition: 'all 0.3s ease'
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <h4 style={{ 
                         margin: '0 0 8px 0',
@@ -318,7 +318,7 @@ const ChatHistoryPage = () => {
                         width: '2px',
                         height: '35px',
                         backgroundColor: 'rgba(255, 220, 220, 0.4)',
-                        margin: '0 6px'
+                        margin: '0 8px'
                       }}
                     />
                     <button
@@ -329,13 +329,15 @@ const ChatHistoryPage = () => {
                         border: 'none',
                         color: isDeleting ? 'rgba(224, 36, 94, 0.5)' : '#e0245e',
                         cursor: isDeleting ? 'not-allowed' : 'pointer',
-                        padding: '4px',
-                        fontSize: '14px',
+                        padding: '8px',
+                        fontSize: '16px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        borderRadius: '4px',
-                        transition: 'all 0.2s'
+                        borderRadius: '6px',
+                        transition: 'all 0.2s',
+                        minWidth: '32px',
+                        height: '32px'
                       }}
                       title="Delete Chat"
                     >
