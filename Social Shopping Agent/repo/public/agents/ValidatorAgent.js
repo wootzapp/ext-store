@@ -86,9 +86,7 @@ ${executionHistory.map((h, i) => {
 - URL: ${finalState.pageInfo?.url}
 - Title: ${finalState.pageInfo?.title}
 - Domain: ${this.extractDomain(finalState.pageInfo?.url)}
-- Platform: 'Android'
 - Page Type: ${finalState.pageContext?.pageType || 'unknown'}
-- Available Elements: ${finalState.interactiveElements?.length || 0}
 - Has Login: ${finalState.pageContext?.isLoggedIn || false}
 
 # **VISIBLE PAGE ELEMENTS (first 30 for better context)**
@@ -349,14 +347,60 @@ Break down the original task into logical components and assess each:
       
       const text = (el.text || '').trim();
       const limitedText = text.length > 80 ? text.substring(0, 80) + '...' : text;
+
+      // Limit selector length
+      const selector = (el.selector || 'none').trim();
+      const limitedSelector = selector.length > 150 ? selector.substring(0, 150) + '...' : selector;
+
+      // Limit XPath length
+      const xpath = (el.xpath || 'none').trim();
+      const limitedXPath = xpath.length > 150 ? xpath.substring(0, 150) + '...' : xpath;
+
+      // Process attributes to limit their length
+      const processedAttributes = {};
+      if (el.attributes) {
+        for (const [key, value] of Object.entries(el.attributes)) {
+          // Skip internal or redundant attributes
+          if (key.startsWith('_') || key === 'xpath' || key === 'selector') continue;
+          
+          // Skip empty or null values
+          if (!value) continue;
+          
+          // Convert value to string and limit length
+          const strValue = String(value);
+          if (key === 'href' || key === 'src' || key === 'data-url') {
+            // Limit URLs to 100 characters
+            processedAttributes[key] = strValue.length > 100 ? strValue.substring(0, 100) + '...' : strValue;
+          } else if (key === 'style' || key === 'class' || key.includes('data-')) {
+            // Limit style/class/data attributes to 50 characters
+            processedAttributes[key] = strValue.length > 50 ? strValue.substring(0, 50) + '...' : strValue;
+          } else {
+            // Limit other attributes to 80 characters
+            processedAttributes[key] = strValue.length > 80 ? strValue.substring(0, 80) + '...' : strValue;
+          }
+        }
+      }
+
+      // Process bounds to ensure they're concise
+      const bounds = el.bounds || {};
+      const simplifiedBounds = {
+        x: Math.round(bounds.x || 0),
+        y: Math.round(bounds.y || 0),
+        width: Math.round(bounds.width || 0),
+        height: Math.round(bounds.height || 0)
+      };
       
       return `[Index: ${el.index}] TagName: ${el.tagName || 'UNKNOWN'} {
     Category: ${el.category || 'unknown'}
     Purpose: ${el.purpose || 'general'} 
-    Selector: ${el.selector || 'none'}
-    XPath: ${el.xpath || 'none'}
+    Type: ${el.type || 'unknown'}
+    Selector: ${limitedSelector}
+    XPath: ${limitedXPath}
+    Interactive: ${el.isInteractive}, Visible: ${el.isVisible}
     TextContent: "${limitedTextContent}"
     Text: "${limitedText}"
+    Attributes: ${JSON.stringify(processedAttributes)}
+    Bounds: ${JSON.stringify(simplifiedBounds)}
 }`;
     }).join('\n\n');
   }

@@ -2755,6 +2755,7 @@ class BackgroundScriptAgent {
         // Store execution state in chrome.storage.local
         await chrome.storage.local.set({
           isExecuting: true,
+          isTyping: true,
           activeTaskId: taskId,
           taskStartTime: Date.now(),
           sessionId: this.connectionManager.getCurrentSession()
@@ -2774,9 +2775,11 @@ class BackgroundScriptAgent {
           // Clear execution state from storage
           await chrome.storage.local.set({
             isExecuting: false,
+            isTyping: false,
             activeTaskId: null,
             taskStartTime: null,
-            sessionId: null
+            sessionId: null,
+            taskStatus: null
           });
           
           this.connectionManager.broadcast({
@@ -2807,6 +2810,8 @@ class BackgroundScriptAgent {
           activeTaskId: null,
           taskStartTime: null,
           sessionId: null,
+          taskStatus: null,
+          isTyping: false,
           chatHistory: [] // Only clear current chat
         });
         
@@ -2829,12 +2834,20 @@ class BackgroundScriptAgent {
         const status = await this.getAgentStatus();
         
         // Also send execution state from storage
-        const executionState = await chrome.storage.local.get(['isExecuting', 'activeTaskId', 'sessionId']);
+        const executionState = await chrome.storage.local.get([
+          'isExecuting', 
+          'activeTaskId', 
+          'sessionId',
+          'isTyping',
+          'taskStatus'
+        ]);
         
         this.connectionManager.safePortMessage(port, {
           type: 'status_response',
           status: status,
           isExecuting: executionState.isExecuting || false,
+          isTyping: executionState.isTyping || false,
+          taskStatus: executionState.taskStatus || null,
           activeTaskId: executionState.activeTaskId || null,
           sessionId: executionState.sessionId || this.connectionManager.getCurrentSession()
         });

@@ -29,6 +29,7 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
   const historyId = urlParams.get('history');
   
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
+  // eslint-disable-next-line no-unused-vars
   const { messages, addMessage, clearMessages, loading, saveCurrentChat } = useChat(historyId);
   const [isExecuting, setIsExecuting] = useState(false);
   const [taskStatus, setTaskStatus] = useState(null);
@@ -51,6 +52,7 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
   };
 
   // Helper function to check if API keys are configured
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const hasApiKeysConfigured = () => {
     return !!(config.anthropicApiKey || config.openaiApiKey || config.geminiApiKey);
   };
@@ -95,6 +97,10 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
           }
           portRef.current = null;
         }
+
+        setIsExecuting(false);
+        setIsTyping(false);
+        setTaskStatus(null);
 
         // Create new connection
         portRef.current = chrome.runtime.connect({ name: 'popup-connection' });
@@ -159,7 +165,12 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
               // Handle execution state from background
               if (message.isExecuting) {
                 setIsExecuting(true);
-                setTaskStatus({ status: 'executing', message: 'Task in progress...' });
+                setIsTyping(message.isTyping || false);
+                if (message.taskStatus) {
+                  setTaskStatus(message.taskStatus);
+                } else {
+                  setTaskStatus({ status: 'executing', message: 'Task in progress...' });
+                }
               }
               break;
 
@@ -184,6 +195,7 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
 
             case 'task_start':
               setIsExecuting(true);
+              setIsTyping(true);
               setTaskStatus({ status: 'starting', message: 'Task started...' });
               addMessage({
                 type: 'system',
@@ -193,6 +205,8 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
               break;
               
             case 'status_update':
+              setIsExecuting(true); 
+              setIsTyping(true);
               setTaskStatus({ 
                 status: 'executing', 
                 message: message.message 
@@ -261,7 +275,9 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
 
           console.log('Port disconnected');
           setConnectionStatus('disconnected');
-          setIsExecuting(false);
+          setIsExecuting(false); 
+          setIsTyping(false); 
+          setTaskStatus(null); 
           isConnectingRef.current = false;
           portRef.current = null;
 

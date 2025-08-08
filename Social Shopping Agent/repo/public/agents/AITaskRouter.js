@@ -185,29 +185,58 @@ Always provide complete, well-formatted responses!
     return 'general';
   }
 
-  // Format elements for context display in prompts
+  // Format elements for context display in prompts with optimized token usage
   formatElementsForContext(elements) {
     if (!elements || elements.length === 0) return "No elements found";
     
     return elements.map(el => {
-      // Limit text content to prevent token explosion
       const textContent = (el.textContent || '').trim();
       const limitedTextContent = textContent.length > 100 ? textContent.substring(0, 100) + '...' : textContent;
       
       const text = (el.text || '').trim();
       const limitedText = text.length > 100 ? text.substring(0, 100) + '...' : text;
+
+      // Limit selector length
+      const selector = (el.selector || 'none').trim();
+      const limitedSelector = selector.length > 150 ? selector.substring(0, 150) + '...' : selector;
+
+      // Limit XPath length
+      const xpath = (el.xpath || 'none').trim();
+      const limitedXPath = xpath.length > 150 ? xpath.substring(0, 150) + '...' : xpath;
+
+      // Process attributes to limit their length
+      const processedAttributes = {};
+      if (el.attributes) {
+        for (const [key, value] of Object.entries(el.attributes)) {
+          // Skip internal or redundant attributes
+          if (key.startsWith('_') || key === 'xpath' || key === 'selector') continue;
+          
+          // Convert value to string and limit length
+          const strValue = String(value || '');
+          processedAttributes[key] = strValue.length > 100 ? strValue.substring(0, 100) + '...' : strValue;
+        }
+      }
+
+      // Process bounds to ensure they're concise
+      const bounds = el.bounds || {};
+      const simplifiedBounds = {
+        x: Math.round(bounds.x || 0),
+        y: Math.round(bounds.y || 0),
+        width: Math.round(bounds.width || 0),
+        height: Math.round(bounds.height || 0)
+      };
       
       return `[Index: ${el.index}] TagName: ${el.tagName || 'UNKNOWN'} {
     Category: ${el.category || 'unknown'}
     Purpose: ${el.purpose || 'general'} 
     Type: ${el.type || 'unknown'}
-    Selector: ${el.selector || 'none'}
-    XPath: ${el.xpath || 'none'}
+    Selector: ${limitedSelector}
+    XPath: ${limitedXPath}
     Interactive: ${el.isInteractive}, Visible: ${el.isVisible}
     TextContent: "${limitedTextContent}"
     Text: "${limitedText}"
-    Attributes: ${JSON.stringify(el.attributes || {})}
-    Bounds: ${JSON.stringify(el.bounds || {})}
+    Attributes: ${JSON.stringify(processedAttributes)}
+    Bounds: ${JSON.stringify(simplifiedBounds)}
 }`;
     }).join('\n\n');
   }
