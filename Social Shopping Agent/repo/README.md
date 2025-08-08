@@ -1,70 +1,234 @@
-# Getting Started with Create React App
+# 🤖 AI Social Shopping Agent
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+An intelligent Chrome/Wootz browser extension that automates web tasks using advanced AI agents. Perfect for social media automation, e-commerce shopping, content discovery, and general web navigation tasks.
 
-## Available Scripts
+![AI Social Shopping Agent](https://img.shields.io/badge/AI%20Agent-Browser%20Extension-blue)
+![Version](https://img.shields.io/badge/version-1.0.0-green)
+![React](https://img.shields.io/badge/React-18.2.0-61DAFB)
 
-In the project directory, you can run:
+## 🌟 Key Features
 
-### `npm start`
+### 🧠 **Multi-Agent AI System**
+- **AI Task Router**: Intelligently classifies user requests (chat vs web automation)
+- **Planner Agent**: Creates strategic batch execution plans (2-7 sequential actions)
+- **Navigator Agent**: Executes precise web interactions with mobile optimization
+- **Validator Agent**: Validates task completion with progressive assessment
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### 🚀 **Smart Web Automation**
+- **Social Media**: Automated posting on X/Twitter, LinkedIn, Facebook
+- **E-commerce**: Product search, shopping cart management, order placement
+- **Content Discovery**: YouTube video search and playback, research tasks
+- **Universal Navigation**: Intelligent URL routing and page interaction
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### 💬 **Interactive Chat Interface**
+- **Real-time Communication**: Chat with AI agents during task execution
+- **Task Status Tracking**: Live updates with observation and strategy display
+- **Chat History**: Persistent conversation storage with search functionality
+- **Markdown Support**: Rich text formatting for code, links, and emphasis
 
-### `npm test`
+### 📱 **Mobile-Optimized Design**
+- **Responsive UI**: Optimized for Android browser extensions
+- **Touch-Friendly**: Large buttons and intuitive mobile interactions
+- **Element Highlighting**: Visual feedback during automation (with auto-cleanup)
+- **Progress Tracking**: Real-time task completion indicators
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## 🔧 Installation & Setup
 
-### `npm run build`
+### Prerequisites
+- **Wootz Browser** or **Chrome Browser** (with developer mode enabled)
+- **Node.js** (v16 or higher)
+- **npm** or **yarn** package manager
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### 1. Clone & Install Dependencies
+```bash
+# Clone the repository
+git clone <repository-url>
+cd ai-social-agent
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+# Install dependencies
+npm install
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### 2. Build the Extension
+```bash
+# Build for production
+npm run build:extension
 
-### `npm run eject`
+# Or for development with watch mode
+npm run dev:webpack
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### 3. Load Extension in Browser
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+#### For Wootz Browser:
+1. Open Wootz Browser
+2. Navigate to `wootz://extensions/`
+3. Enable **Developer mode** (top-right toggle)
+4. Click **Load unpacked**
+5. Select the `build/` directory from your project
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+#### For Chrome Browser:
+1. Open Chrome Browser
+2. Navigate to `chrome://extensions/`
+3. Enable **Developer mode** (top-right toggle)
+4. Click **Load unpacked**
+5. Select the `build/` directory from your project
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### 4. Configure AI API Keys
 
-## Learn More
+1. Click the extension icon in your browser toolbar
+2. Go to **Settings** (gear icon)
+3. Configure your preferred AI provider:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+#### Option A: Google Gemini (Recommended)
+- **Provider**: Select "Gemini"
+- **API Key**: Get from [Google AI Studio](https://makersuite.google.com/app/apikey)
+- **Model**: `gemini-2.5-flash` (default) or `gemini-pro`
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+#### Option B: Anthropic Claude
+- **Provider**: Select "Claude"
+- **API Key**: Get from [Anthropic Console](https://console.anthropic.com/)
+- **Model**: `claude-3-haiku` or `claude-3-sonnet`
 
-### Code Splitting
+#### Option C: OpenAI GPT-4o
+- **Provider**: Select "OpenAI"
+- **API Key**: Get from [OpenAI Console](https://platform.openai.com/api-keys)
+- **Model**: `gpt-4o` (default) or `gpt-4o-mini`
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## 🎯 How to Use
 
-### Analyzing the Bundle Size
+### 💬 **Chat Mode**
+Ask general questions, get explanations, or request code examples:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+```
+Examples:
+• "What is machine learning?"
+• "Write a JavaScript function to sort an array"
+• "Explain how REST APIs work"
+• "Help me understand React hooks"
+```
 
-### Making a Progressive Web App
+### 🤖 **Web Automation Mode**
+Request specific web actions using natural language:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+#### Social Media Automation
+```
+Examples:
+• "Post 'Hello World!' on Twitter"
+• "Search for AI tutorials on YouTube and play the first video"
+• "Find trending topics on LinkedIn"
+• "Share my latest blog post on Facebook"
+```
 
-### Advanced Configuration
+#### E-commerce & Shopping
+```
+Examples:
+• "Find iPhone 15 on Amazon and add to cart"
+• "Search for wireless headphones under $100"
+• "Compare prices of laptops on different sites"
+• "Add the first Labubu doll to my shopping cart"
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+#### Research & Content Discovery
+```
+Examples:
+• "Search for latest AI news on Google"
+• "Find reviews of the new Tesla Model 3"
+• "Look up restaurants near me on Yelp"
+• "Find cooking tutorials on YouTube"
+```
 
-### Deployment
+#### Web Navigation
+```
+Examples:
+• "Go to Gmail and check my inbox"
+• "Open Netflix and browse comedy movies"
+• "Navigate to my bank's website"
+• "Visit the latest news on BBC"
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+### 🔄 **Task Execution Flow**
 
-### `npm run build` fails to minify
+1. **Input**: Type your request in natural language
+2. **Classification**: AI determines if it's a chat or automation task
+3. **Planning**: Planner Agent creates an optimal execution strategy
+4. **Execution**: Navigator Agent performs actions with real-time updates
+5. **Validation**: Validator Agent confirms task completion
+6. **Feedback**: Get detailed results and next steps
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## 🛠️ Development
+
+### Project Structure
+```
+ai-social-agent/
+├── public/                 # Extension files
+│   ├── agents/            # AI agent implementations
+│   │   ├── AITaskRouter.js    # Request classification
+│   │   ├── PlannerAgent.js    # Task planning
+│   │   ├── NavigatorAgent.js  # Action execution
+│   │   └── ValidatorAgent.js  # Completion validation
+│   ├── background.js      # Service worker
+│   ├── manifest.json      # Extension manifest
+│   └── index.html         # Popup HTML
+├── src/                   # React frontend
+│   ├── components/        # UI components
+│   ├── hooks/            # Custom React hooks
+│   ├── services/         # API services
+│   └── styles/           # CSS and animations
+└── build/                # Built extension (generated)
+```
+
+### Available Scripts
+
+```bash
+# Development
+npm start              # Start React dev server
+npm run dev:webpack    # Watch mode for extension files
+
+# Building
+npm run build          # Build React app
+npm run build:webpack  # Build extension files
+npm run build:extension # Complete extension build
+
+# Testing
+npm test              # Run test suite
+```
+
+## 🚨 Troubleshooting
+
+### Common Issues
+
+#### Extension Not Loading
+- Ensure Developer mode is enabled
+- Check console for error messages
+- Verify all files are in the `build/` directory
+- Try reloading the extension
+
+#### AI API Errors
+- Verify API key is correct and active
+- Check internet connection
+- Ensure API provider has sufficient quota
+- Try switching to a different model
+
+#### Automation Failures
+- Enable Debug mode for detailed logs
+- Check if website structure has changed
+- Verify element highlighting works
+- Try manual execution first
+
+### Error Codes
+- **401**: Invalid API key
+- **429**: Rate limit exceeded
+- **500**: Server error
+- **TIMEOUT**: Action took too long
+- **ELEMENT_NOT_FOUND**: Page structure changed
+
+## 🔒 Privacy & Security
+
+- **Local Storage**: Chat history stored locally in browser
+- **API Communication**: Direct communication with AI providers
+- **No Data Collection**: Extension doesn't collect personal data
+- **Secure Headers**: All API calls use secure authentication
+- **Permission Model**: Minimal required permissions
+
+

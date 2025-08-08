@@ -27,7 +27,10 @@
   },
   "action": {
     "default_popup": "index.html",
-    "default_title": "Social Shopping Agent"
+    "default_title": "Social Shopping Agent",
+    "features": [
+      "Social Shopping Agent"
+    ]
   },
   "icons": {
     "16": "icons/icon.png",
