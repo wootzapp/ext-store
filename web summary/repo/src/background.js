@@ -1,4 +1,7 @@
 
+import aiService from './utils/aiService.js';
+import StorageUtils from './utils/storageUtils.js';
+
 console.log('Background script loaded');
 
 chrome.runtime.onStartup.addListener(() => {
@@ -32,7 +35,7 @@ if (typeof chrome.wootz !== 'undefined' && chrome.wootz.onDropdownButtonClicked)
     const needsAI = ['AI Research', 'Page Analysis', 'Fact Checker'].includes(eventData.selectedFeature);
     
     if (needsAI && !isSetupComplete) {
-      targetRoute = '/model-selection';
+      targetRoute = '/settings';
     } else {
       targetRoute = eventData.selectedFeature === 'AI Research' ? '/research' : 
                    eventData.selectedFeature === 'Page Analysis' ? '/analysis' :
@@ -134,6 +137,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       break;
       
     default:
+      console.log('Unknown message type:', message.type);
       break;
   }
   
@@ -209,9 +213,6 @@ function injectContentScript(tabId) {
     console.log('Could not inject content script:', err);
   });
 }
-
-import aiService from './utils/aiService.js';
-import StorageUtils from './utils/storageUtils.js';
 
 async function handleChatMessage(message, sendResponse) {
   try {

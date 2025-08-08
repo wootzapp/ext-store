@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
+import SettingsButton from './SettingsButton';
 
 // Helper function to open URLs in new Chrome tabs
 const openInNewTab = (url) => {
@@ -23,6 +24,7 @@ const ResearchDisplay = React.memo(({
   onStopResearch,
   onAnalysePage,
   onFactChecker,
+  onSettingsClick,
   inputRef 
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -392,7 +394,8 @@ const ResearchDisplay = React.memo(({
       {/* Header */}
       <div className="bg-white/90 backdrop-blur-sm text-gray-800 p-4 shadow-sm relative z-10 border-b border-gray-200">
         <div className="flex items-center justify-between">
-          <div className="flex items-center">
+          <div className="flex items-center space-x-2">
+            <SettingsButton onSettingsClick={onSettingsClick} />
             <h2 className="text-lg font-bold text-gray-800">AI Researcher</h2>
           </div>
           <div className="flex space-x-2">

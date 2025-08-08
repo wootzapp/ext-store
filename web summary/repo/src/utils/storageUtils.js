@@ -4,8 +4,43 @@ const STORAGE_KEYS = {
   USER_PREFERENCES: 'userPreferences',
   SELECTED_MODEL: 'selectedModel',
   API_KEYS: 'apiKeys',
-  SETUP_COMPLETED: 'setupCompleted'
+  SETUP_COMPLETED: 'setupCompleted',
+  SELECTED_SEARCH_ENGINE: 'selectedSearchEngine'
 };
+
+// Search engine configurations
+export const SEARCH_ENGINES = [
+  {
+    id: 'google',
+    name: 'Google',
+    description: 'Most popular search engine worldwide',
+    keyword: 'google.com'
+  },
+  {
+    id: 'yahoo',
+    name: 'Yahoo',
+    description: 'Web search with news and email integration',
+    keyword: 'yahoo.com'
+  },
+  {
+    id: 'bing',
+    name: 'Bing',
+    description: 'Microsoft\'s search engine with AI integration',
+    keyword: 'bing.com'
+  },
+  {
+    id: 'yandex',
+    name: 'Yandex',
+    description: 'Russian search engine with advanced features',
+    keyword: 'yandex.com'
+  },
+  {
+    id: 'duckduckgo',
+    name: 'DuckDuckGo',
+    description: 'Privacy-focused search without tracking',
+    keyword: 'duckduckgo.com'
+  }
+];
 
 // Default model configurations
 export const SUPPORTED_MODELS = {
@@ -20,7 +55,8 @@ export const SUPPORTED_MODELS = {
     timeout: 120000,
     keyPlaceholder: 'Enter your Google Gemini API key...',
     getApiUrl: 'https://aistudio.google.com/app/apikey',
-    instructions: 'Get your free API key from Google AI Studio. Sign in with your Google account and generate a new API key.'
+    instructions: 'Get your free API key from Google AI Studio. Sign in with your Google account and generate a new API key.',
+    baseUrlToSearch: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
   },
   'openai': {
     id: 'openai',
@@ -33,7 +69,8 @@ export const SUPPORTED_MODELS = {
     timeout: 60000,
     keyPlaceholder: 'Enter your OpenAI API key (starts with sk-)...',
     getApiUrl: 'https://platform.openai.com/api-keys',
-    instructions: 'Get your API key from OpenAI Platform. You\'ll need to add credit to your account to use the API.'
+    instructions: 'Get your API key from OpenAI Platform. You\'ll need to add credit to your account to use the API.',
+    baseUrlToSearch: 'https://api.openai.com/v1/chat/completions'
   },
   'anthropic': {
     id: 'anthropic',
@@ -46,7 +83,8 @@ export const SUPPORTED_MODELS = {
     timeout: 60000,
     keyPlaceholder: 'Enter your Anthropic API key (starts with sk-ant-)...',
     getApiUrl: 'https://console.anthropic.com/account/keys',
-    instructions: 'Get your API key from Anthropic Console. Sign up for an account and generate an API key.'
+    instructions: 'Get your API key from Anthropic Console. Sign up for an account and generate an API key.',
+    baseUrlToSearch: 'https://api.anthropic.com/v1/messages'
   }
 };
 
@@ -158,7 +196,17 @@ class StorageUtils {
 
       // Verify the API key still exists in storage
       const storedApiKey = await this.getApiKey(selectedModel);
-      return !!storedApiKey;
+      if (!storedApiKey) {
+        return false;
+      }
+
+      // Also check if search engine is configured
+      const selectedSearchEngine = await this.getSelectedSearchEngine();
+      if (!selectedSearchEngine) {
+        return false;
+      }
+
+      return true;
       
     } catch (error) {
       console.error('❌ Error checking setup completion:', error);
@@ -352,6 +400,39 @@ class StorageUtils {
       return { valid: true };
     } else {
       return { valid: false, error: `API key validation failed: ${response.status}` };
+    }
+  }
+
+  // Search Engine Storage Methods
+  static async saveSelectedSearchEngine(searchEngineId) {
+    try {
+      await chrome.storage.local.set({
+        [STORAGE_KEYS.SELECTED_SEARCH_ENGINE]: searchEngineId
+      });
+      return { success: true };
+    } catch (error) {
+      console.error('Error saving selected search engine:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  static async getSelectedSearchEngine() {
+    try {
+      const result = await chrome.storage.local.get([STORAGE_KEYS.SELECTED_SEARCH_ENGINE]);
+      return result[STORAGE_KEYS.SELECTED_SEARCH_ENGINE] || 'google'; // Default to Google
+    } catch (error) {
+      console.error('Error getting selected search engine:', error);
+      return 'google'; // Default fallback
+    }
+  }
+
+  static async clearSearchEngineData() {
+    try {
+      await chrome.storage.local.remove([STORAGE_KEYS.SELECTED_SEARCH_ENGINE]);
+      return { success: true };
+    } catch (error) {
+      console.error('Error clearing search engine data:', error);
+      return { success: false, error: error.message };
     }
   }
 }

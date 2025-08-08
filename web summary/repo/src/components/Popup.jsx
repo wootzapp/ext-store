@@ -4,7 +4,8 @@ import ResearchDisplay from './ResearchDisplay';
 import FloatingButton from './FloatingButton';
 import AnalysisPage from './AnalysisPage';
 import FactChecker from './FactChecker';
-import ModelSelection from './ModelSelection';
+import Settings from './Settings';
+import SettingsButton from './SettingsButton';
 import aiService from '../utils/aiService';
 import StorageUtils from '../utils/storageUtils';
 import { normalizeUrl } from '../utils/urlUtils';
@@ -119,7 +120,7 @@ const Popup = () => {
   const [showResearch, setShowResearch] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showFactChecker, setShowFactChecker] = useState(false);
-  const [showModelSelection, setShowModelSelection] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [researchResults, setResearchResults] = useState(null);
   const [inputMessage, setInputMessage] = useState('');
   const [researchDepth, setResearchDepth] = useState('comprehensive');
@@ -137,14 +138,12 @@ const Popup = () => {
   const [isLoadingSavedFactCheck, setIsLoadingSavedFactCheck] = useState(true);
   const [isCheckingSetup, setIsCheckingSetup] = useState(true);
   const [setupCompleted, setSetupCompleted] = useState(false);
-  const [intendedRoute, setIntendedRoute] = useState(null); // Store intended route after setup
+  const [intendedRoute, setIntendedRoute] = useState(null);
   
-  // Routing state
-  const [currentRoute, setCurrentRoute] = useState('landing'); // 'landing', 'research', 'analysis', 'fact-checker', 'model-selection'
+  const [currentRoute, setCurrentRoute] = useState('landing');
   
   const inputRef = useRef(null);
 
-  // Chrome message listener for routing
   useEffect(() => {
     
     const handleBackgroundMessage = (message, _sender, sendResponse) => {
@@ -159,9 +158,8 @@ const Popup = () => {
     return () => {
       chrome.runtime.onMessage.removeListener(handleBackgroundMessage);
     };
-  }, []); // Remove currentRoute dependency to prevent infinite loop
+  }, []);
 
-  // Check for pending route messages in storage on popup open
   useEffect(() => {
     const checkPendingRouteMessage = async () => {
       try {
@@ -172,12 +170,10 @@ const Popup = () => {
           const messageAge = Date.now() - result.pendingRouteTimestamp;
           console.log('📱 POPUP: Found pending route message, age:', messageAge, 'ms');
           
-          // Only process if message is less than 5 seconds old
           if (messageAge < 5000) {
             console.log('📱 POPUP: Processing pending route message:', result.pendingRouteMessage);
             processRouteMessage(result.pendingRouteMessage);
             
-            // Clear the pending message
             await chrome.storage.local.remove(['pendingRouteMessage', 'pendingRouteTimestamp']);
             console.log('📱 POPUP: Cleared pending route message');
           } else {
@@ -193,25 +189,22 @@ const Popup = () => {
     };
 
     checkPendingRouteMessage();
-  }, []); // Run once on popup mount
+  }, []);
 
-  // Helper function to process route messages
   const processRouteMessage = (message) => {
     console.log('📱 POPUP: Processing route message:', message);
     
-    // If setup is required, go to model selection first
     if (message.setupRequired) {
-      console.log('📱 POPUP: Setup required, storing intended route and going to model selection');
+      console.log('📱 POPUP: Setup required, storing intended route and going to settings');
       setIntendedRoute({
         route: message.originalRoute || message.route,
         feature: message.feature,
         originalMessage: message
       });
-      setCurrentRoute('model-selection');
+      setCurrentRoute('settings');
       return;
     }
     
-    // Normal route processing
     switch (message.route) {
       case '/research':
         setCurrentRoute('research');
@@ -222,15 +215,14 @@ const Popup = () => {
       case '/fact-checker':
         handleFactChecker();
         break;
-      case '/model-selection':
-        setCurrentRoute('model-selection');
+      case '/settings':
+        setCurrentRoute('settings');
         break;
       default:
         setCurrentRoute('landing');
     }
   };
 
-  // Load saved research results on component mount
   useEffect(() => {
     const loadSavedResearch = async () => {
       try {
@@ -249,7 +241,6 @@ const Popup = () => {
     loadSavedResearch();
   }, []);
 
-  // Load saved analysis data on component mount
   useEffect(() => {
     const loadSavedAnalysis = async () => {
       try {
@@ -268,7 +259,6 @@ const Popup = () => {
     loadSavedAnalysis();
   }, []);
 
-  // Load saved fact check data on component mount
   useEffect(() => {
     const loadSavedFactCheck = async () => {
       try {
@@ -287,7 +277,6 @@ const Popup = () => {
     loadSavedFactCheck();
   }, []);
 
-  // Save research results whenever they change
   useEffect(() => {
     const saveResearchResults = async () => {
       try {
@@ -297,7 +286,6 @@ const Popup = () => {
             savedResearchTopic: currentResearchTopic
           });
         } else {
-          // Clear saved data if no results
           await chrome.storage.local.remove(['savedResearchResults', 'savedResearchTopic']);
         }
       } catch (error) {
@@ -308,7 +296,6 @@ const Popup = () => {
     saveResearchResults();
   }, [researchResults, currentResearchTopic]);
 
-  // Save analysis data whenever it changes
   useEffect(() => {
     const saveAnalysisData = async () => {
       try {
@@ -326,11 +313,9 @@ const Popup = () => {
           
           console.log('💾 Save Function: Analysis data saved successfully');
         } else if (!analysisData && currentPageUrl) {
-          // Don't clear data when user is just navigating back (analysisData is null but URL exists)
           console.log('💾 Save Function: Preserving saved analysis data - user navigating back');
         } else {
           console.log('💾 Save Function: Clearing analysis data - no analysisData or currentPageUrl');
-          // Clear saved data if no results
           await chrome.storage.local.remove(['savedAnalysisData', 'savedAnalysisUrl']);
         }
       } catch (error) {
@@ -341,7 +326,6 @@ const Popup = () => {
     saveAnalysisData();
   }, [analysisData, currentPageUrl]);
 
-  // Save fact check data whenever it changes
   useEffect(() => {
     const saveFactCheckData = async () => {
       try {
@@ -359,11 +343,9 @@ const Popup = () => {
           
           console.log('💾 Save Function: Data saved successfully');
         } else if (!factCheckData && currentPageUrl) {
-          // Don't clear data when user is just navigating back (factCheckData is null but URL exists)
           console.log('💾 Save Function: Preserving saved data - user navigating back');
         } else {
           console.log('💾 Save Function: Clearing saved data - no factCheckData or currentPageUrl');
-          // Clear saved data if no results
           await chrome.storage.local.remove(['savedFactCheckData', 'savedFactCheckUrl']);
         }
       } catch (error) {
@@ -383,7 +365,12 @@ const Popup = () => {
           setShowLanding(true);
         } else {
           setShowLanding(false);
-          setShowResearch(true);
+          const isSetupComplete = await StorageUtils.isSetupCompleted();
+          if (isSetupComplete) {
+            setCurrentRoute('research');
+          } else {
+            setCurrentRoute('settings');
+          }
         }
       } catch (error) {
         console.error('Error checking first time status:', error);
@@ -394,7 +381,6 @@ const Popup = () => {
     checkFirstTime();
   }, []);
 
-  // Check if setup is completed on component mount
   useEffect(() => {
     const checkSetupStatus = async () => {
       setIsCheckingSetup(true);
@@ -407,10 +393,8 @@ const Popup = () => {
         
         if (!isSetupComplete) {
           console.log('🔍 Setup not completed, will show model selection');
-          // Setup is not complete, we'll show model selection when needed
         } else {
           console.log('🔍 Setup completed, initializing AI service...');
-          // Initialize AI service with saved config
           await initializeAIService();
         }
       } catch (error) {
@@ -424,7 +408,6 @@ const Popup = () => {
     checkSetupStatus();
   }, []);
 
-  // Initialize AI service with user's saved configuration
   const initializeAIService = async () => {
     try {
       const config = await StorageUtils.getCurrentConfig();
@@ -453,10 +436,9 @@ const Popup = () => {
     const currentInputMessage = inputMessage;
     const currentResearchDepth = researchDepth;
     
-    // Create new abort controller for this research request
     const controller = new AbortController();
     setAbortController(controller);
-    setIsUserCancelled(false); // Reset cancellation flag
+    setIsUserCancelled(false);
     
     setCurrentResearchTopic(inputMessage);
     setInputMessage('');
@@ -466,7 +448,6 @@ const Popup = () => {
     try {
       const result = await aiService.performResearch(currentInputMessage, currentResearchDepth, controller);
       
-      // If user cancelled during the API call, ignore the result
       if (isUserCancelled) {
         console.log('🛑 Ignoring API result - user cancelled research');
         return;
@@ -475,7 +456,6 @@ const Popup = () => {
       if (result.success) {
         setResearchResults(result);
       } else if (result.message === 'Research was cancelled') {
-        // Don't set any results for user cancellation
         setResearchResults(null);
       } else {
         setResearchResults({
@@ -487,7 +467,6 @@ const Popup = () => {
     } catch (error) {
       console.error('Error performing research:', error);
       
-      // If user cancelled during the API call, ignore the error
       if (isUserCancelled) {
         console.log('🛑 Ignoring API error - user cancelled research');
         return;
@@ -536,47 +515,34 @@ const Popup = () => {
   const handleLandingButtonClick = useCallback(async () => {
     console.log('🎯 GET STARTED: Button clicked');
     
-    // Check if setup is completed before proceeding
-    if (!setupCompleted && !isCheckingSetup) {
-      console.log('🎯 GET STARTED: Setup not completed, showing model selection');
-      setCurrentRoute('model-selection');
-      return;
-    }
-
     try {
       await chrome.storage.local.set({ hasSeenLanding: true });
-      console.log('🎯 GET STARTED: Saved landing status, navigating to research');
-      setCurrentRoute('research');
+      console.log('🎯 GET STARTED: Saved landing status, navigating to settings');
+      setCurrentRoute('settings');
     } catch (error) {
       console.error('Error saving landing page status:', error);
-      console.log('🎯 GET STARTED: Error occurred, still navigating to research');
-      setCurrentRoute('research');
+      console.log('🎯 GET STARTED: Error occurred, still navigating to settings');
+      setCurrentRoute('settings');
     }
-  }, [setupCompleted, isCheckingSetup]);
+  }, []);
 
-  // Handle model selection completion
-  const handleModelSelectionComplete = useCallback(async () => {
-    console.log('🎯 MODEL SELECTION: Setup completed');
+  const handleSettingsComplete = useCallback(async () => {
+    console.log('🎯 SETTINGS: Setup completed');
     
-    // Re-initialize AI service with new configuration
     await initializeAIService();
     setSetupCompleted(true);
     
-    // Mark that user has seen landing
     try {
       await chrome.storage.local.set({ hasSeenLanding: true });
     } catch (error) {
       console.error('Error saving landing page status:', error);
     }
     
-    // Navigate to intended route if there is one, otherwise go to research
     if (intendedRoute) {
-      console.log('🎯 MODEL SELECTION: Navigating to intended route:', intendedRoute.route);
+      console.log('🎯 SETTINGS: Navigating to intended route:', intendedRoute.route);
       
-      // Clear the intended route
       setIntendedRoute(null);
       
-      // Navigate based on the original intended route
       switch (intendedRoute.route) {
         case '/research':
           setCurrentRoute('research');
@@ -588,20 +554,13 @@ const Popup = () => {
           handleFactChecker();
           break;
         default:
-          setCurrentRoute('research');
+          setCurrentRoute('settings');
       }
     } else {
-      console.log('🎯 MODEL SELECTION: No intended route, going to research');
-      setCurrentRoute('research');
+      console.log('🎯 SETTINGS: No intended route, staying in settings');
+      setCurrentRoute('settings');
     }
   }, [intendedRoute, handleAnalysePage, handleFactChecker]);
-
-  // Handle going back from model selection
-  const handleModelSelectionBack = useCallback(() => {
-    console.log('🎯 MODEL SELECTION: Going back to landing');
-    setIntendedRoute(null); // Clear any intended route
-    setCurrentRoute('landing');
-  }, []);
 
   const handleAnalysePage = useCallback(async () => {
     try {
@@ -612,12 +571,10 @@ const Popup = () => {
         console.log('📊 Analysis: Current URL:', currentUrl);
         setCurrentPageUrl(currentUrl);
         
-        // Check if we already have saved analysis data for this URL
         const storage = await chrome.storage.local.get(['savedAnalysisData', 'savedAnalysisUrl']);
         console.log('📊 Analysis: Saved URL from storage:', storage.savedAnalysisUrl);
         console.log('📊 Analysis: Saved data exists:', !!storage.savedAnalysisData);
         
-        // Compare normalized URLs only (strips trailing slash/protocol but keeps full path)
         const currentNormalized = normalizeUrl(currentUrl);
         const savedNormalized = storage.savedAnalysisUrl ? normalizeUrl(storage.savedAnalysisUrl) : '';
         const urlMatch = savedNormalized && savedNormalized === currentNormalized;
@@ -627,7 +584,6 @@ const Popup = () => {
         console.log('📊 Analysis: URL match:', urlMatch);
 
         if (storage.savedAnalysisData && urlMatch) {
-          // Load saved data instead of making API call
           console.log('📊 Analysis: Loading saved analysis data for URL:', currentUrl);
           setAnalysisData(storage.savedAnalysisData);
           setCurrentRoute('analysis');
@@ -839,7 +795,6 @@ Please provide a detailed and helpful answer based on the content and context of
 
   const handleClearAllHistory = useCallback(async () => {
     try {
-      // Clear all saved data
       await chrome.storage.local.remove([
         'savedResearchResults', 
         'savedResearchTopic',
@@ -848,7 +803,7 @@ Please provide a detailed and helpful answer based on the content and context of
         'savedFactCheckData', 
         'savedFactCheckUrl'
       ]);
-      // Clear from state
+
       setResearchResults(null);
       setCurrentResearchTopic('');
       setAnalysisData(null);
@@ -860,8 +815,24 @@ Please provide a detailed and helpful answer based on the content and context of
     }
   }, []);
 
+  // Settings handlers
+  const handleSettingsClick = useCallback(() => {
+    console.log('⚙️ Settings: Opening settings');
+    setCurrentRoute('settings');
+  }, []);
 
-  // Update routing based on currentRoute state
+  const handleBackFromSettings = useCallback(() => {
+    if (intendedRoute) {
+      console.log('⬅️ BACK: From settings to landing (canceling setup)');
+      setIntendedRoute(null);
+      setCurrentRoute('landing');
+    } else {
+      console.log('⬅️ BACK: From settings to research');
+      setCurrentRoute('research');
+    }
+  }, [intendedRoute]);
+
+
   useEffect(() => {
     console.log('🔄 ROUTING: CurrentRoute changed to:', currentRoute);
     
@@ -871,7 +842,7 @@ Please provide a detailed and helpful answer based on the content and context of
         setShowLanding(false);
         setShowAnalysis(false);
         setShowFactChecker(false);
-        setShowModelSelection(false);
+        setShowSettings(false);
         setShowResearch(true);
         break;
       case 'analysis':
@@ -879,9 +850,8 @@ Please provide a detailed and helpful answer based on the content and context of
         setShowLanding(false);
         setShowResearch(false);
         setShowFactChecker(false);
-        setShowModelSelection(false);
+        setShowSettings(false);
         setShowAnalysis(true);
-        // Auto-trigger analysis using existing function (handles URL matching automatically)
         handleAnalysePage();
         break;
       case 'fact-checker':
@@ -889,18 +859,18 @@ Please provide a detailed and helpful answer based on the content and context of
         setShowLanding(false);
         setShowResearch(false);
         setShowAnalysis(false);
-        setShowModelSelection(false);
+        setShowSettings(false);
         setShowFactChecker(true);
         // Auto-trigger fact check using existing function (handles URL matching automatically)
         handleFactChecker();
         break;
-      case 'model-selection':
-        console.log('🔄 ROUTING: Switching to model selection view');
+      case 'settings':
+        console.log('🔄 ROUTING: Switching to settings view');
         setShowLanding(false);
         setShowResearch(false);
         setShowAnalysis(false);
         setShowFactChecker(false);
-        setShowModelSelection(true);
+        setShowSettings(true);
         break;
       case 'landing':
       default:
@@ -908,13 +878,13 @@ Please provide a detailed and helpful answer based on the content and context of
         setShowResearch(false);
         setShowAnalysis(false);
         setShowFactChecker(false);
-        setShowModelSelection(false);
+        setShowSettings(false);
         setShowLanding(true);
         break;
     }
     
     console.log('🔄 ROUTING: View switch completed for route:', currentRoute);
-  }, [currentRoute, handleAnalysePage, handleFactChecker]); // Include the handler functions as dependencies
+  }, [currentRoute, handleAnalysePage, handleFactChecker]); 
 
   return (
     <div className="relative w-full h-full">
@@ -935,6 +905,7 @@ Please provide a detailed and helpful answer based on the content and context of
             onRetry={handleRetryAnalysis}
             onAskQuestion={handleAskQuestion}
             onClearHistory={handleClearAnalysisHistory}
+            onSettingsClick={handleSettingsClick}
           />
         ) : showFactChecker ? (
           <FactChecker
@@ -946,12 +917,13 @@ Please provide a detailed and helpful answer based on the content and context of
             onBack={handleBackFromFactChecker}
             onRetry={handleRetryFactCheck}
             onClearHistory={handleClearFactCheckHistory}
+            onSettingsClick={handleSettingsClick}
           />
-        ) : showModelSelection ? (
-          <ModelSelection
-            key="model-selection"
-            onSetupComplete={handleModelSelectionComplete}
-            onBack={handleModelSelectionBack}
+        ) : showSettings ? (
+          <Settings
+            key="settings"
+            onBack={handleBackFromSettings}
+            onSetupComplete={handleSettingsComplete}
           />
         ) : showResearch ? (
           <div className="relative w-full h-full">
@@ -970,6 +942,7 @@ Please provide a detailed and helpful answer based on the content and context of
               onStopResearch={handleStopResearch}
               onAnalysePage={handleAnalysePage}
               onFactChecker={handleFactChecker}
+              onSettingsClick={handleSettingsClick}
               inputRef={inputRef}
             />
           </div>

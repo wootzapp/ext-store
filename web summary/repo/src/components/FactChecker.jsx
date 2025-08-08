@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { truncateUrl } from '../utils/urlUtils';
+import SettingsButton from './SettingsButton';
 
 // Helper function to open URLs in new Chrome tabs
 const openInNewTab = (url) => {
@@ -18,7 +19,8 @@ const FactChecker = ({
   isLoadingSavedFactCheck,
   onBack, 
   onRetry,
-  onClearHistory 
+  onClearHistory,
+  onSettingsClick 
 }) => {
 
   return (
@@ -38,13 +40,16 @@ const FactChecker = ({
       {/* Header */}
       <div className="bg-white/90 backdrop-blur-sm text-gray-800 p-4 shadow-sm relative z-10 border-b border-gray-200">
         <div className="flex items-center justify-between">
-          <button
-            onClick={onBack}
-            className="flex items-center space-x-2 text-gray-600 hover:text-red-500 transition-colors"
-          >
-            <span>←</span>
-            <span className="text-sm font-medium">Back</span>
-          </button>
+          <div className="flex items-center space-x-2">
+            <SettingsButton onSettingsClick={onSettingsClick} />
+            <button
+              onClick={onBack}
+              className="flex items-center space-x-2 text-gray-600 hover:text-red-500 transition-colors"
+            >
+              <span>←</span>
+              <span className="text-sm font-medium">Back</span>
+            </button>
+          </div>
           <div className="flex items-center">
             <h1 className="text-lg font-bold text-gray-800">Fact Checker</h1>
           </div>
