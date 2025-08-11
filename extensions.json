@@ -149,10 +149,9 @@
       "github_url": "https://github.com/wootzapp/ext-store/tree/main/Social%20Shopping%20Agent/repo",
       "tags": [
         "AI Agent",
+        "Shopping",
         "Social Media",
-        "Shopping Sites",
-        "Productivity",
-        "Automation"
+        "Chatbot"
       ],
       "created_at": "2025-08-01T15:00:00Z",
       "updated_at": "2025-08-01T15:00:00Z"
@@ -269,7 +268,7 @@
       "updated_at": "2025-07-16T15:00:00Z"
     },
     {
-      "id": "bkghjikplaochjjgpoapjagadgponikp",
+      "id": "cpanfhhncafgokableoilhanbkdpafpk",
       "name": "Reclaim",
       "description": "Verify, Not Reveal",
       "version": "1.0.0",
