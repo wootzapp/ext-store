@@ -128,6 +128,17 @@
       "updated_at": "2025-02-26T15:00:00Z"
     },
     {
+      "id": "lhgoolpdddhhfahbnofaomjhfhfjfhop",
+      "name": "AI Researcher",
+      "campaign" : "ai-researcher",
+      "description": "AI-powered web research assistant that provides intelligent summaries, comprehensive research, and fact-checking for any webpage using advanced language models.",
+      "version": "1.0.0",
+      "author": "Wootzapp Team",
+      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/web%20summary/AIResearcher.crx",
+      "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/web%20summary/repo/public/icons/icon128.png",
+      "github_url": "https://github.com/wootzapp/ext-store/tree/main/web%20summary/repo"
+    },
+    {
       "id": "fkagldhhbbaillkjbjilcgflcihbkmoe",
       "name": "Social Shopping Agent",
       "description": "An extension to assist users to chat and perform tasks using AI.",
