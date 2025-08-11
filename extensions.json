@@ -136,7 +136,8 @@
       "author": "Wootzapp Team",
       "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/web%20summary/AIResearcher.crx",
       "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/web%20summary/repo/public/icons/icon128.png",
-      "github_url": "https://github.com/wootzapp/ext-store/tree/main/web%20summary/repo","tags": [
+      "github_url": "https://github.com/wootzapp/ext-store/tree/main/web%20summary/repo",
+      "tags": [
         "AI",
         "Research",
         "Summarization",
