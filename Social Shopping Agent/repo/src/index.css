@@ -1,0 +1,34 @@
+@import './styles/GlobalAnimations.css';
+@import './styles/AuthPageAnimations.css';
+@import './styles/ChatInterfaceAnimations.css';
+@import './styles/ProfilePageAnimations.css';
+@import './styles/SettingsPageAnimations.css';
+@import './styles/SubscriptionPageAnimations.css';
+@import './styles/SubscriptionChoiceAnimations.css';
+@import './styles/ChatHistoryPageAnimations.css';
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #002e63;
+  color: #FFDCDCFF;
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+#root {
+  background-color: #002e63;
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
+}
