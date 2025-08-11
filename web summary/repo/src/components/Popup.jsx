@@ -140,7 +140,7 @@ const Popup = () => {
   const [setupCompleted, setSetupCompleted] = useState(false);
   const [intendedRoute, setIntendedRoute] = useState(null);
   
-  const [currentRoute, setCurrentRoute] = useState('landing');
+  const [currentRoute, setCurrentRoute] = useState(null);
   
   const inputRef = useRef(null);
 
@@ -359,12 +359,18 @@ const Popup = () => {
   useEffect(() => {
     const checkFirstTime = async () => {
       try {
+        // Check if there's a pending route message first
+        const pendingRoute = await chrome.storage.local.get(['pendingRouteMessage']);
+        if (pendingRoute.pendingRouteMessage) {
+          console.log('📱 POPUP: Pending route message exists, skipping first time check');
+          return;
+        }
+        
         const storage = await chrome.storage.local.get(['hasSeenLanding']);
         
         if (!storage.hasSeenLanding) {
-          setShowLanding(true);
+          setCurrentRoute('landing');
         } else {
-          setShowLanding(false);
           const isSetupComplete = await StorageUtils.isSetupCompleted();
           if (isSetupComplete) {
             setCurrentRoute('research');
@@ -374,7 +380,7 @@ const Popup = () => {
         }
       } catch (error) {
         console.error('Error checking first time status:', error);
-        setShowLanding(true);
+        setCurrentRoute('landing');
       }
     };
     
@@ -873,8 +879,19 @@ Please provide a detailed and helpful answer based on the content and context of
         setShowSettings(true);
         break;
       case 'landing':
-      default:
         console.log('🔄 ROUTING: Switching to landing view');
+        setShowResearch(false);
+        setShowAnalysis(false);
+        setShowFactChecker(false);
+        setShowSettings(false);
+        setShowLanding(true);
+        break;
+      case null:
+        // Don't render anything until route is determined
+        console.log('🔄 ROUTING: Route not yet determined, waiting...');
+        return;
+      default:
+        console.log('🔄 ROUTING: Unknown route, defaulting to landing view');
         setShowResearch(false);
         setShowAnalysis(false);
         setShowFactChecker(false);
