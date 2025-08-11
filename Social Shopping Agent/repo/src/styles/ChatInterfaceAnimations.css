@@ -1,0 +1,333 @@
+/* Chat Interface Animations */
+
+.chat-interface {
+  position: relative;
+  overflow: hidden;
+}
+
+.chat-interface .background-animation {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+/* Chat specific orbs - very subtle */
+.chat-orb-1 {
+  width: 150px;
+  height: 150px;
+  background: radial-gradient(circle, rgba(255, 220, 220, 0.08) 0%, rgba(255, 220, 220, 0.02) 70%, transparent 100%);
+  top: 10%;
+  left: -5%;
+  animation: floatGentle 10s ease-in-out infinite;
+  animation-delay: 0s;
+}
+
+.chat-orb-2 {
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.02) 70%, transparent 100%);
+  bottom: 20%;
+  right: -5%;
+  animation: floatGentle 8s ease-in-out infinite;
+  animation-delay: 3s;
+}
+
+.chat-orb-3 {
+  width: 100px;
+  height: 100px;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.08) 0%, rgba(139, 92, 246, 0.02) 70%, transparent 100%);
+  top: 60%;
+  left: 10%;
+  animation: floatGentle 12s ease-in-out infinite;
+  animation-delay: 6s;
+}
+
+/* Header Animation - Fast for frequent use */
+.chat-header {
+  animation: slideInDown 0.2s ease-out;
+  position: relative;
+  z-index: 1;
+}
+
+.chat-title {
+  animation: slideInDown 0.2s ease-out 0.05s both;
+}
+
+.chat-status {
+  animation: slideInDown 0.2s ease-out 0.1s both;
+}
+
+.chat-header-buttons {
+  animation: slideInRight 0.2s ease-out 0.08s both;
+}
+
+.chat-header-button {
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.chat-header-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.4s ease;
+}
+
+.chat-header-button:hover::before {
+  left: 100%;
+}
+
+.chat-header-button:hover {
+  transform: scale(1.05);
+  background: rgba(255, 220, 220, 0.3);
+}
+
+/* Task Status Animation - Fast */
+.task-status {
+  animation: slideInDown 0.2s ease-out;
+}
+
+.task-status-content {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Messages Animation - Fast */
+.messages-container {
+  position: relative;
+  z-index: 1;
+}
+
+.message-item {
+  animation: slideInUp 0.2s ease-out;
+}
+
+.message-user {
+  animation: slideInRight 0.2s ease-out;
+}
+
+.message-assistant {
+  animation: slideInLeft 0.2s ease-out;
+}
+
+.message-system {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.message-error {
+  animation: slideInLeft 0.2s ease-out;
+}
+
+/* Message Bubble Hover Effect */
+.message-bubble {
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.message-bubble:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* Template Commands Animation - Fast */
+.template-commands {
+  animation: slideInUp 0.2s ease-out 0.1s both;
+}
+
+.template-command {
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.template-command::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.4s ease;
+}
+
+.template-command:hover::before {
+  left: 100%;
+}
+
+.template-command:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Chat Input Animation - Fast */
+.chat-input-container {
+  animation: slideInUp 0.2s ease-out 0.05s both;
+  position: relative;
+  z-index: 1;
+}
+
+.chat-input {
+  transition: all 0.3s ease;
+}
+
+.chat-input:focus {
+  animation: pulseGlow 0.5s ease-out;
+  box-shadow: 0 0 15px rgba(255, 220, 220, 0.3);
+}
+
+.chat-send-button {
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.chat-send-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.4s ease;
+}
+
+.chat-send-button:hover::before {
+  left: 100%;
+}
+
+.chat-send-button:hover {
+  transform: scale(1.05);
+}
+
+.chat-stop-button {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Connection Status Animation */
+.connection-status {
+  transition: all 0.3s ease;
+}
+
+.connection-status.connected {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.connection-status.connecting {
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.connection-status.error {
+  animation: bounce 1s ease-in-out infinite;
+}
+
+/* Welcome Message Animation */
+.welcome-message {
+  animation: fadeInScale 0.2s ease-out 0.2s both;
+}
+
+.welcome-features {
+  animation: slideInUp 0.6s ease-out 0.9s both;
+}
+
+.welcome-feature {
+  transition: all 0.3s ease;
+}
+
+.welcome-feature:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Typing Indicator Animation */
+.typing-indicator {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.typing-dots {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.typing-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  animation: bounce 1.4s ease-in-out infinite;
+}
+
+/* Request Counter Animation */
+.request-counter {
+  transition: all 0.3s ease;
+}
+
+.request-counter:hover {
+  transform: scale(1.05);
+}
+
+.request-counter.low {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Typing Loader Animation */
+.typing-indicator {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.typing-dots {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.typing-dot {
+  width: 8px;
+  height: 8px;
+  background-color: rgb(212, 103, 0);
+  border-radius: 50%;
+  animation: typingBounce 1.4s ease-in-out infinite;
+}
+
+.typing-dot:nth-child(1) { animation-delay: 0s; }
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typingBounce {
+  0%, 80%, 100% { 
+    transform: scale(1) translateY(0);
+    opacity: 0.5;
+  }
+  40% { 
+    transform: scale(1.2) translateY(-10px);
+    opacity: 1;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 500px) {
+  .chat-orb-1 {
+    width: 100px;
+    height: 100px;
+  }
+  
+  .chat-orb-2 {
+    width: 80px;
+    height: 80px;
+  }
+  
+  .chat-orb-3 {
+    width: 60px;
+    height: 60px;
+  }
+}
