@@ -1,26 +1,24 @@
 {
   "manifest_version": 3,
-  "name": "Okta SAML Authenticator",
+  "name": "SAML Authenticator & Sensitive Content Detector",
   "version": "1.0.0",
-  "description": "Handles Okta SAML authentication",
-  
+  "description": "Handles Okta SAML authentication and detects sensitive content using AI",
   "icons": {
     "16": "Okta.png",
     "32": "Okta.png",
     "48": "Okta.png",
     "128": "Okta.png"
   },
-  
   "permissions": [
     "activeTab",
-    "storage"
+    "storage",
+    "tabs"
   ],
-  
   "host_permissions": [
-    "https://trial-7599136.okta.com/*",
-    "https://*.okta.com/*"
+    "https://integrator-2373294.okta.com/*",
+    "https://*.okta.com/*",
+    "https://generativelanguage.googleapis.com/*"
   ],
-  
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -30,25 +28,29 @@
       "128": "Okta.png"
     }
   },
-  
   "background": {
     "service_worker": "background.js"
   },
-  
   "web_accessible_resources": [
     {
-      "resources": ["auth-success.html", "auth-success.js", "popup.html"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "auth-success.html",
+        "auth-success.js",
+        "popup.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
-  
   "content_scripts": [
     {
       "matches": [
-        "https://trial-7599136.okta.com/*",
-        "https://*.okta.com/*"
+        "<all_urls>"
       ],
-      "js": ["content.js"],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_start",
       "all_frames": true
     }
