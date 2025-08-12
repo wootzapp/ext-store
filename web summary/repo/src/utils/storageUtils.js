@@ -344,66 +344,151 @@ class StorageUtils {
     }
   }
 
-  // Test Gemini API key
   static async testGeminiKey(apiKey, config) {
-    const response = await fetch(`${config.baseUrl}/${config.model}:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: 'Hello' }] }],
-        generationConfig: { maxOutputTokens: 10 }
-      })
-    });
-    
-    if (response.ok) {
-      return { valid: true };
-    } else {
-      const errorText = await response.text();
-      return { valid: false, error: `API key validation failed: ${response.status}` };
-    }
-  }
-
-  // Test OpenAI API key
-  static async testOpenAIKey(apiKey, config) {
-    const response = await fetch(`${config.baseUrl}/models`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
+    try {
+      const response = await fetch(`${config.baseUrl}/${config.model}:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: 'Hello' }] }],
+          generationConfig: { maxOutputTokens: 10 }
+        })
+      });
+      
+      if (response.ok) {
+        return { valid: true };
+      } else {
+        let errorMessage = 'API key validation failed';
+        try {
+          const errorData = await response.json();
+          if (errorData.error && errorData.error.message) {
+            errorMessage = errorData.error.message;
+          }
+        } catch (parseError) {
+          // If we can't parse the error response, use status-based message
+          switch (response.status) {
+            case 400:
+              errorMessage = 'Invalid API key format or request. Please check your Gemini API key.';
+              break;
+            case 401:
+              errorMessage = 'Unauthorized: Your Gemini API key is invalid or has been revoked.';
+              break;
+            case 403:
+              errorMessage = 'Forbidden: Your Gemini API key does not have permission to access this service.';
+              break;
+            case 429:
+              errorMessage = 'Rate limit exceeded. Please try again later.';
+              break;
+            case 500:
+              errorMessage = 'Google servers are experiencing issues. Please try again later.';
+              break;
+            default:
+              errorMessage = `API validation failed with status ${response.status}. Please check your API key.`;
+          }
+        }
+        return { valid: false, error: errorMessage };
       }
-    });
-    
-    if (response.ok) {
-      return { valid: true };
-    } else {
-      return { valid: false, error: `API key validation failed: ${response.status}` };
+    } catch (networkError) {
+      return { valid: false, error: 'Network error: Unable to connect to Google servers. Please check your internet connection.' };
     }
   }
 
-  // Test Anthropic API key
+  static async testOpenAIKey(apiKey, config) {
+    try {
+      const response = await fetch(`${config.baseUrl}/models`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        return { valid: true };
+      } else {
+        let errorMessage = 'API key validation failed';
+        try {
+          const errorData = await response.json();
+          if (errorData.error && errorData.error.message) {
+            errorMessage = errorData.error.message;
+          }
+        } catch (parseError) {
+          // If we can't parse the error response, use status-based message
+          switch (response.status) {
+            case 401:
+              errorMessage = 'Unauthorized: Your OpenAI API key is invalid or has been revoked. Please check your key at platform.openai.com.';
+              break;
+            case 403:
+              errorMessage = 'Forbidden: Your OpenAI API key does not have permission to access this service.';
+              break;
+            case 429:
+              errorMessage = 'Rate limit exceeded. Please check your OpenAI usage limits and billing.';
+              break;
+            case 500:
+              errorMessage = 'OpenAI servers are experiencing issues. Please try again later.';
+              break;
+            default:
+              errorMessage = `API validation failed with status ${response.status}. Please verify your OpenAI API key.`;
+          }
+        }
+        return { valid: false, error: errorMessage };
+      }
+    } catch (networkError) {
+      return { valid: false, error: 'Network error: Unable to connect to OpenAI servers. Please check your internet connection.' };
+    }
+  }
+
   static async testAnthropicKey(apiKey, config) {
-    const response = await fetch(`${config.baseUrl}/messages`, {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: config.model,
-        max_tokens: 10,
-        messages: [{ role: 'user', content: 'Hello' }]
-      })
-    });
-    
-    if (response.ok) {
-      return { valid: true };
-    } else {
-      return { valid: false, error: `API key validation failed: ${response.status}` };
+    try {
+      const response = await fetch(`${config.baseUrl}/messages`, {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: config.model,
+          max_tokens: 10,
+          messages: [{ role: 'user', content: 'Hello' }]
+        })
+      });
+      
+      if (response.ok) {
+        return { valid: true };
+      } else {
+        let errorMessage = 'API key validation failed';
+        try {
+          const errorData = await response.json();
+          if (errorData.error && errorData.error.message) {
+            errorMessage = errorData.error.message;
+          }
+        } catch (parseError) {
+          // If we can't parse the error response, use status-based message
+          switch (response.status) {
+            case 401:
+              errorMessage = 'Unauthorized: Your Anthropic API key is invalid or has been revoked. Please check your key at console.anthropic.com.';
+              break;
+            case 403:
+              errorMessage = 'Forbidden: Your Anthropic API key does not have permission to access this service.';
+              break;
+            case 429:
+              errorMessage = 'Rate limit exceeded. Please check your Anthropic usage limits and billing.';
+              break;
+            case 500:
+              errorMessage = 'Anthropic servers are experiencing issues. Please try again later.';
+              break;
+            default:
+              errorMessage = `API validation failed with status ${response.status}. Please verify your Anthropic API key.`;
+          }
+        }
+        return { valid: false, error: errorMessage };
+      }
+    } catch (networkError) {
+      return { valid: false, error: 'Network error: Unable to connect to Anthropic servers. Please check your internet connection.' };
     }
   }
 
-  // Search Engine Storage Methods
   static async saveSelectedSearchEngine(searchEngineId) {
     try {
       await chrome.storage.local.set({
@@ -419,10 +504,10 @@ class StorageUtils {
   static async getSelectedSearchEngine() {
     try {
       const result = await chrome.storage.local.get([STORAGE_KEYS.SELECTED_SEARCH_ENGINE]);
-      return result[STORAGE_KEYS.SELECTED_SEARCH_ENGINE] || 'google'; // Default to Google
+      return result[STORAGE_KEYS.SELECTED_SEARCH_ENGINE] || 'google'; 
     } catch (error) {
       console.error('Error getting selected search engine:', error);
-      return 'google'; // Default fallback
+      return 'google'; 
     }
   }
 

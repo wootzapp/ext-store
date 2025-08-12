@@ -31,15 +31,17 @@ const LandingPage = React.memo(({ onGetStarted }) => (
     >
       {/* Header with globe logo and AI badge */}
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-3 flex-1">
           <div className="w-6 h-6 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
             <div className="w-3 h-3 bg-white rounded-full"></div>
           </div>
           <span className="text-gray-800 font-semibold">Web Summary</span>
         </div>
-        <div className="bg-gradient-to-r from-red-500 to-orange-500 rounded-full px-3 py-1 flex items-center space-x-1 shadow-sm">
-          <span className="text-white text-xs">⚡</span>
-          <span className="text-white text-xs font-medium">AI</span>
+        <div className="flex items-center justify-end flex-1">
+          <div className="bg-gradient-to-r from-red-500 to-orange-500 rounded-full px-3 py-1 flex items-center space-x-1 shadow-sm">
+            <span className="text-white text-xs">⚡</span>
+            <span className="text-white text-xs font-medium">AI</span>
+          </div>
         </div>
       </div>
       
@@ -139,6 +141,7 @@ const Popup = () => {
   const [isCheckingSetup, setIsCheckingSetup] = useState(true);
   const [setupCompleted, setSetupCompleted] = useState(false);
   const [intendedRoute, setIntendedRoute] = useState(null);
+  const [apiKeyError, setApiKeyError] = useState(null);
   
   const [currentRoute, setCurrentRoute] = useState(null);
   
@@ -146,9 +149,9 @@ const Popup = () => {
 
   useEffect(() => {
     
-    const handleBackgroundMessage = (message, _sender, sendResponse) => {
+    const handleBackgroundMessage = async (message, _sender, sendResponse) => {
       if (message?.type === 'navigateToRoute') {
-        processRouteMessage(message);
+        await processRouteMessage(message);
         if (sendResponse) sendResponse({ acknowledged: true });
       }
     };
@@ -172,7 +175,7 @@ const Popup = () => {
           
           if (messageAge < 5000) {
             console.log('📱 POPUP: Processing pending route message:', result.pendingRouteMessage);
-            processRouteMessage(result.pendingRouteMessage);
+            await processRouteMessage(result.pendingRouteMessage);
             
             await chrome.storage.local.remove(['pendingRouteMessage', 'pendingRouteTimestamp']);
             console.log('📱 POPUP: Cleared pending route message');
@@ -191,7 +194,7 @@ const Popup = () => {
     checkPendingRouteMessage();
   }, []);
 
-  const processRouteMessage = (message) => {
+  const processRouteMessage = async (message) => {
     console.log('📱 POPUP: Processing route message:', message);
     
     if (message.setupRequired) {
@@ -207,7 +210,7 @@ const Popup = () => {
     
     switch (message.route) {
       case '/research':
-        setCurrentRoute('research');
+        setCurrentRoute('/research');
         break;
       case '/analysis':
         handleAnalysePage();
@@ -216,10 +219,17 @@ const Popup = () => {
         handleFactChecker();
         break;
       case '/settings':
-        setCurrentRoute('settings');
+        console.log('📱 POPUP: Opening settings via event router, marking landing as seen');
+        try {
+          await chrome.storage.local.set({ hasSeenLanding: true });
+        } catch (error) {
+          console.error('Error saving landing page status:', error);
+        }
+        setCurrentRoute('/settings');
         break;
       default:
-        setCurrentRoute('landing');
+        setCurrentRoute('/landing');
+        break;
     }
   };
 
@@ -242,39 +252,12 @@ const Popup = () => {
   }, []);
 
   useEffect(() => {
-    const loadSavedAnalysis = async () => {
-      try {
-        const storage = await chrome.storage.local.get(['savedAnalysisData', 'savedAnalysisUrl']);
-        if (storage.savedAnalysisData && storage.savedAnalysisUrl) {
-          setAnalysisData(storage.savedAnalysisData);
-          setCurrentPageUrl(storage.savedAnalysisUrl);
-        }
-      } catch (error) {
-        console.error('Error loading saved analysis:', error);
-      } finally {
-        setIsLoadingSavedAnalysis(false);
-      }
-    };
-    
-    loadSavedAnalysis();
+
+    setIsLoadingSavedAnalysis(false);
   }, []);
 
   useEffect(() => {
-    const loadSavedFactCheck = async () => {
-      try {
-        const storage = await chrome.storage.local.get(['savedFactCheckData', 'savedFactCheckUrl']);
-        if (storage.savedFactCheckData && storage.savedFactCheckUrl) {
-          setFactCheckData(storage.savedFactCheckData);
-          setCurrentPageUrl(storage.savedFactCheckUrl);
-        }
-      } catch (error) {
-        console.error('Error loading saved fact check:', error);
-      } finally {
-        setIsLoadingSavedFactCheck(false);
-      }
-    };
-    
-    loadSavedFactCheck();
+    setIsLoadingSavedFactCheck(false);
   }, []);
 
   useEffect(() => {
@@ -297,68 +280,24 @@ const Popup = () => {
   }, [researchResults, currentResearchTopic]);
 
   useEffect(() => {
-    const saveAnalysisData = async () => {
-      try {
-        console.log('💾 Save Function: analysisData exists:', !!analysisData);
-        console.log('💾 Save Function: currentPageUrl:', currentPageUrl);
-        
-        if (analysisData && currentPageUrl) {
-          const normalizedUrl = normalizeUrl(currentPageUrl);
-          console.log('💾 Save Function: Saving analysis data with URL:', normalizedUrl);
-          
-          await chrome.storage.local.set({
-            savedAnalysisData: analysisData,
-            savedAnalysisUrl: normalizedUrl
-          });
-          
-          console.log('💾 Save Function: Analysis data saved successfully');
-        } else if (!analysisData && currentPageUrl) {
-          console.log('💾 Save Function: Preserving saved analysis data - user navigating back');
-        } else {
-          console.log('💾 Save Function: Clearing analysis data - no analysisData or currentPageUrl');
-          await chrome.storage.local.remove(['savedAnalysisData', 'savedAnalysisUrl']);
-        }
-      } catch (error) {
-        console.error('Error saving analysis data:', error);
-      }
-    };
-    
-    saveAnalysisData();
+    // No longer saving analysis data to storage - always use fresh data
+    console.log('� Save Function: Analysis data storage disabled for fresh API calls');
   }, [analysisData, currentPageUrl]);
 
   useEffect(() => {
-    const saveFactCheckData = async () => {
-      try {
-        console.log('💾 Save Function: factCheckData exists:', !!factCheckData);
-        console.log('💾 Save Function: currentPageUrl:', currentPageUrl);
-        
-        if (factCheckData && currentPageUrl) {
-          const normalizedUrl = normalizeUrl(currentPageUrl);
-          console.log('💾 Save Function: Saving data with URL:', normalizedUrl);
-          
-          await chrome.storage.local.set({
-            savedFactCheckData: factCheckData,
-            savedFactCheckUrl: normalizedUrl
-          });
-          
-          console.log('💾 Save Function: Data saved successfully');
-        } else if (!factCheckData && currentPageUrl) {
-          console.log('💾 Save Function: Preserving saved data - user navigating back');
-        } else {
-          console.log('💾 Save Function: Clearing saved data - no factCheckData or currentPageUrl');
-          await chrome.storage.local.remove(['savedFactCheckData', 'savedFactCheckUrl']);
-        }
-      } catch (error) {
-        console.error('Error saving fact check data:', error);
-      }
-    };
-    
-    saveFactCheckData();
+    // No longer saving fact check data to storage - always use fresh data
+    console.log('� Save Function: Fact check data storage disabled for fresh API calls');
   }, [factCheckData, currentPageUrl]);
 
   useEffect(() => {
     const checkFirstTime = async () => {
       try {
+        // Don't run if currentRoute is already set
+        if (currentRoute !== null) {
+          console.log('📱 POPUP: Route already set to:', currentRoute, ', skipping first time check');
+          return;
+        }
+        
         // Check if there's a pending route message first
         const pendingRoute = await chrome.storage.local.get(['pendingRouteMessage']);
         if (pendingRoute.pendingRouteMessage) {
@@ -369,22 +308,57 @@ const Popup = () => {
         const storage = await chrome.storage.local.get(['hasSeenLanding']);
         
         if (!storage.hasSeenLanding) {
-          setCurrentRoute('landing');
+          console.log('📱 POPUP: First time user, showing landing page');
+          setCurrentRoute('/landing');
         } else {
           const isSetupComplete = await StorageUtils.isSetupCompleted();
           if (isSetupComplete) {
-            setCurrentRoute('research');
+            console.log('📱 POPUP: Setup complete, navigating to research');
+            setCurrentRoute('/research');
           } else {
-            setCurrentRoute('settings');
+            console.log('📱 POPUP: Setup incomplete, navigating to settings');
+            setCurrentRoute('/settings');
           }
         }
       } catch (error) {
         console.error('Error checking first time status:', error);
-        setCurrentRoute('landing');
+        setCurrentRoute('/landing');
       }
     };
     
     checkFirstTime();
+  }, []);
+
+  useEffect(() => {
+    const updateCurrentUrl = async () => {
+      try {
+        console.log('🔍 POPUP: Getting current tab URL...');
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        
+        if (tab && tab.url) {
+          const currentUrl = tab.url;
+          console.log('🔍 POPUP: Current tab URL:', currentUrl);
+          setCurrentPageUrl(currentUrl);
+        } else {
+          console.log('🔍 POPUP: No active tab found or invalid URL');
+        }
+      } catch (error) {
+        console.error('❌ POPUP: Error getting current URL:', error);
+      }
+    };
+
+    // Only run this when popup opens normally (not via route message)
+    const checkForRouteMessage = async () => {
+      const result = await chrome.storage.local.get(['pendingRouteMessage']);
+      if (!result.pendingRouteMessage) {
+        console.log('🔍 POPUP: No pending route message, getting current URL...');
+        await updateCurrentUrl();
+      } else {
+        console.log('🔍 POPUP: Pending route message exists, skipping URL update');
+      }
+    };
+
+    checkForRouteMessage();
   }, []);
 
   useEffect(() => {
@@ -461,9 +435,28 @@ const Popup = () => {
       
       if (result.success) {
         setResearchResults(result);
+        setApiKeyError(null); // Clear any previous API key errors
       } else if (result.message === 'Research was cancelled') {
         setResearchResults(null);
       } else {
+        // Check if this is an API key related error
+        const isApiKeyError = result.message && (
+          result.message.includes('Unauthorized') ||
+          result.message.includes('401') ||
+          result.message.includes('403') ||
+          result.message.includes('invalid') ||
+          result.message.includes('Invalid API key') ||
+          result.message.includes('API key')
+        );
+        
+        if (isApiKeyError) {
+          setApiKeyError({
+            message: result.message,
+            details: result.details,
+            timestamp: Date.now()
+          });
+        }
+        
         setResearchResults({
           error: true,
           message: result.message || 'Failed to complete research',
@@ -476,6 +469,24 @@ const Popup = () => {
       if (isUserCancelled) {
         console.log('🛑 Ignoring API error - user cancelled research');
         return;
+      }
+      
+      // Check if this is an API key related error
+      const isApiKeyError = error.message && (
+        error.message.includes('Unauthorized') ||
+        error.message.includes('401') ||
+        error.message.includes('403') ||
+        error.message.includes('invalid') ||
+        error.message.includes('Invalid API key') ||
+        error.message.includes('API key') ||
+        error.message.includes('not configured')
+      );
+      
+      if (isApiKeyError) {
+        setApiKeyError({
+          message: error.message,
+          timestamp: Date.now()
+        });
       }
       
       setResearchResults({
@@ -524,19 +535,32 @@ const Popup = () => {
     try {
       await chrome.storage.local.set({ hasSeenLanding: true });
       console.log('🎯 GET STARTED: Saved landing status, navigating to settings');
-      setCurrentRoute('settings');
+      setCurrentRoute('/settings');
     } catch (error) {
       console.error('Error saving landing page status:', error);
       console.log('🎯 GET STARTED: Error occurred, still navigating to settings');
-      setCurrentRoute('settings');
+      setCurrentRoute('/settings');
     }
   }, []);
+
+  const handleApiKeyErrorDismiss = () => {
+    setApiKeyError(null);
+  };
+
+  const navigateToSettings = () => {
+    setShowSettings(true);
+    setShowResearch(false);
+    setShowAnalysis(false);
+    setShowFactChecker(false);
+    setApiKeyError(null); 
+  };
 
   const handleSettingsComplete = useCallback(async () => {
     console.log('🎯 SETTINGS: Setup completed');
     
     await initializeAIService();
     setSetupCompleted(true);
+    setApiKeyError(null); 
     
     try {
       await chrome.storage.local.set({ hasSeenLanding: true });
@@ -551,7 +575,7 @@ const Popup = () => {
       
       switch (intendedRoute.route) {
         case '/research':
-          setCurrentRoute('research');
+          setCurrentRoute('/research');
           break;
         case '/analysis':
           handleAnalysePage();
@@ -560,47 +584,34 @@ const Popup = () => {
           handleFactChecker();
           break;
         default:
-          setCurrentRoute('settings');
+          setCurrentRoute('/research');
       }
     } else {
-      console.log('🎯 SETTINGS: No intended route, staying in settings');
-      setCurrentRoute('settings');
+      console.log('🎯 SETTINGS: No intended route, navigating to research page');
+      // Navigate to research page after setup completion
+      setCurrentRoute('/research');
     }
   }, [intendedRoute, handleAnalysePage, handleFactChecker]);
 
   const handleAnalysePage = useCallback(async () => {
     try {
+      console.log('📊 Analysis: Starting analysis process...');
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
       if (tab && tab.url) {
         const currentUrl = tab.url;
         console.log('📊 Analysis: Current URL:', currentUrl);
+        
+        // Always update current URL
         setCurrentPageUrl(currentUrl);
-        
-        const storage = await chrome.storage.local.get(['savedAnalysisData', 'savedAnalysisUrl']);
-        console.log('📊 Analysis: Saved URL from storage:', storage.savedAnalysisUrl);
-        console.log('📊 Analysis: Saved data exists:', !!storage.savedAnalysisData);
-        
-        const currentNormalized = normalizeUrl(currentUrl);
-        const savedNormalized = storage.savedAnalysisUrl ? normalizeUrl(storage.savedAnalysisUrl) : '';
-        const urlMatch = savedNormalized && savedNormalized === currentNormalized;
 
-        console.log('📊 Analysis: Saved normalized URL:', savedNormalized);
-        console.log('📊 Analysis: Current normalized URL:', currentNormalized);
-        console.log('📊 Analysis: URL match:', urlMatch);
+        // Switch to analysis route
+        setCurrentRoute('/analysis');
 
-        if (storage.savedAnalysisData && urlMatch) {
-          console.log('📊 Analysis: Loading saved analysis data for URL:', currentUrl);
-          setAnalysisData(storage.savedAnalysisData);
-          setCurrentRoute('analysis');
-          setIsAnalysisLoading(false);
-          return;
-        }
-        
-        console.log('📊 Analysis: No saved data found, making API call for URL:', currentUrl);
-        setCurrentRoute('analysis');
-        setIsAnalysisLoading(true);
+        // Always make fresh API call - no storage checking
+        console.log('📊 Analysis: Making fresh API call for URL:', currentUrl);
         setAnalysisData(null);
+        setIsAnalysisLoading(true);
 
         const result = await aiService.generatePageAnalysis(currentUrl);
         
@@ -609,26 +620,30 @@ const Popup = () => {
             summary: result.summary,
             faqs: result.faqs
           });
+          console.log('📊 Analysis: Analysis completed successfully');
         } else {
-          console.error('Page analysis failed:', result.error);
+          console.error('📊 Analysis: API call failed:', result.error);
           setAnalysisData(null);
         }
       } else {
-        console.error('Unable to get current tab URL');
+        console.error('📊 Analysis: Unable to get current tab URL');
         setAnalysisData(null);
+        setCurrentRoute('/analysis');
       }
     } catch (error) {
-      console.error('Error triggering page analysis:', error);
+      console.error('📊 Analysis: Error during analysis:', error);
       setAnalysisData(null);
+      setCurrentRoute('/analysis');
     } finally {
       setIsAnalysisLoading(false);
+      console.log('📊 Analysis: Process completed');
     }
   }, []);
+
   const handleBackFromAnalysis = useCallback(() => {
     console.log('⬅️ BACK: From analysis to research');
-    setCurrentRoute('research');
+    setCurrentRoute('/research');
     setAnalysisData(null);
-    // Don't clear currentPageUrl to preserve saved data
   }, []);
 
   const handleRetryAnalysis = useCallback(() => {
@@ -650,39 +665,19 @@ const Popup = () => {
       if (tab && tab.url) {
         const currentUrl = tab.url;
         console.log('🔍 Fact Checker: Current URL:', currentUrl);
+        
+        // Always update current URL
         setCurrentPageUrl(currentUrl);
-        
-        // Check if we already have saved fact check data for this URL
-        const storage = await chrome.storage.local.get(['savedFactCheckData', 'savedFactCheckUrl']);
-        console.log('🔍 Fact Checker: Saved URL from storage:', storage.savedFactCheckUrl);
-        console.log('🔍 Fact Checker: Saved data exists:', !!storage.savedFactCheckData);
-        
-        // Compare normalized URLs only (no loose domain matches)
-        const currentNormalized = normalizeUrl(currentUrl);
-        const savedNormalized = storage.savedFactCheckUrl ? normalizeUrl(storage.savedFactCheckUrl) : '';
-        const urlMatch = savedNormalized && savedNormalized === currentNormalized;
 
-        console.log('🔍 Fact Checker: Saved normalized URL:', savedNormalized);
-        console.log('🔍 Fact Checker: Current normalized URL:', currentNormalized);
-        console.log('🔍 Fact Checker: URL match:', urlMatch);
+        // Switch to fact checker route
+        setCurrentRoute('/fact-checker');
 
-        if (storage.savedFactCheckData && urlMatch) {
-          // Load saved data instead of making API call
-          console.log('🔍 Fact Checker: Loading saved fact check data for URL:', currentUrl);
-          setFactCheckData(storage.savedFactCheckData);
-          setCurrentRoute('fact-checker');
-          setIsFactCheckerLoading(false);
-          console.log('🔍 Fact Checker: Loaded saved fact check data');
-          return;
-        }
-        
-        console.log('🔍 Fact Checker: No saved data found, making API call for URL:', currentUrl);
+        // Always make fresh API call - no storage checking
+        console.log('🔍 Fact Checker: Making fresh API call for URL:', currentUrl);
         setFactCheckData(null);
-
-        setCurrentRoute('fact-checker');
         setIsFactCheckerLoading(true);
         
-        console.log('🔍 Fact Checker: Switched to fact checker view, calling AI service...');
+        console.log('🔍 Fact Checker: Calling AI service...');
 
         const result = await aiService.generateFactCheck(currentUrl);
         console.log('🔍 Fact Checker: AI service response:', result);
@@ -691,15 +686,18 @@ const Popup = () => {
           setFactCheckData(result);
           console.log('🔍 Fact Checker: Fact check completed successfully');
         } else {
-          console.error('🔍 Fact Checker: AI service error:', result.error);
+          console.error('🔍 Fact Checker: API call failed:', result.error);
           setFactCheckData(null);
         }
       } else {
         console.error('🔍 Fact Checker: No active tab found or invalid URL');
+        setFactCheckData(null);
+        setCurrentRoute('/fact-checker');
       }
     } catch (error) {
       console.error('🔍 Fact Checker: Error during fact checking:', error);
       setFactCheckData(null);
+      setCurrentRoute('/fact-checker');
     } finally {
       setIsFactCheckerLoading(false);
       console.log('🔍 Fact Checker: Process completed');
@@ -708,9 +706,8 @@ const Popup = () => {
 
   const handleBackFromFactChecker = useCallback(() => {
     console.log('⬅️ BACK: From fact checker to research');
-    setCurrentRoute('research');
+    setCurrentRoute('/research');
     setFactCheckData(null);
-    // Don't clear currentPageUrl to preserve saved data
   }, []);
 
   const handleRetryFactCheck = useCallback(() => {
@@ -777,11 +774,9 @@ Please provide a detailed and helpful answer based on the content and context of
 
   const handleClearAnalysisHistory = useCallback(async () => {
     try {
-      // Clear from storage
-      await chrome.storage.local.remove(['savedAnalysisData', 'savedAnalysisUrl']);
-      // Clear from state
+      console.log('🧹 Clearing analysis history');
+      // Just clear from state - no storage to clear
       setAnalysisData(null);
-      setCurrentPageUrl('');
     } catch (error) {
       console.error('Error clearing analysis history:', error);
     }
@@ -789,11 +784,9 @@ Please provide a detailed and helpful answer based on the content and context of
 
   const handleClearFactCheckHistory = useCallback(async () => {
     try {
-      // Clear from storage
-      await chrome.storage.local.remove(['savedFactCheckData', 'savedFactCheckUrl']);
-      // Clear from state
+      console.log('🧹 Clearing fact check history');
+      // Just clear from state - no storage to clear
       setFactCheckData(null);
-      setCurrentPageUrl('');
     } catch (error) {
       console.error('Error clearing fact check history:', error);
     }
@@ -801,20 +794,17 @@ Please provide a detailed and helpful answer based on the content and context of
 
   const handleClearAllHistory = useCallback(async () => {
     try {
+      console.log('🧹 Clearing all history');
+      // Only clear research data from storage - analysis and fact check data are no longer stored
       await chrome.storage.local.remove([
         'savedResearchResults', 
-        'savedResearchTopic',
-        'savedAnalysisData', 
-        'savedAnalysisUrl',
-        'savedFactCheckData', 
-        'savedFactCheckUrl'
+        'savedResearchTopic'
       ]);
 
       setResearchResults(null);
       setCurrentResearchTopic('');
       setAnalysisData(null);
-        setFactCheckData(null);
-      setCurrentPageUrl('');
+      setFactCheckData(null);
       console.log('🧹 Cleared all saved data');
     } catch (error) {
       console.error('Error clearing all history:', error);
@@ -822,19 +812,25 @@ Please provide a detailed and helpful answer based on the content and context of
   }, []);
 
   // Settings handlers
-  const handleSettingsClick = useCallback(() => {
+  const handleSettingsClick = useCallback(async () => {
     console.log('⚙️ Settings: Opening settings');
-    setCurrentRoute('settings');
+    try {
+      await chrome.storage.local.set({ hasSeenLanding: true });
+      console.log('⚙️ Settings: Marked landing as seen when opening settings manually');
+    } catch (error) {
+      console.error('Error saving landing page status:', error);
+    }
+    setCurrentRoute('/settings');
   }, []);
 
   const handleBackFromSettings = useCallback(() => {
     if (intendedRoute) {
       console.log('⬅️ BACK: From settings to landing (canceling setup)');
-      setIntendedRoute(null);
-      setCurrentRoute('landing');
+      console.log(intendedRoute.route)
+      setCurrentRoute(intendedRoute.route);
     } else {
       console.log('⬅️ BACK: From settings to research');
-      setCurrentRoute('research');
+      setCurrentRoute('/research');
     }
   }, [intendedRoute]);
 
@@ -843,7 +839,7 @@ Please provide a detailed and helpful answer based on the content and context of
     console.log('🔄 ROUTING: CurrentRoute changed to:', currentRoute);
     
     switch (currentRoute) {
-      case 'research':
+      case '/research':
         console.log('🔄 ROUTING: Switching to research view');
         setShowLanding(false);
         setShowAnalysis(false);
@@ -851,7 +847,7 @@ Please provide a detailed and helpful answer based on the content and context of
         setShowSettings(false);
         setShowResearch(true);
         break;
-      case 'analysis':
+      case '/analysis':
         console.log('🔄 ROUTING: Switching to analysis view');
         setShowLanding(false);
         setShowResearch(false);
@@ -860,7 +856,7 @@ Please provide a detailed and helpful answer based on the content and context of
         setShowAnalysis(true);
         handleAnalysePage();
         break;
-      case 'fact-checker':
+      case '/fact-checker':
         console.log('🔄 ROUTING: Switching to fact-checker view');
         setShowLanding(false);
         setShowResearch(false);
@@ -870,7 +866,7 @@ Please provide a detailed and helpful answer based on the content and context of
         // Auto-trigger fact check using existing function (handles URL matching automatically)
         handleFactChecker();
         break;
-      case 'settings':
+      case '/settings':
         console.log('🔄 ROUTING: Switching to settings view');
         setShowLanding(false);
         setShowResearch(false);
@@ -878,7 +874,7 @@ Please provide a detailed and helpful answer based on the content and context of
         setShowFactChecker(false);
         setShowSettings(true);
         break;
-      case 'landing':
+      case '/landing':
         console.log('🔄 ROUTING: Switching to landing view');
         setShowResearch(false);
         setShowAnalysis(false);
@@ -970,6 +966,57 @@ Please provide a detailed and helpful answer based on the content and context of
         )}
       </AnimatePresence>
       
+      {/* API Key Error Notification */}
+      <AnimatePresence>
+        {apiKeyError && (
+          <motion.div
+            key="api-error"
+            initial={{ opacity: 0, y: -100 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -100 }}
+            transition={{ duration: 0.3 }}
+            className="absolute top-0 left-0 right-0 z-50 p-4"
+          >
+            <div className="bg-red-500 text-white rounded-lg shadow-lg border border-red-600">
+              <div className="flex items-start justify-between p-4">
+                <div className="flex items-start space-x-3">
+                  <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-medium text-white">API Key Error</h3>
+                    <p className="text-sm text-red-100 mt-1">{apiKeyError.message}</p>
+                    <div className="flex items-center space-x-3 mt-3">
+                      <button
+                        onClick={navigateToSettings}
+                        className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors duration-200"
+                      >
+                        Fix Settings
+                      </button>
+                      <button
+                        onClick={handleApiKeyErrorDismiss}
+                        className="text-red-100 hover:text-white text-sm underline transition-colors duration-200"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={handleApiKeyErrorDismiss}
+                  className="text-red-100 hover:text-white p-1 rounded transition-colors duration-200"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
