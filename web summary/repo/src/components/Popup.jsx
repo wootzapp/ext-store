@@ -280,7 +280,6 @@ const Popup = () => {
   }, [researchResults, currentResearchTopic]);
 
   useEffect(() => {
-    // No longer saving analysis data to storage - always use fresh data
     console.log('� Save Function: Analysis data storage disabled for fresh API calls');
   }, [analysisData, currentPageUrl]);
 
