@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { truncateUrl } from '../utils/urlUtils';
+import { renderMarkdown, CopyButton, formatSectionForCopy, formatPageForCopy } from '../utils/markdownUtils';
 import SettingsButton from './SettingsButton';
 
 // Helper function to open URLs in new Chrome tabs
@@ -22,6 +23,7 @@ const FactChecker = ({
   onClearHistory,
   onSettingsClick 
 }) => {
+  // No local state needed - all URL change logic handled in parent
 
   return (
     <motion.div 
@@ -40,20 +42,28 @@ const FactChecker = ({
       {/* Header */}
       <div className="bg-white/90 backdrop-blur-sm text-gray-800 p-4 shadow-sm relative z-10 border-b border-gray-200">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-3 flex-1">
             <SettingsButton onSettingsClick={onSettingsClick} />
             <button
               onClick={onBack}
               className="flex items-center space-x-2 text-gray-600 hover:text-red-500 transition-colors"
             >
-              <span>←</span>
               <span className="text-sm font-medium">Back</span>
             </button>
           </div>
-          <div className="flex items-center">
+          <div className="flex items-center justify-center flex-1">
             <h1 className="text-lg font-bold text-gray-800">Fact Checker</h1>
           </div>
-          <div className="flex space-x-2">
+          <div className="flex items-center justify-end space-x-3 flex-1">
+            {factCheckData && (
+              <CopyButton
+                text={formatPageForCopy(factCheckData, 'Fact Check Results', currentPageUrl)}
+                variant="secondary"
+                size="lg"
+              >
+                Copy All
+              </CopyButton>
+            )}
             <button
               type="button"
               onClick={onClearHistory}
@@ -99,13 +109,21 @@ const FactChecker = ({
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <h2 className="text-gray-800 font-semibold mb-4 flex items-center">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center mr-3">
-                    <span className="text-white text-sm">🎯</span>
-                  </div>
-                  Overall Assessment
-                </h2>
-                <p className="text-gray-700 text-sm leading-relaxed">{factCheckData.overallAssessment}</p>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-gray-800 font-semibold flex items-center">
+                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center mr-3">
+                      <span className="text-white text-sm">🎯</span>
+                    </div>
+                    Overall Assessment
+                  </h2>
+                  <CopyButton
+                    text={formatSectionForCopy(factCheckData.overallAssessment, 'Overall Assessment')}
+                    size="xs"
+                  />
+                </div>
+                <div className="text-gray-700 text-sm leading-relaxed">
+                  {renderMarkdown(factCheckData.overallAssessment)}
+                </div>
               </motion.div>
             )}
 
@@ -117,12 +135,18 @@ const FactChecker = ({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
               >
-                <h2 className="text-gray-800 font-semibold mb-4 flex items-center">
-                  <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mr-3">
-                    <span className="text-white text-sm">📊</span>
-                  </div>
-                  Credibility Score
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-gray-800 font-semibold flex items-center">
+                    <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mr-3">
+                      <span className="text-white text-sm">📊</span>
+                    </div>
+                    Credibility Score
+                  </h2>
+                  <CopyButton
+                    text={formatSectionForCopy(factCheckData.credibilityScore, 'Credibility Score')}
+                    size="xs"
+                  />
+                </div>
                 <div className="flex items-center space-x-3">
                   <div className="flex-1 bg-gray-200 rounded-full h-2">
                     <div 
@@ -147,19 +171,36 @@ const FactChecker = ({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
               >
-                <h2 className="text-gray-800 font-semibold mb-4 flex items-center">
-                  <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-teal-500 rounded-full flex items-center justify-center mr-3">
-                    <span className="text-white text-sm">✅</span>
-                  </div>
-                  Verified Claims
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-gray-800 font-semibold flex items-center">
+                    <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-teal-500 rounded-full flex items-center justify-center mr-3">
+                      <span className="text-white text-sm">✅</span>
+                    </div>
+                    Verified Claims
+                  </h2>
+                  <CopyButton
+                    text={formatSectionForCopy(factCheckData.verifiedClaims, 'Verified Claims')}
+                    size="xs"
+                  />
+                </div>
                 <div className="space-y-4">
                   {factCheckData.verifiedClaims.map((claim, index) => (
-                    <div key={index} className="border-l-4 border-green-400 pl-4 bg-gray-50 rounded-r-lg p-3">
-                      <p className="text-gray-800 font-medium text-sm mb-1">{claim.statement}</p>
+                    <div key={index} className="border-l-4 border-green-400 pl-4 bg-gray-50 rounded-r-lg p-3 relative">
+                      <div className="absolute top-2 right-2">
+                        <CopyButton
+                          text={formatSectionForCopy(claim, `Verified Claim ${index + 1}`)}
+                          size="xs"
+                          variant="default"
+                        />
+                      </div>
+                      <div className="text-gray-800 font-medium text-sm mb-1 pr-16">
+                        {renderMarkdown(claim.statement)}
+                      </div>
                       <p className="text-green-600 text-xs mb-1 font-medium">✓ {claim.status}</p>
                       {claim.evidence && (
-                        <p className="text-gray-600 text-xs leading-relaxed">{claim.evidence}</p>
+                        <div className="text-gray-600 text-xs leading-relaxed pr-16">
+                          {renderMarkdown(claim.evidence)}
+                        </div>
                       )}
                     </div>
                   ))}
@@ -175,19 +216,36 @@ const FactChecker = ({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
               >
-                <h2 className="text-gray-800 font-semibold mb-4 flex items-center">
-                  <div className="w-8 h-8 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-full flex items-center justify-center mr-3">
-                    <span className="text-white text-sm">⚠️</span>
-                  </div>
-                  Disputed Claims
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-gray-800 font-semibold flex items-center">
+                    <div className="w-8 h-8 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-full flex items-center justify-center mr-3">
+                      <span className="text-white text-sm">⚠️</span>
+                    </div>
+                    Disputed Claims
+                  </h2>
+                  <CopyButton
+                    text={formatSectionForCopy(factCheckData.disputedClaims, 'Disputed Claims')}
+                    size="xs"
+                  />
+                </div>
                 <div className="space-y-4">
                   {factCheckData.disputedClaims.map((claim, index) => (
-                    <div key={index} className="border-l-4 border-yellow-400 pl-4 bg-gray-50 rounded-r-lg p-3">
-                      <p className="text-gray-800 font-medium text-sm mb-1">{claim.statement}</p>
+                    <div key={index} className="border-l-4 border-yellow-400 pl-4 bg-gray-50 rounded-r-lg p-3 relative">
+                      <div className="absolute top-2 right-2">
+                        <CopyButton
+                          text={formatSectionForCopy(claim, `Disputed Claim ${index + 1}`)}
+                          size="xs"
+                          variant="default"
+                        />
+                      </div>
+                      <div className="text-gray-800 font-medium text-sm mb-1 pr-16">
+                        {renderMarkdown(claim.statement)}
+                      </div>
                       <p className="text-yellow-600 text-xs mb-1 font-medium">⚠️ {claim.status}</p>
                       {claim.evidence && (
-                        <p className="text-gray-600 text-xs leading-relaxed">{claim.evidence}</p>
+                        <div className="text-gray-600 text-xs leading-relaxed pr-16">
+                          {renderMarkdown(claim.evidence)}
+                        </div>
                       )}
                     </div>
                   ))}
@@ -203,19 +261,36 @@ const FactChecker = ({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
               >
-                <h2 className="text-gray-800 font-semibold mb-4 flex items-center">
-                  <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-pink-500 rounded-full flex items-center justify-center mr-3">
-                    <span className="text-white text-sm">❌</span>
-                  </div>
-                  False Claims
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-gray-800 font-semibold flex items-center">
+                    <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-pink-500 rounded-full flex items-center justify-center mr-3">
+                      <span className="text-white text-sm">❌</span>
+                    </div>
+                    False Claims
+                  </h2>
+                  <CopyButton
+                    text={formatSectionForCopy(factCheckData.falseClaims, 'False Claims')}
+                    size="xs"
+                  />
+                </div>
                 <div className="space-y-4">
                   {factCheckData.falseClaims.map((claim, index) => (
-                    <div key={index} className="border-l-4 border-red-400 pl-4 bg-gray-50 rounded-r-lg p-3">
-                      <p className="text-gray-800 font-medium text-sm mb-1">{claim.statement}</p>
+                    <div key={index} className="border-l-4 border-red-400 pl-4 bg-gray-50 rounded-r-lg p-3 relative">
+                      <div className="absolute top-2 right-2">
+                        <CopyButton
+                          text={formatSectionForCopy(claim, `False Claim ${index + 1}`)}
+                          size="xs"
+                          variant="default"
+                        />
+                      </div>
+                      <div className="text-gray-800 font-medium text-sm mb-1 pr-16">
+                        {renderMarkdown(claim.statement)}
+                      </div>
                       <p className="text-red-600 text-xs mb-1 font-medium">❌ {claim.status}</p>
                       {claim.evidence && (
-                        <p className="text-gray-600 text-xs leading-relaxed">{claim.evidence}</p>
+                        <div className="text-gray-600 text-xs leading-relaxed pr-16">
+                          {renderMarkdown(claim.evidence)}
+                        </div>
                       )}
                     </div>
                   ))}

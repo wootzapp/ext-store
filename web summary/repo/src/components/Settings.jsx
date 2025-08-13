@@ -41,10 +41,9 @@ const Settings = ({ onBack, onSetupComplete }) => {
   }, []);
 
   useEffect(() => {
-    if (validationError && apiKey) {
-      setValidationError('');
-    }
-  }, [apiKey, validationError]);
+    // Removed automatic clearing of validation error when apiKey changes
+    // Error should persist until user tries to save again
+  }, [apiKey]);
 
   useEffect(() => {
     if (successMessage) {
@@ -58,27 +57,27 @@ const Settings = ({ onBack, onSetupComplete }) => {
   const handleModelSelect = (modelId) => {
     if (!isEditMode) return; 
     setSelectedModel(modelId);
-    setValidationError('');
+    // Removed setValidationError('') - error should persist until save attempt
     setSuccessMessage('');
   };
 
   const handleSearchEngineSelect = (searchEngineId) => {
     if (!isEditMode) return;
     setSelectedSearchEngine(searchEngineId);
-    setValidationError('');
+    // Removed setValidationError('') - error should persist until save attempt
     setSuccessMessage('');
   };
 
   const handleApiKeyChange = (e) => {
     if (!isEditMode) return;
     setApiKey(e.target.value);
-    setValidationError('');
+    // Removed setValidationError('') - error should persist until save attempt
     setSuccessMessage('');
   };
 
   const handleEditClick = () => {
     setIsEditMode(true);
-    setValidationError('');
+    // Removed setValidationError('') - error should persist until save attempt
     setSuccessMessage('');
   };
 
@@ -86,7 +85,7 @@ const Settings = ({ onBack, onSetupComplete }) => {
     setIsEditMode(false);
 
     loadCurrentSettings();
-    setValidationError('');
+    // Removed setValidationError('') - error should persist until save attempt
     setSuccessMessage('');
   };
 
@@ -131,7 +130,25 @@ const Settings = ({ onBack, onSetupComplete }) => {
 
       const testResult = await StorageUtils.testApiKey(selectedModel, apiKey.trim());
       if (!testResult.valid) {
-        setValidationError(`Invalid API key: ${testResult.error || 'The API key you entered is not valid or has expired. Please check your key and try again.'}`);
+        const baseError = testResult.error || 'The API key you entered is not valid or has expired.';
+        let userFriendlyError;
+        
+        // Provide more specific error messages based on the error content
+        if (baseError.includes('Unauthorized') || baseError.includes('401')) {
+          userFriendlyError = `❌ Invalid API Key: ${baseError}\n\nPlease verify that you have copied the correct API key and that it hasn't been revoked.`;
+        } else if (baseError.includes('Forbidden') || baseError.includes('403')) {
+          userFriendlyError = `🚫 Access Denied: ${baseError}\n\nYour API key may not have the required permissions for this service.`;
+        } else if (baseError.includes('Rate limit') || baseError.includes('429')) {
+          userFriendlyError = `⏰ Rate Limited: ${baseError}\n\nPlease wait a few minutes before trying again.`;
+        } else if (baseError.includes('Network error')) {
+          userFriendlyError = `🌐 Connection Issue: ${baseError}\n\nPlease check your internet connection and try again.`;
+        } else if (baseError.includes('server') || baseError.includes('500')) {
+          userFriendlyError = `🔧 Server Issue: ${baseError}\n\nThe AI service is temporarily unavailable. Please try again later.`;
+        } else {
+          userFriendlyError = `❌ Validation Failed: ${baseError}\n\nPlease check your API key and try again.`;
+        }
+        
+        setValidationError(userFriendlyError);
         setIsValidating(false);
         return;
       }
@@ -180,15 +197,8 @@ const Settings = ({ onBack, onSetupComplete }) => {
       setHasBeenSaved(true);
       setIsEditMode(false);
 
-      if (onSetupComplete) {
-        setTimeout(() => {
-          onSetupComplete();
-        }, 1500);
-      } else {
-        setTimeout(() => {
-          onBack();
-        }, 1500);
-      }
+      // Removed automatic redirection - user stays in settings
+      // User can manually navigate using back button or other navigation
 
     } catch (error) {
       console.error('❌ Settings update error:', error);
@@ -323,45 +333,49 @@ const Settings = ({ onBack, onSetupComplete }) => {
       </div>
 
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-gray-200 relative z-10">
-        <div className="flex items-center space-x-3">
-          <motion.button
-            onClick={onBack}
-            className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors duration-200"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </motion.button>
-          <h1 className="text-xl font-semibold text-gray-800">Settings</h1>
-        </div>
-        <div className="flex items-center space-x-3">
-          {!isEditMode && hasBeenSaved && (
+      <div className="bg-white/90 backdrop-blur-sm text-gray-800 p-4 shadow-sm relative z-10 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3 flex-1">
             <motion.button
-              onClick={handleEditClick}
-              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors duration-200"
+              onClick={onBack}
+              className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors duration-200"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              Edit Settings
+              <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
             </motion.button>
-          )}
-          {isEditMode && hasBeenSaved && (
-            <motion.button
-              onClick={handleCancelEdit}
-              className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors duration-200"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Cancel
-            </motion.button>
-          )}
-          <div className="w-6 h-6 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center">
-            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-            </svg>
+          </div>
+          <div className="flex items-center justify-center flex-1">
+            <h1 className="text-lg font-bold text-gray-800">Settings</h1>
+          </div>
+          <div className="flex items-center justify-end space-x-3 flex-1">
+            {!isEditMode && hasBeenSaved && (
+              <motion.button
+                onClick={handleEditClick}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors duration-200"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Edit Settings
+              </motion.button>
+            )}
+            {isEditMode && hasBeenSaved && (
+              <motion.button
+                onClick={handleCancelEdit}
+                className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors duration-200"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Cancel
+              </motion.button>
+            )}
+            <div className="w-6 h-6 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center">
+              <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+              </svg>
+            </div>
           </div>
         </div>
       </div>
@@ -462,7 +476,42 @@ const Settings = ({ onBack, onSetupComplete }) => {
             </div>
           </div>
 
-          {/* API Key Input */}
+          {/* Error Message - moved outside selectedModelConfig block to show validation errors */}
+          <AnimatePresence>
+            {validationError && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="p-4 bg-red-50 border border-red-200 rounded-lg"
+              >
+                <div className="flex items-start space-x-2">
+                  <svg className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  <div className="flex-1">
+                    <p className="text-sm text-red-800 font-medium">Validation Error</p>
+                    <div className="text-sm text-red-700 mt-1 whitespace-pre-line">{validationError}</div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Success Message - moved outside selectedModelConfig block */}
+          <AnimatePresence>
+            {successMessage && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="p-3 bg-green-50 border border-green-200 rounded-lg"
+              >
+                <p className="text-sm text-green-600">{successMessage}</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {selectedModelConfig && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -486,34 +535,6 @@ const Settings = ({ onBack, onSetupComplete }) => {
                     readOnly={!isEditMode}
                   />
                 </div>
-
-                {/* Error Message */}
-                <AnimatePresence>
-                  {validationError && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="p-3 bg-red-50 border border-red-200 rounded-lg"
-                    >
-                      <p className="text-sm text-red-600">{validationError}</p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Success Message */}
-                <AnimatePresence>
-                  {successMessage && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="p-3 bg-green-50 border border-green-200 rounded-lg"
-                    >
-                      <p className="text-sm text-green-600">{successMessage}</p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
 
                 {/* Save Button */}
                 {isEditMode && (

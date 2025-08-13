@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
+import { renderMarkdown, CopyButton, formatSectionForCopy, formatPageForCopy } from '../utils/markdownUtils';
 import SettingsButton from './SettingsButton';
 
 // Helper function to open URLs in new Chrome tabs
@@ -74,12 +75,18 @@ const ResearchDisplay = React.memo(({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
     >
-      <h3 className="text-gray-800 font-semibold mb-4 flex items-center">
-        <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center mr-3">
-          <span className="text-white text-sm">🎯</span>
-        </div>
-        Research Summary
-      </h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-gray-800 font-semibold flex items-center">
+          <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center mr-3">
+            <span className="text-white text-sm">🎯</span>
+          </div>
+          Research Summary
+        </h3>
+        <CopyButton
+          text={formatSectionForCopy(summary, 'Research Summary')}
+          size="xs"
+        />
+      </div>
       <div className="space-y-3">
         <div>
           <span className="text-gray-600 text-sm font-medium">Topic: </span>
@@ -87,7 +94,9 @@ const ResearchDisplay = React.memo(({
         </div>
         <div>
           <span className="text-gray-600 text-sm font-medium">Overview: </span>
-          <p className="text-gray-700 text-sm leading-relaxed mt-1">{summary.overview}</p>
+          <div className="text-gray-700 text-sm leading-relaxed mt-1">
+            {renderMarkdown(summary.overview)}
+          </div>
         </div>
         <div>
           <span className="text-gray-600 text-sm font-medium">Quality: </span>
@@ -102,11 +111,14 @@ const ResearchDisplay = React.memo(({
         {summary.key_findings && summary.key_findings.length > 0 && (
           <div>
             <span className="text-gray-600 text-sm font-medium">Key Findings:</span>
-            <ul className="list-disc list-inside text-gray-700 text-sm space-y-1 mt-2">
+            <div className="text-gray-700 text-sm space-y-1 mt-2">
               {summary.key_findings.map((finding, index) => (
-                <li key={index}>{finding}</li>
+                <div key={index} className="flex items-start">
+                  <span className="text-gray-400 mr-2">•</span>
+                  <div className="flex-1">{renderMarkdown(finding)}</div>
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
         )}
       </div>
@@ -120,30 +132,47 @@ const ResearchDisplay = React.memo(({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.1 }}
     >
-      <h3 className="text-gray-800 font-semibold mb-4 flex items-center">
-        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center mr-3">
-          <span className="text-white text-sm">🎓</span>
-        </div>
-        Academic Sources ({sources.length})
-      </h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-gray-800 font-semibold flex items-center">
+          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center mr-3">
+            <span className="text-white text-sm">🎓</span>
+          </div>
+          Academic Sources ({sources.length})
+        </h3>
+        <CopyButton
+          text={formatSectionForCopy(sources, 'Academic Sources')}
+          size="xs"
+        />
+      </div>
       <div className="space-y-4 max-h-64 overflow-y-auto">
         {sources.map((source, index) => (
-          <div key={index} className="border-l-4 border-blue-400 pl-4 bg-gray-50 rounded-r-lg p-3">
-            <div className="flex items-start justify-between">
+          <div key={index} className="border-l-4 border-blue-400 pl-4 bg-gray-50 rounded-r-lg p-3 relative">
+            <div className="absolute top-2 right-2">
+              <CopyButton
+                text={formatSectionForCopy(source, `Source ${index + 1}`)}
+                size="xs"
+                variant="default"
+              />
+            </div>
+            <div className="flex items-start justify-between pr-16">
               <h4 className="text-gray-800 font-medium text-sm mb-1">{source.title}</h4>
-              <span className="text-blue-600 text-xs font-medium bg-blue-100 px-2 py-1 rounded-full">{source.relevance_score}/10</span>
+              <span className="text-blue-600 text-xs font-medium bg-blue-100 px-2 py-1 rounded-full ml-2">{source.relevance_score}/10</span>
             </div>
             <p className="text-gray-600 text-xs mb-1">
               {source.authors?.join(', ')} • {source.publication} ({source.year})
             </p>
-            <p className="text-gray-700 text-xs mb-1">{source.key_contribution}</p>
+            <div className="text-gray-700 text-xs mb-1">
+              {renderMarkdown(source.key_contribution)}
+            </div>
             {source.methodology && (
-              <p className="text-gray-500 text-xs">Method: {source.methodology}</p>
+              <div className="text-gray-500 text-xs">
+                Method: {renderMarkdown(source.methodology)}
+              </div>
             )}
             {source.doi_or_url && (
               <button 
                 onClick={() => openInNewTab(source.doi_or_url)}
-                className="text-blue-600 hover:text-blue-700 text-xs underline font-medium cursor-pointer bg-transparent border-none p-0"
+                className="text-blue-600 hover:text-blue-700 text-xs underline font-medium cursor-pointer bg-transparent border-none p-0 mt-1"
               >
                 {source.doi_or_url.includes('doi') ? 'DOI Link' : 'Source Link'}
               </button>
@@ -161,18 +190,31 @@ const ResearchDisplay = React.memo(({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}
     >
-      <h3 className="text-gray-800 font-semibold mb-4 flex items-center">
-        <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-teal-500 rounded-full flex items-center justify-center mr-3">
-          <span className="text-white text-sm">📰</span>
-        </div>
-        Credible Articles ({articles.length})
-      </h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-gray-800 font-semibold flex items-center">
+          <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-teal-500 rounded-full flex items-center justify-center mr-3">
+            <span className="text-white text-sm">📰</span>
+          </div>
+          Credible Articles ({articles.length})
+        </h3>
+        <CopyButton
+          text={formatSectionForCopy(articles, 'Credible Articles')}
+          size="xs"
+        />
+      </div>
       <div className="space-y-4 max-h-64 overflow-y-auto">
         {articles.map((article, index) => (
-          <div key={index} className="border-l-4 border-green-400 pl-4 bg-gray-50 rounded-r-lg p-3">
-            <div className="flex items-start justify-between">
+          <div key={index} className="border-l-4 border-green-400 pl-4 bg-gray-50 rounded-r-lg p-3 relative">
+            <div className="absolute top-2 right-2">
+              <CopyButton
+                text={formatSectionForCopy(article, `Article ${index + 1}`)}
+                size="xs"
+                variant="default"
+              />
+            </div>
+            <div className="flex items-start justify-between pr-16">
               <h4 className="text-gray-800 font-medium text-sm mb-1">{article.title}</h4>
-              <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+              <span className={`text-xs px-2 py-1 rounded-full font-medium ml-2 ${
                 article.credibility_rating === 'high' ? 'bg-green-100 text-green-700' :
                 article.credibility_rating === 'medium' ? 'bg-yellow-100 text-yellow-700' :
                 'bg-orange-100 text-orange-700'
@@ -183,12 +225,14 @@ const ResearchDisplay = React.memo(({
             <p className="text-gray-600 text-xs mb-1">
               {article.author} • {article.source} • {article.publication_date}
             </p>
-            <p className="text-gray-700 text-xs mb-2">{article.summary}</p>
+            <div className="text-gray-700 text-xs mb-2">
+              {renderMarkdown(article.summary)}
+            </div>
             {article.relevant_quotes && article.relevant_quotes.length > 0 && (
               <div className="mb-2">
                 {article.relevant_quotes.map((quote, qIndex) => (
                   <blockquote key={qIndex} className="text-gray-600 text-xs italic border-l-2 border-gray-300 pl-2 mb-1 bg-white rounded-r p-2">
-                    "{quote}"
+                    {renderMarkdown(`"${quote}"`)}
                   </blockquote>
                 ))}
               </div>
@@ -214,21 +258,38 @@ const ResearchDisplay = React.memo(({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.3 }}
     >
-      <h3 className="text-gray-800 font-semibold mb-4 flex items-center">
-        <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mr-3">
-          <span className="text-white text-sm">📊</span>
-        </div>
-        Statistical Data ({stats.length})
-      </h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-gray-800 font-semibold flex items-center">
+          <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mr-3">
+            <span className="text-white text-sm">📊</span>
+          </div>
+          Statistical Data ({stats.length})
+        </h3>
+        <CopyButton
+          text={formatSectionForCopy(stats, 'Statistical Data')}
+          size="xs"
+        />
+      </div>
       <div className="grid grid-cols-1 gap-4">
         {stats.map((stat, index) => (
-          <div key={index} className="bg-gradient-to-r from-gray-50 to-white rounded-xl p-4 border border-gray-100">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-800 font-bold text-lg">{stat.value}</span>
-              <span className="text-gray-500 text-xs bg-gray-100 px-2 py-1 rounded-full">({stat.year})</span>
+          <div key={index} className="bg-gradient-to-r from-gray-50 to-white rounded-xl p-4 border border-gray-100 relative">
+            <div className="absolute top-2 right-2">
+              <CopyButton
+                text={formatSectionForCopy(stat, `Statistic ${index + 1}`)}
+                size="xs"
+                variant="default"
+              />
             </div>
-            <p className="text-gray-700 text-sm mb-1 font-medium">{stat.statistic}</p>
-            <p className="text-gray-600 text-xs mb-1">{stat.context}</p>
+            <div className="flex items-center justify-between mb-2 pr-16">
+              <span className="text-gray-800 font-bold text-lg">{stat.value}</span>
+              <span className="text-gray-500 text-xs bg-gray-100 px-2 py-1 rounded-full ml-2">({stat.year})</span>
+            </div>
+            <div className="text-gray-700 text-sm mb-1 font-medium pr-16">
+              {renderMarkdown(stat.statistic)}
+            </div>
+            <div className="text-gray-600 text-xs mb-1 pr-16">
+              {renderMarkdown(stat.context)}
+            </div>
             <p className="text-blue-600 text-xs font-medium">Source: {stat.source}</p>
           </div>
         ))}
@@ -243,18 +304,31 @@ const ResearchDisplay = React.memo(({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4 }}
     >
-      <h3 className="text-gray-800 font-semibold mb-4 flex items-center">
-        <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-blue-500 rounded-full flex items-center justify-center mr-3">
-          <span className="text-white text-sm">👨‍🎓</span>
-        </div>
-        Expert Opinions ({opinions.length})
-      </h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-gray-800 font-semibold flex items-center">
+          <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-blue-500 rounded-full flex items-center justify-center mr-3">
+            <span className="text-white text-sm">👨‍🎓</span>
+          </div>
+          Expert Opinions ({opinions.length})
+        </h3>
+        <CopyButton
+          text={formatSectionForCopy(opinions, 'Expert Opinions')}
+          size="xs"
+        />
+      </div>
       <div className="space-y-4">
         {opinions.map((opinion, index) => (
-          <div key={index} className="border-l-4 border-indigo-400 pl-4 bg-gray-50 rounded-r-lg p-3">
-            <div className="flex items-start justify-between">
+          <div key={index} className="border-l-4 border-indigo-400 pl-4 bg-gray-50 rounded-r-lg p-3 relative">
+            <div className="absolute top-2 right-2">
+              <CopyButton
+                text={formatSectionForCopy(opinion, `Expert Opinion ${index + 1}`)}
+                size="xs"
+                variant="default"
+              />
+            </div>
+            <div className="flex items-start justify-between pr-16">
               <h4 className="text-gray-800 font-medium text-sm">{opinion.expert_name}</h4>
-              <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+              <span className={`text-xs px-2 py-1 rounded-full font-medium ml-2 ${
                 opinion.stance === 'supportive' ? 'bg-green-100 text-green-700' :
                 opinion.stance === 'critical' ? 'bg-red-100 text-red-700' :
                 opinion.stance === 'neutral' ? 'bg-gray-100 text-gray-700' :
@@ -263,8 +337,10 @@ const ResearchDisplay = React.memo(({
                 {opinion.stance}
               </span>
             </div>
-            <p className="text-gray-600 text-xs mb-1">{opinion.credentials}</p>
-            <p className="text-gray-700 text-xs mb-1">{opinion.opinion_summary}</p>
+            <p className="text-gray-600 text-xs mb-1 pr-16">{opinion.credentials}</p>
+            <div className="text-gray-700 text-xs mb-1 pr-16">
+              {renderMarkdown(opinion.opinion_summary)}
+            </div>
             <p className="text-blue-600 text-xs font-medium">Source: {opinion.source}</p>
           </div>
         ))}
@@ -279,18 +355,31 @@ const ResearchDisplay = React.memo(({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.5 }}
     >
-      <h3 className="text-gray-800 font-semibold mb-4 flex items-center">
-        <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center mr-3">
-          <span className="text-white text-sm">🔥</span>
-        </div>
-        Trending Discussions ({discussions.length})
-      </h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-gray-800 font-semibold flex items-center">
+          <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center mr-3">
+            <span className="text-white text-sm">🔥</span>
+          </div>
+          Trending Discussions ({discussions.length})
+        </h3>
+        <CopyButton
+          text={formatSectionForCopy(discussions, 'Trending Discussions')}
+          size="xs"
+        />
+      </div>
       <div className="space-y-4">
         {discussions.map((discussion, index) => (
-          <div key={index} className="bg-gradient-to-r from-gray-50 to-white rounded-xl p-4 border border-gray-100">
-            <div className="flex items-center justify-between mb-3">
+          <div key={index} className="bg-gradient-to-r from-gray-50 to-white rounded-xl p-4 border border-gray-100 relative">
+            <div className="absolute top-2 right-2">
+              <CopyButton
+                text={formatSectionForCopy(discussion, `Discussion ${index + 1}`)}
+                size="xs"
+                variant="default"
+              />
+            </div>
+            <div className="flex items-center justify-between mb-3 pr-16">
               <span className="text-gray-800 font-medium text-sm">{discussion.platform}</span>
-              <div className="flex space-x-2">
+              <div className="flex space-x-2 ml-2">
                 <span className={`text-xs px-2 py-1 rounded-full font-medium ${
                   discussion.engagement_level === 'high' ? 'bg-red-100 text-red-700' :
                   discussion.engagement_level === 'medium' ? 'bg-yellow-100 text-yellow-700' :
@@ -308,13 +397,18 @@ const ResearchDisplay = React.memo(({
                 </span>
               </div>
             </div>
-            <p className="text-gray-700 text-sm mb-2">{discussion.discussion_topic}</p>
+            <div className="text-gray-700 text-sm mb-2 pr-16">
+              {renderMarkdown(discussion.discussion_topic)}
+            </div>
             {discussion.key_points && discussion.key_points.length > 0 && (
-              <ul className="list-disc list-inside text-gray-600 text-xs space-y-1">
+              <div className="text-gray-600 text-xs space-y-1 pr-16">
                 {discussion.key_points.map((point, pIndex) => (
-                  <li key={pIndex}>{point}</li>
+                  <div key={pIndex} className="flex items-start">
+                    <span className="text-gray-400 mr-2">•</span>
+                    <div className="flex-1">{renderMarkdown(point)}</div>
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
           </div>
         ))}
@@ -394,11 +488,22 @@ const ResearchDisplay = React.memo(({
       {/* Header */}
       <div className="bg-white/90 backdrop-blur-sm text-gray-800 p-4 shadow-sm relative z-10 border-b border-gray-200">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-3 flex-1">
             <SettingsButton onSettingsClick={onSettingsClick} />
+          </div>
+          <div className="flex items-center justify-center flex-1">
             <h2 className="text-lg font-bold text-gray-800">AI Researcher</h2>
           </div>
-          <div className="flex space-x-2">
+          <div className="flex items-center justify-end space-x-3 flex-1">
+            {researchResults && (
+              <CopyButton
+                text={formatPageForCopy(researchResults, `AI Research: ${currentResearchTopic || 'Research Results'}`, '')}
+                variant="secondary"
+                size="lg"
+              >
+                Copy All
+              </CopyButton>
+            )}
             {/* Research Depth Selector */}
             <div 
               className="relative"
@@ -554,17 +659,26 @@ const ResearchDisplay = React.memo(({
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <h3 className="text-gray-800 font-semibold mb-4 flex items-center">
-                  <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-yellow-500 rounded-full flex items-center justify-center mr-3">
-                    <span className="text-white text-sm">🔍</span>
-                  </div>
-                  Research Gaps
-                </h3>
-                <ul className="list-disc list-inside text-gray-700 text-sm space-y-1">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-gray-800 font-semibold flex items-center">
+                    <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-yellow-500 rounded-full flex items-center justify-center mr-3">
+                      <span className="text-white text-sm">🔍</span>
+                    </div>
+                    Research Gaps
+                  </h3>
+                  <CopyButton
+                    text={formatSectionForCopy(researchResults.research_gaps, 'Research Gaps')}
+                    size="xs"
+                  />
+                </div>
+                <div className="text-gray-700 text-sm space-y-1">
                   {researchResults.research_gaps.map((gap, index) => (
-                    <li key={index}>{gap}</li>
+                    <div key={index} className="flex items-start">
+                      <span className="text-gray-400 mr-2">•</span>
+                      <div className="flex-1">{renderMarkdown(gap)}</div>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </motion.div>
             )}
             
@@ -575,12 +689,18 @@ const ResearchDisplay = React.memo(({
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <h3 className="text-gray-800 font-semibold mb-4 flex items-center">
-                  <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mr-3">
-                    <span className="text-white text-sm">🔗</span>
-                  </div>
-                  Related Topics
-                </h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-gray-800 font-semibold flex items-center">
+                    <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mr-3">
+                      <span className="text-white text-sm">🔗</span>
+                    </div>
+                    Related Topics
+                  </h3>
+                  <CopyButton
+                    text={formatSectionForCopy(researchResults.related_topics, 'Related Topics')}
+                    size="xs"
+                  />
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {researchResults.related_topics.map((topic, index) => (
                     <span 
