@@ -4,6 +4,7 @@ import {
   Settings as SettingsIcon,
   Bot,
   Twitter,
+  Instagram,
   Hash,
   Clock,
   Save,
@@ -33,11 +34,18 @@ const Settings = ({ onConfigUpdate }) => {
     twitter: {
       username: '',
       password: '',
-      email: ''
-    },
-    topics: [''],
-    settings: {
+      email: '',
       interval: 30,
+      topics: ['']
+    },
+    instagram: {
+      username: '',
+      password: '',
+      email: '',
+      interval: 30,
+      topics: ['']
+    },
+    settings: {
       style: 'professional but engaging'
     }
   });
@@ -45,6 +53,7 @@ const Settings = ({ onConfigUpdate }) => {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [errors, setErrors] = useState({});
+  const [activeTab, setActiveTab] = useState('twitter'); // 'twitter' or 'instagram'
 
   const { loadConfig, saveConfig } = useConfig();
 
@@ -54,7 +63,28 @@ const Settings = ({ onConfigUpdate }) => {
         setLoading(true);
         const { config: existingConfig } = await loadConfig();
         if (existingConfig) {
-          setConfig(existingConfig);
+          // Handle migration from old config format
+          const migratedConfig = {
+            ai: existingConfig.ai || { model: '', apiKeys: { claude: '', openai: '', gemini: '' } },
+            twitter: {
+              username: existingConfig.twitter?.username || '',
+              password: existingConfig.twitter?.password || '',
+              email: existingConfig.twitter?.email || '',
+              interval: existingConfig.twitter?.interval || existingConfig.settings?.interval || 30,
+              topics: existingConfig.twitter?.topics || existingConfig.topics || ['']
+            },
+            instagram: {
+              username: existingConfig.instagram?.username || '',
+              password: existingConfig.instagram?.password || '',
+              email: existingConfig.instagram?.email || '',
+              interval: existingConfig.instagram?.interval || 30,
+              topics: existingConfig.instagram?.topics || ['']
+            },
+            settings: {
+              style: existingConfig.settings?.style || 'professional but engaging'
+            }
+          };
+          setConfig(migratedConfig);
         }
       } catch (error) {
         console.error('Error loading config:', error);
@@ -72,13 +102,24 @@ const Settings = ({ onConfigUpdate }) => {
     
     // Validate form
     const newErrors = {};
+    
+    // AI Configuration validation
     if (!config.ai?.model) newErrors.model = 'Please select an AI model';
     if (!config.ai?.apiKeys?.[config.ai.model]) newErrors.apiKey = 'API key is required';
+    
+    // Twitter Configuration validation
     if (!config.twitter?.username) newErrors.twitterUsername = 'Twitter username is required';
     if (!config.twitter?.password) newErrors.twitterPassword = 'Twitter password is required';
-    if (!config.twitter?.email) newErrors.email = 'Email is required';
-    if (!config.topics || !config.topics[0] || config.topics[0].trim() === '') newErrors.topics = 'At least one topic is required';
-    if (!config.settings?.interval || config.settings.interval < 5 || config.settings.interval > 1440) newErrors.interval = 'Please set a valid interval between 5 and 1440 minutes';
+    if (!config.twitter?.email) newErrors.twitterEmail = 'Twitter email is required';
+    if (!config.twitter?.topics || !config.twitter?.topics[0] || config.twitter?.topics[0].trim() === '') newErrors.twitterTopics = 'At least one Twitter topic is required';
+    if (!config.twitter?.interval || config.twitter?.interval < 5 || config.twitter?.interval > 1440) newErrors.twitterInterval = 'Please set a valid Twitter interval between 5 and 1440 minutes';
+    
+    // Instagram Configuration validation
+    if (!config.instagram?.username) newErrors.instagramUsername = 'Instagram username is required';
+    if (!config.instagram?.password) newErrors.instagramPassword = 'Instagram password is required';
+    if (!config.instagram?.email) newErrors.instagramEmail = 'Instagram email is required';
+    if (!config.instagram?.topics || !config.instagram?.topics[0] || config.instagram?.topics[0].trim() === '') newErrors.instagramTopics = 'At least one Instagram topic is required';
+    if (!config.instagram?.interval || config.instagram?.interval < 5 || config.instagram?.interval > 1440) newErrors.instagramInterval = 'Please set a valid Instagram interval between 5 and 1440 minutes';
 
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
@@ -119,31 +160,61 @@ const Settings = ({ onConfigUpdate }) => {
     if (field === 'twitter' && errors.twitterPassword) {
       setErrors(prev => ({ ...prev, twitterPassword: '' }));
     }
-    if (field === 'twitter' && errors.email) {
-      setErrors(prev => ({ ...prev, email: '' }));
+    if (field === 'twitter' && errors.twitterEmail) {
+      setErrors(prev => ({ ...prev, twitterEmail: '' }));
     }
-    if (field === 'settings' && errors.interval) {
-      setErrors(prev => ({ ...prev, interval: '' }));
+    if (field === 'twitter' && errors.twitterInterval) {
+      setErrors(prev => ({ ...prev, twitterInterval: '' }));
+    }
+    if (field === 'instagram' && errors.instagramUsername) {
+      setErrors(prev => ({ ...prev, instagramUsername: '' }));
+    }
+    if (field === 'instagram' && errors.instagramPassword) {
+      setErrors(prev => ({ ...prev, instagramPassword: '' }));
+    }
+    if (field === 'instagram' && errors.instagramEmail) {
+      setErrors(prev => ({ ...prev, instagramEmail: '' }));
+    }
+    if (field === 'instagram' && errors.instagramInterval) {
+      setErrors(prev => ({ ...prev, instagramInterval: '' }));
     }
   };
 
-  const handleTopicChange = (index, value) => {
-    const newTopics = [...(config.topics || [])];
+  const handleTopicChange = (platform, index, value) => {
+    const newTopics = [...(config[platform]?.topics || [])];
     newTopics[index] = value;
-    setConfig(prev => ({ ...prev, topics: newTopics }));
-    if (errors.topics) {
-      setErrors(prev => ({ ...prev, topics: '' }));
+    setConfig(prev => ({ 
+      ...prev, 
+      [platform]: { 
+        ...prev[platform], 
+        topics: newTopics 
+      } 
+    }));
+    if (errors[`${platform}Topics`]) {
+      setErrors(prev => ({ ...prev, [`${platform}Topics`]: '' }));
     }
   };
 
-  const addTopic = () => {
-    setConfig(prev => ({ ...prev, topics: [...prev.topics, ''] }));
+  const addTopic = (platform) => {
+    setConfig(prev => ({ 
+      ...prev, 
+      [platform]: { 
+        ...prev[platform], 
+        topics: [...(prev[platform]?.topics || []), ''] 
+      } 
+    }));
   };
 
-  const removeTopic = (index) => {
-    if ((config.topics || []).length > 1) {
-      const newTopics = (config.topics || []).filter((_, i) => i !== index);
-      setConfig(prev => ({ ...prev, topics: newTopics }));
+  const removeTopic = (platform, index) => {
+    if ((config[platform]?.topics || []).length > 1) {
+      const newTopics = (config[platform]?.topics || []).filter((_, i) => i !== index);
+      setConfig(prev => ({ 
+        ...prev, 
+        [platform]: { 
+          ...prev[platform], 
+          topics: newTopics 
+        } 
+      }));
     }
   };
 
@@ -177,7 +248,7 @@ const Settings = ({ onConfigUpdate }) => {
             <SettingsIcon className="settings-icon" />
             <h1 className="gradient-text">Settings</h1>
           </div>
-          <p>Configure your AI Twitter agent preferences</p>
+          <p>Configure your AI Social Media agent preferences</p>
         </div>
 
         <form onSubmit={handleSubmit} className="settings-form">
@@ -253,144 +324,312 @@ const Settings = ({ onConfigUpdate }) => {
             )}
           </motion.div>
 
-          {/* Twitter Configuration */}
+          {/* Platform Tabs */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
-            className="settings-section card"
+            transition={{ delay: 0.15, duration: 0.5 }}
+            className="platform-tabs"
           >
-            <div className="section-header">
-              <Twitter className="section-icon" />
-              <h2>Twitter Configuration</h2>
-            </div>
+            <motion.button
+              type="button"
+              className={cn("platform-tab", activeTab === 'twitter' && "active")}
+              onClick={() => setActiveTab('twitter')}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Twitter className="tab-icon" />
+              <span>Twitter Settings</span>
+            </motion.button>
             
-            <div className="form-group">
-              <label className="form-label">
-                <User className="label-icon" />
-                Twitter Username
-              </label>
-              <input
-                type="text"
-                value={config.twitter?.username || ''}
-                onChange={(e) => handleInputChange('twitter', { ...config.twitter, username: e.target.value })}
-                placeholder="@username"
-                className={cn("form-input", errors.twitterUsername && "error")}
-              />
-              {errors.twitterUsername && <span className="error-text">{errors.twitterUsername}</span>}
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">
-                <Key className="label-icon" />
-                Twitter Password
-              </label>
-              <input
-                type="password"
-                value={config.twitter?.password || ''}
-                onChange={(e) => handleInputChange('twitter', { ...config.twitter, password: e.target.value })}
-                placeholder="Enter your password"
-                className={cn("form-input", errors.twitterPassword && "error")}
-              />
-              {errors.twitterPassword && <span className="error-text">{errors.twitterPassword}</span>}
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">
-                <Mail className="label-icon" />
-                Email Address
-              </label>
-              <input
-                type="email"
-                value={config.twitter?.email || ''}
-                onChange={(e) => handleInputChange('twitter', { ...config.twitter, email: e.target.value })}
-                placeholder="your@email.com"
-                className={cn("form-input", errors.email && "error")}
-              />
-              {errors.email && <span className="error-text">{errors.email}</span>}
-            </div>
+            <motion.button
+              type="button"
+              className={cn("platform-tab", activeTab === 'instagram' && "active")}
+              onClick={() => setActiveTab('instagram')}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Instagram className="tab-icon" />
+              <span>Instagram Settings</span>
+            </motion.button>
           </motion.div>
 
-          {/* Agent Configuration */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-            className="settings-section card"
-          >
-            <div className="section-header">
-              <SettingsIcon className="section-icon" />
-              <h2>Agent Configuration</h2>
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">
-                <Clock className="label-icon" />
-                Posting Interval (minutes)
-              </label>
-              <div className="range-container">
-                <input
-                  type="range"
-                  value={config.settings?.interval || 30}
-                  onChange={(e) => handleInputChange('settings', { ...config.settings, interval: parseInt(e.target.value) })}
-                  min="5"
-                  max="1440"
-                  step="5"
-                  className={cn("range-input", errors.interval && "error")}
-                />
-                <div className="range-value">
-                  <span className="range-display">{config.settings?.interval || 30} minutes</span>
-                  <div className="range-labels">
-                    <span>5 min</span>
-                    <span>1440 min (24h)</span>
+          {/* Platform Content */}
+          <AnimatePresence mode="wait">
+            {activeTab === 'twitter' && (
+              <motion.div
+                key="twitter"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }}
+                className="platform-content"
+              >
+                {/* Twitter Configuration */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2, duration: 0.5 }}
+                  className="settings-section card"
+                >
+                  <div className="section-header">
+                    <Twitter className="section-icon" />
+                    <h2>Twitter Configuration</h2>
                   </div>
-                </div>
-              </div>
-              {errors.interval && <span className="error-text">{errors.interval}</span>}
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">
-                <Hash className="label-icon" />
-                Topics to Tweet About
-              </label>
-              <div className="topics-container">
-                {(config.topics || []).map((topic, index) => (
-                  <div key={index} className="topic-input-group">
+                  
+                  <div className="form-group">
+                    <label className="form-label">
+                      <User className="label-icon" />
+                      Twitter Username
+                    </label>
                     <input
                       type="text"
-                      value={topic}
-                      onChange={(e) => handleTopicChange(index, e.target.value)}
-                      placeholder={`Topic ${index + 1}`}
-                      className={cn("form-input", errors.topics && "error")}
+                      value={config.twitter?.username || ''}
+                      onChange={(e) => handleInputChange('twitter', { ...config.twitter, username: e.target.value })}
+                      placeholder="@username"
+                      className={cn("form-input", errors.twitterUsername && "error")}
                     />
-                    {(config.topics || []).length > 1 && (
+                    {errors.twitterUsername && <span className="error-text">{errors.twitterUsername}</span>}
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">
+                      <Key className="label-icon" />
+                      Twitter Password
+                    </label>
+                    <input
+                      type="password"
+                      value={config.twitter?.password || ''}
+                      onChange={(e) => handleInputChange('twitter', { ...config.twitter, password: e.target.value })}
+                      placeholder="Enter your password"
+                      className={cn("form-input", errors.twitterPassword && "error")}
+                    />
+                    {errors.twitterPassword && <span className="error-text">{errors.twitterPassword}</span>}
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">
+                      <Mail className="label-icon" />
+                      Twitter Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={config.twitter?.email || ''}
+                      onChange={(e) => handleInputChange('twitter', { ...config.twitter, email: e.target.value })}
+                      placeholder="your@email.com"
+                      className={cn("form-input", errors.twitterEmail && "error")}
+                    />
+                    {errors.twitterEmail && <span className="error-text">{errors.twitterEmail}</span>}
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">
+                      <Clock className="label-icon" />
+                      Twitter Posting Interval (minutes)
+                    </label>
+                    <div className="range-container">
+                      <input
+                        type="range"
+                        value={config.twitter?.interval || 30}
+                        onChange={(e) => handleInputChange('twitter', { ...config.twitter, interval: parseInt(e.target.value) })}
+                        min="5"
+                        max="1440"
+                        step="5"
+                        className={cn("range-input", errors.twitterInterval && "error")}
+                      />
+                      <div className="range-value">
+                        <span className="range-display">{config.twitter?.interval || 30} minutes</span>
+                        <div className="range-labels">
+                          <span>5 min</span>
+                          <span>1440 min (24h)</span>
+                        </div>
+                      </div>
+                    </div>
+                    {errors.twitterInterval && <span className="error-text">{errors.twitterInterval}</span>}
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">
+                      <Hash className="label-icon" />
+                      Twitter Topics to Tweet About
+                    </label>
+                    <div className="topics-container">
+                      {(config.twitter?.topics || []).map((topic, index) => (
+                        <div key={index} className="topic-input-group">
+                          <input
+                            type="text"
+                            value={topic}
+                            onChange={(e) => handleTopicChange('twitter', index, e.target.value)}
+                            placeholder={`Twitter Topic ${index + 1}`}
+                            className={cn("form-input", errors.twitterTopics && "error")}
+                          />
+                          {(config.twitter?.topics || []).length > 1 && (
+                            <motion.button 
+                              type="button" 
+                              className="remove-topic-btn"
+                              onClick={() => removeTopic('twitter', index)}
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                            >
+                              <X className="remove-icon" />
+                            </motion.button>
+                          )}
+                        </div>
+                      ))}
                       <motion.button 
                         type="button" 
-                        className="remove-topic-btn"
-                        onClick={() => removeTopic(index)}
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
+                        className="add-topic-btn"
+                        onClick={() => addTopic('twitter')}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                       >
-                        <X className="remove-icon" />
+                        <Plus className="add-icon" />
+                        Add Another Twitter Topic
                       </motion.button>
-                    )}
+                    </div>
+                    {errors.twitterTopics && <span className="error-text">{errors.twitterTopics}</span>}
                   </div>
-                ))}
-                <motion.button 
-                  type="button" 
-                  className="add-topic-btn"
-                  onClick={addTopic}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                </motion.div>
+              </motion.div>
+            )}
+
+            {activeTab === 'instagram' && (
+              <motion.div
+                key="instagram"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }}
+                className="platform-content"
+              >
+                {/* Instagram Configuration */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2, duration: 0.5 }}
+                  className="settings-section card"
                 >
-                  <Plus className="add-icon" />
-                  Add Another Topic
-                </motion.button>
-              </div>
-              {errors.topics && <span className="error-text">{errors.topics}</span>}
-            </div>
-          </motion.div>
+                  <div className="section-header">
+                    <Instagram className="section-icon" />
+                    <h2>Instagram Configuration</h2>
+                  </div>
+                  
+                  <div className="form-group">
+                    <label className="form-label">
+                      <User className="label-icon" />
+                      Instagram Username
+                    </label>
+                    <input
+                      type="text"
+                      value={config.instagram?.username || ''}
+                      onChange={(e) => handleInputChange('instagram', { ...config.instagram, username: e.target.value })}
+                      placeholder="@username"
+                      className={cn("form-input", errors.instagramUsername && "error")}
+                    />
+                    {errors.instagramUsername && <span className="error-text">{errors.instagramUsername}</span>}
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">
+                      <Key className="label-icon" />
+                      Instagram Password
+                    </label>
+                    <input
+                      type="password"
+                      value={config.instagram?.password || ''}
+                      onChange={(e) => handleInputChange('instagram', { ...config.instagram, password: e.target.value })}
+                      placeholder="Enter your password"
+                      className={cn("form-input", errors.instagramPassword && "error")}
+                    />
+                    {errors.instagramPassword && <span className="error-text">{errors.instagramPassword}</span>}
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">
+                      <Mail className="label-icon" />
+                      Instagram Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={config.instagram?.email || ''}
+                      onChange={(e) => handleInputChange('instagram', { ...config.instagram, email: e.target.value })}
+                      placeholder="your@email.com"
+                      className={cn("form-input", errors.instagramEmail && "error")}
+                    />
+                    {errors.instagramEmail && <span className="error-text">{errors.instagramEmail}</span>}
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">
+                      <Clock className="label-icon" />
+                      Instagram Posting Interval (minutes)
+                    </label>
+                    <div className="range-container">
+                      <input
+                        type="range"
+                        value={config.instagram?.interval || 30}
+                        onChange={(e) => handleInputChange('instagram', { ...config.instagram, interval: parseInt(e.target.value) })}
+                        min="5"
+                        max="1440"
+                        step="5"
+                        className={cn("range-input", errors.instagramInterval && "error")}
+                      />
+                      <div className="range-value">
+                        <span className="range-display">{config.instagram?.interval || 30} minutes</span>
+                        <div className="range-labels">
+                          <span>5 min</span>
+                          <span>1440 min (24h)</span>
+                        </div>
+                      </div>
+                    </div>
+                    {errors.instagramInterval && <span className="error-text">{errors.instagramInterval}</span>}
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">
+                      <Hash className="label-icon" />
+                      Instagram Topics to Post About
+                    </label>
+                    <div className="topics-container">
+                      {(config.instagram?.topics || []).map((topic, index) => (
+                        <div key={index} className="topic-input-group">
+                          <input
+                            type="text"
+                            value={topic}
+                            onChange={(e) => handleTopicChange('instagram', index, e.target.value)}
+                            placeholder={`Instagram Topic ${index + 1}`}
+                            className={cn("form-input", errors.instagramTopics && "error")}
+                          />
+                          {(config.instagram?.topics || []).length > 1 && (
+                            <motion.button 
+                              type="button" 
+                              className="remove-topic-btn"
+                              onClick={() => removeTopic('instagram', index)}
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                            >
+                              <X className="remove-icon" />
+                            </motion.button>
+                          )}
+                        </div>
+                      ))}
+                      <motion.button 
+                        type="button" 
+                        className="add-topic-btn"
+                        onClick={() => addTopic('instagram')}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <Plus className="add-icon" />
+                        Add Another Instagram Topic
+                      </motion.button>
+                    </div>
+                    {errors.instagramTopics && <span className="error-text">{errors.instagramTopics}</span>}
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Message Display */}
           <AnimatePresence>
