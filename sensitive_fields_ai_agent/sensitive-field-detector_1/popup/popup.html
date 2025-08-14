@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensitive Field Detector Settings</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">🔐</div>
+                <h1 class="title">Sensitive Field Detector</h1>
+            </div>
+            <div class="status" id="status">
+                <span class="status-indicator" id="statusIndicator"></span>
+                <span class="status-text" id="statusText">Loading...</span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- API Configuration Section -->
+            <section class="section">
+                <h2 class="section-title">
+                    <span class="icon">🤖</span>
+                    AI Configuration
+                </h2>
+                
+                <div class="form-group">
+                    <div class="api-status-card">
+                        <div class="api-status-icon">🔑</div>
+                        <div class="api-status-content">
+                            <h3>Gemini API Key</h3>
+                            <p class="api-status-text">Pre-configured and embedded</p>
+                            <div class="api-key-display">AIzaSyC...eMqhtDU</div>
+                        </div>
+                        <div class="api-status-indicator" id="apiStatusIndicator">
+                            <span class="status-dot"></span>
+                            <span id="apiStatusText">Testing...</span>
+                        </div>
+                    </div>
+                    <div class="help-text">
+                        API key is securely embedded in the extension for seamless operation
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="enableAI" class="checkbox">
+                        <span class="checkbox-custom"></span>
+                        Enable AI-powered detection
+                    </label>
+                    <div class="help-text">
+                        Uses Gemini AI to analyze ambiguous fields with high accuracy
+                    </div>
+                </div>
+            </section>
+
+            <!-- Detection Settings Section -->
+            <section class="section">
+                <h2 class="section-title">
+                    <span class="icon">⚙️</span>
+                    Detection Settings
+                </h2>
+                
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="enablePatterns" class="checkbox">
+                        <span class="checkbox-custom"></span>
+                        Enable pattern-based detection
+                    </label>
+                    <div class="help-text">
+                        Fast client-side detection using predefined patterns and rules
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="confidenceThreshold" class="label">
+                        AI Confidence Threshold: <span id="confidenceValue">70%</span>
+                    </label>
+                    <input 
+                        type="range" 
+                        id="confidenceThreshold" 
+                        class="slider"
+                        min="50" 
+                        max="95" 
+                        value="70"
+                    >
+                    <div class="help-text">
+                        Only fields below this confidence will be sent to AI for analysis
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="enableVisualIndicators" class="checkbox">
+                        <span class="checkbox-custom"></span>
+                        Show visual indicators (testing only)
+                    </label>
+                    <div class="help-text">
+                        Highlights detected sensitive fields with colored outlines
+                    </div>
+                </div>
+            </section>
+
+            <!-- Privacy & Security Section -->
+            <section class="section">
+                <h2 class="section-title">
+                    <span class="icon">🛡️</span>
+                    Privacy & Security
+                </h2>
+                
+                <div class="privacy-info">
+                    <div class="privacy-item">
+                        <span class="privacy-icon">✅</span>
+                        <span>No user input values are transmitted</span>
+                    </div>
+                    <div class="privacy-item">
+                        <span class="privacy-icon">✅</span>
+                        <span>Only metadata and patterns are analyzed</span>
+                    </div>
+                    <div class="privacy-item">
+                        <span class="privacy-icon">✅</span>
+                        <span>Data is anonymized before AI analysis</span>
+                    </div>
+                    <div class="privacy-item">
+                        <span class="privacy-icon">✅</span>
+                        <span>Local caching minimizes external requests</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <button id="clearCache" class="btn-secondary">
+                        <span class="icon">🗑️</span>
+                        Clear Cache
+                    </button>
+                    <div class="help-text">
+                        Removes all cached detection results and AI responses
+                    </div>
+                </div>
+            </section>
+
+            <!-- Statistics Section -->
+            <section class="section">
+                <h2 class="section-title">
+                    <span class="icon">📊</span>
+                    Statistics
+                </h2>
+                
+                <div class="stats-grid" id="statsGrid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalRequests">-</div>
+                        <div class="stat-label">AI Requests</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="successRate">-</div>
+                        <div class="stat-label">Success Rate</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="avgResponseTime">-</div>
+                        <div class="stat-label">Avg Response</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="cacheHits">-</div>
+                        <div class="stat-label">Cache Efficiency</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="actions">
+                <button id="saveSettings" class="btn-primary">
+                    <span class="icon">💾</span>
+                    Save Settings
+                </button>
+                <button id="testDetection" class="btn-secondary">
+                    <span class="icon">🧪</span>
+                    Test Detection
+                </button>
+            </div>
+            
+            <div class="footer-info">
+                <span class="version">v1.0.0</span>
+                <span class="separator">•</span>
+                <a href="#" id="helpLink" class="link">Help</a>
+                <span class="separator">•</span>
+                <a href="#" id="reportIssue" class="link">Report Issue</a>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Testing API Key...</div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
