@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "SAML Authenticator & Sensitive Content Detector",
-  "version": "1.0.0",
-  "description": "Handles Okta SAML authentication and detects sensitive content using AI",
+  "name": "SAML Authenticator & AI Redaction Guard",
+  "version": "1.1.0",
+  "description": "Handles Okta SAML authentication and automatically redacts sensitive data on AI websites (ChatGPT, Gemini, Claude, etc.)",
   "icons": {
     "16": "Okta.png",
     "32": "Okta.png",
@@ -17,7 +17,15 @@
   "host_permissions": [
     "https://integrator-2373294.okta.com/*",
     "https://*.okta.com/*",
-    "https://generativelanguage.googleapis.com/*"
+    "https://generativelanguage.googleapis.com/*",
+    "https://chatgpt.com/*",
+    "https://*.openai.com/*",
+    "https://gemini.google.com/*",
+    "https://bard.google.com/*",
+    "https://perplexity.ai/*",
+    "https://claude.ai/*",
+    "https://*.anthropic.com/*",
+    "https://poe.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -36,7 +44,19 @@
       "resources": [
         "auth-success.html",
         "auth-success.js",
-        "popup.html"
+        "popup.html",
+        "public/libs/xregexp.js",
+        "public/ptr/apipatterns.js",
+        "public/ptr/apiPatterns_new.js",
+        "public/ptr/piiPatterns.js",
+        "public/ptr/fiPatterns.js",
+        "public/ptr/fiPatterns_new.js",
+        "public/ptr/cryptoPatterns.js",
+        "public/ptr/cryptoPatterns_new.js",
+        "public/ptr/medPatterns.js",
+        "public/ptr/medPatterns_new.js",
+        "public/ptr/networkPatterns.js",
+        "public/ptr/networkPatterns_new.js"
       ],
       "matches": [
         "<all_urls>"
