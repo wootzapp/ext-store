@@ -1,5 +1,380 @@
 console.log("Background script starting...");
 
+// ======================
+// SENSITIVE TEXT REDACTION IMPORTS AND CONFIGURATION
+// ======================
+
+// Import XRegExp and pattern files for text redaction
+try {
+  importScripts(
+    'public/libs/xregexp.js',
+    'public/ptr/apipatterns.js',
+    'public/ptr/piiPatterns.js',
+    'public/ptr/fiPatterns.js',
+    'public/ptr/cryptoPatterns.js',
+    'public/ptr/medPatterns.js',
+    'public/ptr/networkPatterns.js'
+  );
+  console.log("✅ Successfully imported pattern files for text redaction");
+} catch (error) {
+  console.error("❌ Failed to import pattern files:", error);
+}
+
+// Combine all patterns for text redaction
+const allRedactionPatterns = {};
+try {
+  if (typeof apiPatterns !== 'undefined') {
+    allRedactionPatterns.api = apiPatterns;
+  }
+  if (typeof personalIdentificationPatterns !== 'undefined') {
+    allRedactionPatterns.pii = personalIdentificationPatterns;
+  }
+  if (typeof fiPatterns !== 'undefined') {
+    allRedactionPatterns.financial = fiPatterns;
+  }
+  if (typeof cryptoPatterns !== 'undefined') {
+    allRedactionPatterns.crypto = cryptoPatterns;
+  }
+  if (typeof medPatterns !== 'undefined') {
+    allRedactionPatterns.medical = medPatterns;
+  }
+  if (typeof networkPatterns !== 'undefined') {
+    allRedactionPatterns.network = networkPatterns;
+  }
+  console.log("✅ Combined patterns for categories:", Object.keys(allRedactionPatterns));
+} catch (error) {
+  console.error("❌ Error combining patterns:", error);
+}
+
+// Default enabled categories for text redaction
+const defaultRedactionCategories = {
+  api: true,
+  pii: true,
+  financial: true,
+  crypto: true,
+  medical: false, // Disabled by default for performance
+  network: false  // Disabled by default for performance
+};
+
+// Text redaction configuration
+const REDACTION_CONFIG = {
+  REDACTION_CHAR: "*",
+  MIN_REVEAL_LENGTH: 2,
+  MAX_REVEAL_LENGTH: 4,
+  EMAIL_REDACTION_FORMAT: "prefix***@domain.com" // Special format for emails
+};
+
+// ======================
+// SENSITIVE TEXT REDACTION FUNCTIONS
+// ======================
+
+// Initialize redaction settings on install
+function initializeRedactionSettings() {
+  chrome.storage.sync.set({
+    enabledRedactionCategories: defaultRedactionCategories,
+    redactionEnabled: true
+  });
+}
+
+// Get enabled redaction categories from storage
+function getEnabledRedactionCategories(callback) {
+  chrome.storage.sync.get(['enabledRedactionCategories'], (result) => {
+    callback(result.enabledRedactionCategories || defaultRedactionCategories);
+  });
+}
+
+// Smart redaction function that preserves some context
+function smartRedact(text, evidence, type) {
+  const len = evidence.length;
+
+  // Special handling for different data types
+  switch (type.toLowerCase()) {
+    case 'email address':
+      return redactEmail(evidence);
+
+    case 'phone number':
+      return redactPhoneNumber(evidence);
+
+    case 'credit card':
+    case 'visa card number':
+    case 'mastercard number':
+    case 'american express (amex) number':
+    case 'discover card number':
+    case 'jcb card number':
+    case 'diners club card number':
+    case 'unionpay card number':
+    case 'maestro card number':
+      return redactCreditCard(evidence);
+
+    case 'social security number (ssn)':
+      return redactSSN(evidence);
+
+    // API Keys and Tokens
+    case 'openai user api key':
+    case 'google api key':
+    case 'github personal access token (classic)':
+    case 'github personal access token (fine-grained)':
+    case 'github oauth 2.0 access token':
+    case 'github user-to-server access token':
+    case 'github server-to-server access token':
+    case 'github refresh token':
+    case 'aws access id key':
+    case 'aws secret key':
+    case 'stripe api key':
+    case 'slack api token':
+    case 'discord bot token':
+    case 'telegram bot token':
+      return redactAPIKey(evidence);
+
+    // Cryptocurrency
+    case 'bitcoin (btc)':
+    case 'ethereum (eth)':
+    case 'cardano (ada)':
+    case 'xrp (ripple)':
+    case 'solana (sol)':
+    case 'dogecoin (doge)':
+    case 'litecoin (ltc)':
+      return redactCryptoAddress(evidence);
+
+    // Private Keys and Secrets
+    case 'bitcoin private key (wif)':
+    case 'ethereum private key':
+    case 'ripple secret key':
+    case 'solana private key':
+    case 'stellar secret key':
+      return redactPrivateKey(evidence);
+
+    default:
+      // For unrecognized types, apply generic redaction
+      return redactGeneric(evidence);
+  }
+}
+
+// Redact email addresses (show prefix and domain)
+function redactEmail(email) {
+  const emailParts = email.split('@');
+  if (emailParts.length === 2) {
+    const prefix = emailParts[0];
+    const domain = emailParts[1];
+
+    const visiblePrefix = prefix.length > 3 ? prefix.substring(0, 2) : prefix.substring(0, 1);
+    const prefixRedacted = visiblePrefix + REDACTION_CONFIG.REDACTION_CHAR.repeat(Math.max(1, prefix.length - visiblePrefix.length));
+
+    return `${prefixRedacted}@${domain}`;
+  }
+  return redactGeneric(email);
+}
+
+// Redact phone numbers (show area code)
+function redactPhoneNumber(phone) {
+  const cleanPhone = phone.replace(/\D/g, '');
+  if (cleanPhone.length >= 10) {
+    const areaCode = cleanPhone.substring(0, 3);
+    const redactedDigits = areaCode + REDACTION_CONFIG.REDACTION_CHAR.repeat(cleanPhone.length - 3);
+
+    // Replace each digit in the original string with corresponding redacted digit
+    let redactedPhone = phone;
+    let digitIndex = 0;
+
+    for (let i = 0; i < phone.length; i++) {
+      if (/\d/.test(phone[i])) {
+        redactedPhone = redactedPhone.substring(0, i) + redactedDigits[digitIndex] + redactedPhone.substring(i + 1);
+        digitIndex++;
+      }
+    }
+
+    return redactedPhone;
+  }
+  return redactGeneric(phone);
+}
+
+// Redact credit card numbers (show last 4 digits)
+function redactCreditCard(cardNumber) {
+  const cleanCard = cardNumber.replace(/\D/g, '');
+  if (cleanCard.length >= 12) {
+    const last4 = cleanCard.slice(-4);
+    const redactedDigits = REDACTION_CONFIG.REDACTION_CHAR.repeat(cleanCard.length - 4) + last4;
+
+    // Replace each digit in the original string with corresponding redacted digit
+    let redactedCard = cardNumber;
+    let digitIndex = 0;
+
+    for (let i = 0; i < cardNumber.length; i++) {
+      if (/\d/.test(cardNumber[i])) {
+        redactedCard = redactedCard.substring(0, i) + redactedDigits[digitIndex] + redactedCard.substring(i + 1);
+        digitIndex++;
+      }
+    }
+
+    return redactedCard;
+  }
+  return redactGeneric(cardNumber);
+}
+
+// Redact SSN (show last 4 digits)
+function redactSSN(ssn) {
+  const cleanSSN = ssn.replace(/\D/g, '');
+  if (cleanSSN.length === 9) {
+    const last4 = cleanSSN.slice(-4);
+    const redactedDigits = REDACTION_CONFIG.REDACTION_CHAR.repeat(5) + last4;
+
+    // Replace each digit in the original string with corresponding redacted digit
+    let redactedSSN = ssn;
+    let digitIndex = 0;
+
+    for (let i = 0; i < ssn.length; i++) {
+      if (/\d/.test(ssn[i])) {
+        redactedSSN = redactedSSN.substring(0, i) + redactedDigits[digitIndex] + redactedSSN.substring(i + 1);
+        digitIndex++;
+      }
+    }
+
+    return redactedSSN;
+  }
+  return redactGeneric(ssn);
+}
+
+// Generic redaction (show first 2-4 characters)
+function redactGeneric(text) {
+  const len = text.length;
+  if (len <= 4) {
+    return REDACTION_CONFIG.REDACTION_CHAR.repeat(len);
+  }
+
+  const revealLength = Math.min(REDACTION_CONFIG.MAX_REVEAL_LENGTH, Math.max(REDACTION_CONFIG.MIN_REVEAL_LENGTH, Math.floor(len * 0.2)));
+  const visible = text.substring(0, revealLength);
+  const redacted = REDACTION_CONFIG.REDACTION_CHAR.repeat(len - revealLength);
+
+  return visible + redacted;
+}
+
+// Redact API Keys (show prefix, hide most of the key)
+function redactAPIKey(apiKey) {
+  const len = apiKey.length;
+
+  // For very short keys, redact completely
+  if (len <= 6) {
+    return REDACTION_CONFIG.REDACTION_CHAR.repeat(len);
+  }
+
+  // For keys with common prefixes (sk-, ghp_, AKIA, etc.), show prefix + few chars
+  const prefixes = ['sk-', 'ghp_', 'gho_', 'ghu_', 'ghs_', 'ghr_', 'AKIA', 'AIza', 'ya29.', 'xoxb-', 'xoxa-', 'xoxp-', 'xoxr-', 'xoxs-'];
+
+  for (const prefix of prefixes) {
+    if (apiKey.startsWith(prefix)) {
+      const visibleLength = Math.min(prefix.length + 2, len - 6); // Show prefix + 2 chars, but leave at least 6 chars to redact
+      const visible = apiKey.substring(0, visibleLength);
+      const redacted = REDACTION_CONFIG.REDACTION_CHAR.repeat(len - visibleLength);
+      return visible + redacted;
+    }
+  }
+
+  // For keys without recognizable prefixes, show first 3-4 characters
+  const revealLength = Math.min(4, Math.max(2, Math.floor(len * 0.15)));
+  const visible = apiKey.substring(0, revealLength);
+  const redacted = REDACTION_CONFIG.REDACTION_CHAR.repeat(len - revealLength);
+
+  return visible + redacted;
+}
+
+// Redact cryptocurrency addresses (show first few and last few chars)
+function redactCryptoAddress(address) {
+  const len = address.length;
+
+  if (len <= 8) {
+    return REDACTION_CONFIG.REDACTION_CHAR.repeat(len);
+  }
+
+  // Show first 4 and last 4 characters for addresses
+  const firstPart = address.substring(0, 4);
+  const lastPart = address.substring(len - 4);
+  const redacted = REDACTION_CONFIG.REDACTION_CHAR.repeat(len - 8);
+
+  return firstPart + redacted + lastPart;
+}
+
+// Redact private keys and secrets (almost complete redaction)
+function redactPrivateKey(privateKey) {
+  const len = privateKey.length;
+
+  if (len <= 4) {
+    return REDACTION_CONFIG.REDACTION_CHAR.repeat(len);
+  }
+
+  // For private keys, show only first 2 characters for identification
+  const visible = privateKey.substring(0, 2);
+  const redacted = REDACTION_CONFIG.REDACTION_CHAR.repeat(len - 2);
+
+  return visible + redacted;
+}
+
+// Main function to identify and redact sensitive data
+function identifyAndRedactSensitiveData(text, callback) {
+  console.log("🔍 Starting text analysis for redaction...");
+
+  getEnabledRedactionCategories((enabledCategories) => {
+    let sensitiveDataFound = [];
+    let redactedText = text;
+
+    // Iterate through each enabled category
+    Object.keys(allRedactionPatterns).forEach(categoryKey => {
+      if (enabledCategories[categoryKey] === true) {
+        const categoryPatterns = allRedactionPatterns[categoryKey];
+
+        // Iterate through patterns in the category
+        Object.keys(categoryPatterns).forEach(patternKey => {
+          const patternObj = categoryPatterns[patternKey];
+          const regex = patternObj.pattern;
+
+          let match;
+          // Reset regex lastIndex for global patterns
+          regex.lastIndex = 0;
+
+          while ((match = regex.exec(text)) !== null) {
+            const evidence = match[0];
+
+            // Skip if this evidence has already been processed
+            if (sensitiveDataFound.some(item => item.evidence === evidence && item.startIndex === match.index)) {
+              if (!regex.global) break;
+              continue;
+            }
+
+            const redactedEvidence = smartRedact(text, evidence, patternObj.type);
+
+            sensitiveDataFound.push({
+              category: categoryKey,
+              type: patternObj.type,
+              pattern: regex.toString(),
+              evidence: evidence,
+              redactedEvidence: redactedEvidence,
+              startIndex: match.index,
+              endIndex: match.index + evidence.length,
+              tags: patternObj.tags || []
+            });
+
+            // Replace the original text with redacted version
+            redactedText = redactedText.replace(evidence, redactedEvidence);
+
+            console.log(`🎭 Found and redacted ${patternObj.type}: ${evidence} -> ${redactedEvidence}`);
+
+            // Prevent infinite loop for non-global regexes
+            if (!regex.global) break;
+          }
+        });
+      }
+    });
+
+    console.log(`🔍 Analysis complete. Found ${sensitiveDataFound.length} sensitive items.`);
+
+    callback({
+      originalText: text,
+      redactedText: redactedText,
+      sensitiveItems: sensitiveDataFound,
+      hasSensitiveData: sensitiveDataFound.length > 0
+    });
+  });
+}
+
 // Configuration for content analysis
 const CONFIG = {
   GEMINI_API_BASE: "https://generativelanguage.googleapis.com/v1beta/models/",
@@ -238,7 +613,7 @@ class ContentAnalyzer {
       const truncatedPrompt =
         prompt.length > CONFIG.MAX_PROMPT_LENGTH
           ? prompt.substring(0, CONFIG.MAX_PROMPT_LENGTH) +
-            "\n\n[Content truncated for length]"
+          "\n\n[Content truncated for length]"
           : prompt;
 
       console.log("📤 Sending analysis request to Gemini...");
@@ -479,8 +854,7 @@ class ContentAnalyzer {
         } else {
           console.log("✅ Masking successful:", response);
           console.log(
-            `🎭 Masked ${response.masked || 0} elements out of ${
-              cssSelectors.length
+            `🎭 Masked ${response.masked || 0} elements out of ${cssSelectors.length
             } selectors`
           );
           resolve({ success: true, response: response });
@@ -512,6 +886,76 @@ class ContentAnalyzer {
 
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   console.log("Background received message:", message);
+
+  // ======================
+  // AI WEBSITE TEXT REDACTION HANDLING (NEW)
+  // ======================
+
+  // Handle AI website send button interception and text analysis
+  if (message.type === "ANALYZE_AI_TEXT") {
+    console.log("🤖 Received AI text analysis request from tab:", sender.tab?.id);
+
+    const { textData, website, inputType } = message;
+
+    if (!textData || textData.trim().length === 0) {
+      sendResponse({
+        success: false,
+        error: "No text provided for analysis"
+      });
+      return true;
+    }
+
+    console.log(`🔍 Analyzing text from ${website} (${inputType}):`, textData.substring(0, 100) + "...");
+
+    identifyAndRedactSensitiveData(textData, (result) => {
+      const response = {
+        success: true,
+        originalText: result.originalText,
+        redactedText: result.redactedText,
+        hasSensitiveData: result.hasSensitiveData,
+        sensitiveItems: result.sensitiveItems,
+        website: website,
+        inputType: inputType,
+        timestamp: Date.now()
+      };
+
+      console.log(`✅ Analysis complete for ${website}:`, {
+        hasSensitiveData: response.hasSensitiveData,
+        itemCount: response.sensitiveItems.length,
+        categories: [...new Set(response.sensitiveItems.map(item => item.category))]
+      });
+
+      sendResponse(response);
+    });
+
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle getting redaction settings
+  if (message.type === "GET_REDACTION_SETTINGS") {
+    chrome.storage.sync.get(['enabledRedactionCategories', 'redactionEnabled'], (result) => {
+      sendResponse({
+        success: true,
+        enabledCategories: result.enabledRedactionCategories || defaultRedactionCategories,
+        redactionEnabled: result.redactionEnabled !== false
+      });
+    });
+    return true;
+  }
+
+  // Handle updating redaction settings
+  if (message.type === "UPDATE_REDACTION_SETTINGS") {
+    const { enabledCategories, redactionEnabled } = message;
+
+    chrome.storage.sync.set({
+      enabledRedactionCategories: enabledCategories,
+      redactionEnabled: redactionEnabled
+    }, () => {
+      sendResponse({ success: true });
+    });
+
+    return true;
+  }
 
   // Handle SAML response processing (existing functionality)
   if (message.action === "processSamlResponse") {
@@ -677,6 +1121,16 @@ chrome.tabs.onRemoved.addListener((tabId) => {
       analyzedUrls.delete(key);
     }
   }
+});
+
+// ======================
+// REDACTION INITIALIZATION
+// ======================
+
+// Initialize redaction settings on extension install/startup
+chrome.runtime.onInstalled.addListener(() => {
+  console.log("🔧 Initializing redaction settings...");
+  initializeRedactionSettings();
 });
 
 console.log("Background script loaded successfully");
