@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import StorageUtils, { SUPPORTED_MODELS, SEARCH_ENGINES } from '../utils/storageUtils';
+import StorageUtils, { SUPPORTED_MODELS, SEARCH_ENGINES } from '@/storage';
 
 const Settings = ({ onBack, onSetupComplete }) => {
   const [selectedModel, setSelectedModel] = useState('');

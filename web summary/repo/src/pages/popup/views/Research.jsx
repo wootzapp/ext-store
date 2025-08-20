@@ -1,8 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
-import { renderMarkdown, CopyButton, formatSectionForCopy, formatPageForCopy } from '../utils/markdownUtils';
-import SettingsButton from './SettingsButton';
+import {
+  renderMarkdown,
+  CopyButton,
+  formatSectionForCopy,
+  formatPageForCopy,
+} from '@/lib/markdownUtils';
+import SettingsButton from '@/pages/popup/components/SettingsButton';
+
 
 // Helper function to open URLs in new Chrome tabs
 const openInNewTab = (url) => {
@@ -11,7 +17,7 @@ const openInNewTab = (url) => {
   }
 };
 
-const ResearchDisplay = React.memo(({ 
+const Research = React.memo(({ 
   researchResults, 
   isLoading, 
   isLoadingSavedResearch,
@@ -861,4 +867,4 @@ const ResearchDisplay = React.memo(({
   );
 });
 
-export default ResearchDisplay;
+export default Research;

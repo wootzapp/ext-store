@@ -1,6 +1,5 @@
-
-import aiService from './utils/aiService.js';
-import StorageUtils from './utils/storageUtils.js';
+import aiService from   '@/services/ai';
+import StorageUtils from '@/storage';
 
 console.log('Background script loaded');
 

@@ -8,8 +8,8 @@
  * - Response parsing and error handling
  */
 
-import { API_CONFIG, getCurrentProviderConfig, CONTENT_CONFIG } from './apiConfig.js';
-import StorageUtils, { SUPPORTED_MODELS } from './storageUtils.js';
+import { API_CONFIG, getCurrentProviderConfig, CONTENT_CONFIG } from '@/config';
+import StorageUtils, { SUPPORTED_MODELS } from '@/storage';
 
 // ==========================================
 // CONSTANTS AND CONFIGURATION

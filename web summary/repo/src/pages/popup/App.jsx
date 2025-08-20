@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import ResearchDisplay from './ResearchDisplay';
-import FloatingButton from './FloatingButton';
-import AnalysisPage from './AnalysisPage';
-import FactChecker from './FactChecker';
-import Settings from './Settings';
-import SettingsButton from './SettingsButton';
-import aiService from '../utils/aiService';
-import StorageUtils from '../utils/storageUtils';
-import { normalizeUrl } from '../utils/urlUtils';
+
+import Research from '@/pages/popup/views/Research';
+import Analysis from '@/pages/popup/views/Analysis';
+import FactCheck from '@/pages/popup/views/FactCheck';
+import Settings from '@/pages/popup/views/Settings';
+import aiService from '@/services/ai';
+import StorageUtils from '@/storage';
 
 const LandingPage = React.memo(({ onGetStarted }) => (
   <motion.div 
@@ -907,7 +905,7 @@ Please provide a detailed and helpful answer based on the content and context of
             onGetStarted={handleLandingButtonClick}
           />
         ) : showAnalysis ? (
-          <AnalysisPage
+          <Analysis
             key="analysis"
             analysisData={analysisData}
             currentPageUrl={currentPageUrl}
@@ -920,7 +918,7 @@ Please provide a detailed and helpful answer based on the content and context of
             onSettingsClick={handleSettingsClick}
           />
         ) : showFactChecker ? (
-          <FactChecker
+          <FactCheck
             key="factchecker"
             factCheckData={factCheckData}
             currentPageUrl={currentPageUrl}
@@ -939,7 +937,7 @@ Please provide a detailed and helpful answer based on the content and context of
           />
         ) : showResearch ? (
           <div className="relative w-full h-full">
-            <ResearchDisplay 
+            <Research 
               key="research"
               researchResults={researchResults}
               isLoading={isResearchLoading}

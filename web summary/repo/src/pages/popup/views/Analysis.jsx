@@ -1,8 +1,14 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { truncateUrl } from '../utils/urlUtils';
-import { renderMarkdown, CopyButton, formatSectionForCopy, formatPageForCopy } from '../utils/markdownUtils';
-import SettingsButton from './SettingsButton';
+import { truncateUrl } from '@/lib/urlUtils';
+import {
+  renderMarkdown,
+  CopyButton,
+  formatSectionForCopy,
+  formatPageForCopy,
+} from '@/lib/markdownUtils';
+import SettingsButton from '@/pages/popup/components/SettingsButton';
+
 
 // Helper function to open URLs in new Chrome tabs
 const openInNewTab = (url) => {
@@ -11,7 +17,7 @@ const openInNewTab = (url) => {
   }
 };
 
-const AnalysisPage = ({ 
+const Analysis = ({ 
   analysisData, 
   currentPageUrl, 
   isLoading, 
@@ -288,4 +294,4 @@ const AnalysisPage = ({
   );
 };
 
-export default AnalysisPage;
+export default Analysis;
