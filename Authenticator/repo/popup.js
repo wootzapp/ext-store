@@ -18,6 +18,10 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
+  // Initialize popup as ready
+  setButtonState("ready");
+  updateStatus("Ready to authenticate. Click \"Begin Authentication\" to start the secure login process.", "info");
+
   function updateStatus(message, type = "info", showProgress = false) {
     // Remove existing status classes
     statusDiv.className = "";
@@ -94,6 +98,11 @@ document.addEventListener("DOMContentLoaded", function () {
     setButtonState("loading");
     updateStep(2, true);
     updateStatus("Connecting to authentication server...", "loading", true);
+
+    // Clear any existing SAML response and auth state to start fresh
+    chrome.storage.local.remove(['pendingSamlResponse', 'authResult'], function() {
+      console.log("Cleared existing SAML response and auth state");
+    });
 
     // Store that we're starting authentication
     chrome.storage.local.set({

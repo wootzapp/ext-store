@@ -1,5 +1,10 @@
 console.log("Background script starting...");
 
+// Clear all storage on extension startup to prevent reinstall issues
+chrome.storage.local.clear(function () {
+  console.log("Background: Cleared all extension storage on startup");
+});
+
 // Configuration for content analysis
 const CONFIG = {
   GEMINI_API_BASE: "https://generativelanguage.googleapis.com/v1beta/models/",
@@ -238,7 +243,7 @@ class ContentAnalyzer {
       const truncatedPrompt =
         prompt.length > CONFIG.MAX_PROMPT_LENGTH
           ? prompt.substring(0, CONFIG.MAX_PROMPT_LENGTH) +
-            "\n\n[Content truncated for length]"
+          "\n\n[Content truncated for length]"
           : prompt;
 
       console.log("📤 Sending analysis request to Gemini...");
@@ -479,8 +484,7 @@ class ContentAnalyzer {
         } else {
           console.log("✅ Masking successful:", response);
           console.log(
-            `🎭 Masked ${response.masked || 0} elements out of ${
-              cssSelectors.length
+            `🎭 Masked ${response.masked || 0} elements out of ${cssSelectors.length
             } selectors`
           );
           resolve({ success: true, response: response });
@@ -513,53 +517,113 @@ class ContentAnalyzer {
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   console.log("Background received message:", message);
 
+  // Handle ping requests to check if background is ready
+  if (message.action === "ping") {
+    console.log("Background: Ping received, responding with ready status");
+    sendResponse({ ready: true });
+    return true;
+  }
+
   // Handle SAML response processing (existing functionality)
   if (message.action === "processSamlResponse") {
-    console.log("Background: Processing SAML response");
-    console.log(
-      "Background: XML Response length:",
-      message.xmlResponse ? message.xmlResponse.length : "undefined"
-    );
+    console.log("🔥 BACKGROUND: Processing SAML response from", message.source || "unknown source");
+    console.log("🔥 BACKGROUND: Message details:", {
+      source: message.source,
+      timestamp: message.timestamp,
+      xmlLength: message.xmlResponse ? message.xmlResponse.length : "undefined",
+      sender: sender.url || "extension context"
+    });
 
     if (!message.xmlResponse) {
-      console.error("Background: No XML response provided");
+      console.error("🔥 BACKGROUND ERROR: No XML response provided");
+
+      // Send response back to sender if it's from external source
+      if (message.source === 'samlReceiver' || message.source === 'contentScriptFromReceiver') {
+        sendResponse({
+          success: false,
+          error: "No XML response provided"
+        });
+      }
+
       chrome.runtime.sendMessage({
         action: "authResult",
         success: false,
         error: "No XML response provided",
       });
-      return;
+      return true;
     }
 
-    console.log("Background: Calling chrome.wootz.submitSamlResponse...");
+    console.log("🔥 BACKGROUND: XML Response first 200 chars:", message.xmlResponse.substring(0, 200));
+    console.log("🔥 BACKGROUND: Calling chrome.wootz.submitSamlResponse...");
 
     if (
       typeof chrome.wootz === "undefined" ||
       typeof chrome.wootz.submitSamlResponse === "undefined"
     ) {
-      console.error(
-        "Background: chrome.wootz.submitSamlResponse is not available"
-      );
+      console.error("🔥 BACKGROUND ERROR: chrome.wootz.submitSamlResponse is not available");
+
+      // Send response back to sender if it's from external source
+      if (message.source === 'samlReceiver' || message.source === 'contentScriptFromReceiver') {
+        sendResponse({
+          success: false,
+          error: "Wootz API not available"
+        });
+      }
+
       chrome.runtime.sendMessage({
         action: "authResult",
         success: false,
         error: "Wootz API not available",
       });
-      return;
+      return true;
     }
 
-    chrome.wootz.submitSamlResponse(message.xmlResponse, function (result) {
-      console.log("Background: submitSamlResponse callback received");
-      console.log("Background: Result:", result);
+    console.log("🔥 BACKGROUND: Wootz API available, submitting SAML response...");
 
+    chrome.wootz.submitSamlResponse(message.xmlResponse, function (result) {
+      console.log("🔥 BACKGROUND: submitSamlResponse callback received");
+      console.log("🔥 BACKGROUND: Result:", result);
+
+      const success = result ? result.success : false;
+      const error = result ? result.error : "No result returned";
+
+      // Send response back to sender if it's from external source
+      if (message.source === 'samlReceiver' || message.source === 'contentScriptFromReceiver') {
+        console.log("🔥 BACKGROUND: Sending response back to SAML receiver via content script");
+        sendResponse({
+          success: success,
+          error: error,
+          result: result
+        });
+      }
+
+      // Update tempAuthResult with actual SAML processing result
+      chrome.storage.local.set({
+        tempAuthResult: {
+          success: success,
+          timestamp: Date.now(),
+          error: error
+        }
+      }, function () {
+        console.log("🔥 BACKGROUND: Updated tempAuthResult with SAML processing result:", { success, error });
+      });
+
+      // Clear any remaining SAML data from storage after processing (if any exists)
+      chrome.storage.local.remove(['pendingSamlResponse'], function () {
+        console.log("🔥 BACKGROUND: Cleared any remaining SAML response from storage");
+      });
+
+      // Notify extension UI (for popup if open)
       chrome.runtime.sendMessage({
         action: "authResult",
-        success: result ? result.success : false,
-        error: result ? result.error : "No result returned",
+        success: success,
+        error: error,
+      }).catch(() => {
+        console.log("🔥 BACKGROUND: No UI listening for auth result");
       });
     });
 
-    return true;
+    return true; // Keep message channel open for async response
   }
 
   // Handle content analysis (new functionality)

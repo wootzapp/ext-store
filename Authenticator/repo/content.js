@@ -17,70 +17,60 @@
     console.log("Running in extension context");
 
     // ======================
-    // SAML FUNCTIONALITY (EXISTING)
+    // SAML FUNCTIONALITY (STREAMLINED - POSTMESSAGE)
     // ======================
 
-    // Function to send SAML response
-    function sendSamlResponse(response) {
-      console.log("SAML response found, processing...");
-      console.log("Response length:", response.length);
+    // Listen for messages from the SAML receiver page
+    window.addEventListener('message', function (event) {
+      console.log("🔥 CONTENT SCRIPT: Received postMessage:", event);
 
-      // Store the SAML response
-      chrome.storage.local.set(
-        {
-          pendingSamlResponse: response,
+      if (event.data && event.data.type === 'SAML_RESPONSE_FROM_RECEIVER') {
+        console.log("🔥 CONTENT SCRIPT: Processing SAML response from receiver page");
+        console.log("🔥 CONTENT SCRIPT: SAML data length:", event.data.xmlResponse?.length);
+
+        // Send the SAML response to background script
+        chrome.runtime.sendMessage({
+          action: "processSamlResponse",
+          xmlResponse: event.data.xmlResponse,
+          source: "contentScriptFromReceiver",
+          timestamp: event.data.timestamp
         },
-        function () {
-          console.log("SAML response stored, navigating to success page");
 
-          // Navigate to success page
-          window.location.href = chrome.runtime.getURL("auth-success.html");
-        }
-      );
-    }
+          function (result) {
+            if (chrome.runtime.lastError) {
+              console.error("🔥 CONTENT SCRIPT ERROR: Failed to send SAML response to background:", chrome.runtime.lastError);
 
-    // Monitor for SAML responses in form submissions
-    document.addEventListener("submit", function (event) {
-      console.log("Form submission detected");
+              // Store error result and navigate
+              chrome.storage.local.set({
+                tempAuthResult: {
+                  success: false,
+                  timestamp: Date.now(),
+                  error: chrome.runtime.lastError.message
+                }
+              }, function () {
+                console.log("🔥 CONTENT SCRIPT: Stored temp error result, navigating...");
+                window.location.href = chrome.runtime.getURL("auth-success.html");
+              });
+            } else {
+              console.log("🔥 CONTENT SCRIPT SUCCESS: SAML response sent to background!");
+              console.log("🔥 CONTENT SCRIPT SUCCESS: Background response:", result);
 
-      const form = event.target;
-      const samlInput = form.querySelector('input[name="SAMLResponse"]');
-
-      if (samlInput && samlInput.value) {
-        console.log("SAML: Found SAMLResponse in form submission");
-
-        try {
-          const decodedSaml = atob(samlInput.value);
-          console.log("SAML: Successfully decoded base64 response");
-          sendSamlResponse(decodedSaml);
-        } catch (error) {
-          console.log("SAML: Could not decode base64, sending raw response");
-          sendSamlResponse(samlInput.value);
-        }
-
-        // Prevent form submission to avoid navigation
-        event.preventDefault();
-        return false;
+              // Always navigate to success page, background handles the actual SAML processing
+              // The success/failure will be determined by the background script's processing
+              chrome.storage.local.set({
+                tempAuthResult: {
+                  success: true, // Default to true, background will update if there's an error
+                  timestamp: Date.now(),
+                  error: null
+                }
+              }, function () {
+                console.log("🔥 CONTENT SCRIPT: Stored temp auth result, navigating to auth-success.html...");
+                window.location.href = chrome.runtime.getURL("auth-success.html");
+              });
+            }
+          });
       }
     });
-
-    // Check for existing SAML responses on page load
-    function checkForExistingSamlResponses() {
-      const existingSamlInputs = document.querySelectorAll(
-        'input[name="SAMLResponse"]'
-      );
-      existingSamlInputs.forEach(function (input) {
-        if (input.value) {
-          console.log("SAML: Found existing SAMLResponse input");
-          try {
-            const decodedSaml = atob(input.value);
-            sendSamlResponse(decodedSaml);
-          } catch (error) {
-            sendSamlResponse(input.value);
-          }
-        }
-      });
-    }
 
     // ======================
     // CONTENT ANALYSIS FUNCTIONALITY (NEW)
@@ -219,10 +209,6 @@
     // INITIALIZATION
     // ======================
 
-    // Initialize SAML monitoring
-    checkForExistingSamlResponses();
-    setTimeout(checkForExistingSamlResponses, 1000);
-
     // Initialize content analysis - auto-trigger once per page
     console.log("🔧 Initializing content analysis...");
 
@@ -237,34 +223,30 @@
       performAnalysis();
     }
 
-    // Monitor for SAML responses and DOM changes
+    // Monitor for DOM changes (content analysis only)
+    console.log("🔍 MUTATION OBSERVER: Setting up DOM change monitoring for content analysis...");
     const observer = new MutationObserver(function (mutations) {
-      mutations.forEach(function (mutation) {
-        mutation.addedNodes.forEach(function (node) {
-          if (node.nodeType === 1) {
-            // Check for SAML inputs
-            const samlInputs = node.querySelectorAll
-              ? node.querySelectorAll('input[name="SAMLResponse"]')
-              : [];
-            samlInputs.forEach(function (input) {
-              if (input.value) {
-                console.log(
-                  "SAML: Found SAMLResponse in dynamically added content"
-                );
-                try {
-                  const decodedSaml = atob(input.value);
-                  sendSamlResponse(decodedSaml);
-                } catch (error) {
-                  sendSamlResponse(input.value);
-                }
-              }
-            });
-          }
-        });
-      });
+      console.log("🔍 MUTATION OBSERVER: DOM changes detected, mutations count:", mutations.length);
+      // Only used for content analysis triggers, SAML detection removed
     });
 
-    observer.observe(document.body, { childList: true, subtree: true });
+    console.log("🔍 MUTATION OBSERVER: Starting observation of document.body...");
+
+    // Ensure document.body exists before observing
+    if (document.body) {
+      observer.observe(document.body, { childList: true, subtree: true });
+      console.log("🔍 MUTATION OBSERVER: Observer is now active");
+    } else {
+      console.log("🔍 MUTATION OBSERVER: document.body not ready, waiting...");
+      // Wait for body to be available
+      const bodyCheckInterval = setInterval(() => {
+        if (document.body) {
+          clearInterval(bodyCheckInterval);
+          observer.observe(document.body, { childList: true, subtree: true });
+          console.log("🔍 MUTATION OBSERVER: Observer is now active (delayed)");
+        }
+      }, 100);
+    }
 
     // Listen for navigation events (for SPAs)
     window.addEventListener("popstate", handleNavigation);

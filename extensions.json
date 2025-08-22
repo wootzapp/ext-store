@@ -3,7 +3,7 @@
     {
       "id": "allmdcfldidgeghfoioaaiammdlpmnnk",
       "name": "Artifact",
-      "campaign" : "artifact",
+      "campaign": "artifact",
       "description": "An extension to earn rewards for browsing the web.",
       "version": "1.0.1",
       "author": "Wootzapp Team",
@@ -21,7 +21,7 @@
     {
       "id": "fdjkflhcgjnhmbfpbojnalpfmomjggkj",
       "name": "Wootzapp Wallet",
-      "campaign" : "wootzapp-wallet",
+      "campaign": "wootzapp-wallet",
       "description": "Wallet for Ethereum and Solana blockchain networks.",
       "version": "1.0.4",
       "author": "Wootzapp Team",
@@ -39,7 +39,7 @@
     {
       "id": "lldicgmlhdphidpnhgeiibfkifemhgal",
       "name": "AI Data Scraper",
-      "campaign" : "ai-data-scraper",
+      "campaign": "ai-data-scraper",
       "description": "An extension to earn passive money by scrolling tweets on twitter(X) using AI.",
       "version": "1.0.0",
       "author": "Wootzapp Team",
@@ -58,7 +58,7 @@
     {
       "id": "gpfellaldmjpgonllcjpjfpodfmgobnk",
       "name": "Tap.Eclipse",
-      "campaign" : "eclipse",
+      "campaign": "eclipse",
       "description": "Tap Eclipse website integration with wootzapp wallet.",
       "version": "1.0.0",
       "author": "Wootzapp Team",
@@ -76,7 +76,7 @@
     {
       "id": "kpobgdhknoakgagflffeigaojlglkbhn",
       "name": "Blockmesh Network",
-      "campaign" : "blockmesh",
+      "campaign": "blockmesh",
       "description": "BlockMesh Network allows you to generate passive income from your excessive bandwidth.",
       "version": "0.0.562",
       "author": "Wootzapp Team",
@@ -94,7 +94,7 @@
     {
       "id": "amjlbcejmaebkjfmeenkcijgpjpieepc",
       "name": "Camp Network",
-      "campaign" : "camp",
+      "campaign": "camp",
       "description": "An extension to earn passive money by scrolling tweets on twitter(X).",
       "version": "1.0.0",
       "author": "Wootzapp Team",
@@ -112,7 +112,7 @@
     {
       "id": "doklnekkemmhclakfekoccilofpdcncb",
       "name": "Coddata Clip",
-      "campaign" : "coddata",
+      "campaign": "coddata",
       "description": "Turn Your Intelligence into AI",
       "version": "1.0.0",
       "author": "Wootzapp Team",
@@ -121,7 +121,7 @@
       "github_url": "https://github.com/wootzapp/ext-store/tree/main/Coddata%20Clip/Repo",
       "tags": [
         "Rewards",
-        "AI", 
+        "AI",
         "Instagram"
       ],
       "created_at": "2025-02-26T15:00:00Z",
@@ -130,7 +130,7 @@
     {
       "id": "lhgoolpdddhhfahbnofaomjhfhfjfhop",
       "name": "AI Researcher",
-      "campaign" : "ai-researcher",
+      "campaign": "ai-researcher",
       "description": "AI-powered web research assistant that provides intelligent summaries, comprehensive research, and fact-checking for any webpage using advanced language models.",
       "version": "1.0.0",
       "author": "Wootzapp Team",
@@ -144,7 +144,7 @@
       "description": "An extension to assist users to chat and perform tasks using AI.",
       "version": "1.0.0",
       "author": "Wootzapp Team",
-      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Social%20Shopping%20Agent/SocialShoppingAgent.crx",  
+      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Social%20Shopping%20Agent/SocialShoppingAgent.crx",
       "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Social%20Shopping%20Agent/repo/public/icons/icon.png",
       "github_url": "https://github.com/wootzapp/ext-store/tree/main/Social%20Shopping%20Agent/repo",
       "tags": [
@@ -160,7 +160,7 @@
     {
       "id": "ficjckojhebnoogjmhacgodjcgddphac",
       "name": "AI Twitter Agent",
-      "campaign" : "ai-twitter-agent",
+      "campaign": "ai-twitter-agent",
       "description": "An AI Twitter Agent that can post ai generated tweets on your behalf.",
       "version": "1.0.1",
       "author": "Wootzapp Team",
@@ -179,7 +179,7 @@
     {
       "id": "mafnkcehjhddilcnhlnkbcbelilbifhm",
       "name": "ZK Proofing",
-      "campaign" : "zk-proofing",
+      "campaign": "zk-proofing",
       "description": "An extension to generate cryptographic proofs for zk-SNARKs.",
       "version": "1.0.0",
       "author": "Wootzapp Team",
@@ -197,7 +197,7 @@
     {
       "id": "gfciojmkoheeffnkgpfdjdkfiffnohmb",
       "name": "Data Hive",
-      "campaign" : "data-hive",
+      "campaign": "data-hive",
       "description": "An extension to earn rewards for browsing the web.",
       "version": "1.0.0",
       "author": "Wootzapp Team",
@@ -215,7 +215,7 @@
     {
       "id": "gckloiljabipmjohgnklademghjaoboa",
       "name": "Trex",
-      "campaign" : "trex",
+      "campaign": "trex",
       "description": "Get rewards by watching YouTube videos and using Twitter",
       "version": "1.0.0",
       "author": "Wootzapp Team",
@@ -233,7 +233,7 @@
     {
       "id": "nofldplihhlkcpbejlmccfafcpeejaef",
       "name": "Sapien",
-      "campaign" : "sapien",
+      "campaign": "sapien",
       "description": "Earn rewards by playing games.",
       "version": "1.0.0",
       "author": "Wootzapp Team",
@@ -249,9 +249,9 @@
       "updated_at": "2025-02-26T15:00:00Z"
     },
     {
-      "id": "fipnnjlgihhfnabhnkknhifccgoeipcm",
+      "id": "cbflmopelgapigggegdlebdplenimgmn",
       "name": "Authenticator",
-      "campaign" : "authenticator",
+      "campaign": "authenticator",
       "description": "Secure SAML authentication for enterprise applications with Okta integration.",
       "version": "1.0.0",
       "author": "Wootzapp Team",
