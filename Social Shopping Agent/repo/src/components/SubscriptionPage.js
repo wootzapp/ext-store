@@ -1,528 +1,681 @@
-import React, { useState } from 'react';
+/* global chrome */
+import React, { useState } from "react";
 import { 
-  FaBullseye, 
-  FaUnlock, 
-  FaEdit, 
-  FaComments, 
+  FaArrowLeft,
+  FaCheck,
+  FaStar,
   FaCrown, 
-  FaGift, 
-  FaCreditCard,
-  FaKey,
-  FaArrowLeft
-} from 'react-icons/fa';
-
-import { useNavigate } from 'react-router-dom';
+  // FaRocket,
+  FaShieldAlt,
+  // FaInfinity,
+} from "react-icons/fa";
+import "../styles/SubscriptionPageAnimations.css";
 
 const SubscriptionPage = ({ onSubscribe, onLogout, onOpenSettings, user }) => {
-  const navigate = useNavigate();
-  const [selectedPlan, setSelectedPlan] = useState('yearly');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [error, setError] = useState("");
 
-  const plans = {
-    monthly: {
-      name: 'Monthly',
-      price: 14.99,
-      period: '/month',
+  const handleSubscribe = async (planName) => {
+    try {
+    setLoading(true);
+      setError("");
+
+      // Open pricing page in new tab using chrome.tabs.create
+      if (typeof chrome !== "undefined" && chrome.tabs) {
+        chrome.tabs.create({
+          url: "https://nextjs-app-410940835135.us-central1.run.app/pricing",
+          active: true,
+        });
+      }
+    } catch (error) {
+      console.error("Subscription error:", error);
+      setError(error.message || "Failed to subscribe to plan");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTrial = async (planName) => {
+    try {
+    setLoading(true);
+      setError("");
+
+      // Open pricing page in new tab using chrome.tabs.create
+      if (typeof chrome !== "undefined" && chrome.tabs) {
+        chrome.tabs.create({
+          url: "https://nextjs-app-410940835135.us-central1.run.app/pricing",
+          active: true,
+        });
+      }
+    } catch (error) {
+      console.error("Trial error:", error);
+      setError(error.message || "Failed to start trial");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getCurrentPlan = () => {
+    // For now, return null since we're not using organizations API
+    return null;
+  };
+
+  const currentPlan = getCurrentPlan();
+
+  const plans = [
+    {
+      id: "free",
+      name: "Web App - Free Plan",
+      price: "₹0",
+      period: "forever",
+      description: "Free tier for web users with basic features",
       features: [
-        'Unlimited web automation',
-        'All AI models included',
-        'Priority support',
-        'Regular updates'
-      ]
-    },
-    yearly: {
-      name: 'One Year',
-      price: 149.99,
-      period: '/year',
-      originalPrice: 179.88,
-      savings: 'Save $29.89',
-      features: [
-        'Everything in Monthly',
-        '2 months FREE',
-        'Priority customer support',
-        'Advanced AI models',
-        'Beta features access'
+        "100 Chat Completions/month",
+        "10 Image Generations/month",
+        "Community Support",
+        "Basic API Access",
       ],
-      recommended: true
-    }
-  };
-
-  const handleSubscribe = async () => {
-    setError('');
-    setLoading(true);
-
-    try {
-      const result = await onSubscribe({
-        plan: selectedPlan,
-        price: plans[selectedPlan].price,
-        user: user
-      });
-
-      if (!result.success) {
-        throw new Error(result.error || 'Subscription failed');
-      }
-    } catch (err) {
-      setError(err.message);
-      setLoading(false);
-    }
-  };
-
-  const handleTrial = async () => {
-    setError('');
-    setLoading(true);
-
-    try {
-      // Start 7-day trial
-      const result = await onSubscribe({
-        plan: 'trial',
-        price: 0,
-        user: user,
-        trial: true
-      });
-
-      if (!result.success) {
-        throw new Error(result.error || 'Trial activation failed');
-      }
-    } catch (err) {
-      setError(err.message);
-      setLoading(false);
-    }
-  };
-
-  const containerStyle = {
-    width: '100vw',
-    height: '100vh',
-    maxWidth: '500px',
-    maxHeight: '600px',
-    display: 'flex',
-    flexDirection: 'column',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    backgroundColor: '#002550FF',
-    overflow: 'hidden',
-    position: 'fixed',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    userSelect: 'none',
-    WebkitUserSelect: 'none',
-    touchAction: 'manipulation'
-  };
-
-  const headerStyle = {
-    padding: '10px 10px 0px 10px',
-    background: 'linear-gradient(0deg, #002550FF 0%, #764ba2 100%)',
-    color: 'white',
-    textAlign: 'center'
-  };
-
-  const contentStyle = {
-    flex: 'none',
-    padding: '20px',
-    paddingTop: '10px',
-    backgroundColor: '#002550FF'
-  };
+      icon: FaStar,
+      color: "#4ECDC4",
+      popular: false,
+      currentPlan: true,
+    },
+    {
+      id: "pro",
+      name: "Web App - Pro Plan",
+      price: "₹999.00",
+      period: "month",
+      description: "Professional plan for web users with enhanced features",
+      features: [
+        "10,000 Chat Completions/month",
+        "500 Image Generations/month",
+        "Priority Support",
+        "Advanced API Access",
+        "Usage Analytics",
+        "SuperMemory Access",
+      ],
+      icon: FaCrown,
+      color: "#FF6B6B",
+      popular: true,
+    },
+    {
+      id: "team",
+      name: "Web App - Team Plan",
+      price: "₹2,499.00",
+      period: "month",
+      description: "Team plan for web users with collaboration features",
+      features: [
+        "25,000 Chat Completions/month",
+        "1,000 Image Generations/month",
+        "Priority Support",
+        "Custom Prompt Templates",
+        "Team Management",
+        "SuperMemory Access",
+        "Advanced Analytics",
+      ],
+      icon: FaShieldAlt,
+      color: "#45B7D1",
+      popular: false,
+    },
+  ];
 
   const planCardStyle = (isSelected, isRecommended) => ({
-    backgroundColor: isSelected ? '#003A7CFF' : '#002550FF',
-    border: `2px solid ${isSelected ? '#3b82f6' : '#FFDCDCFF'}`,
-    borderRadius: '12px',
-    padding: '16px',
-    marginBottom: '12px',
-    cursor: 'pointer',
-    transition: 'all 0.3s',
-    position: 'relative',
-    ...(isRecommended && {
-      borderColor: '#10b981',
-      boxShadow: '0 0 0 1px #10b981'
-    })
+    backgroundColor: isSelected
+      ? "rgba(255, 107, 107, 0.1)"
+      : "rgba(255, 255, 255, 0.05)",
+    border: isSelected
+      ? "2px solid #FF6B6B"
+      : "1px solid rgba(255, 255, 255, 0.1)",
+    borderRadius: "12px",
+    padding: "16px",
+    marginBottom: "12px",
+    cursor: "pointer",
+    transition: "all 0.3s ease",
+    position: "relative",
+    backdropFilter: "blur(10px)",
+    animation: "slideInUp 0.8s ease-out",
+    animationDelay: `${
+      plans.indexOf(plans.find((p) => p.id === plans[0]?.id)) * 0.1
+    }s`,
   });
 
-  const buttonStyle = {
-    width: '100%',
-    padding: '14px',
-    borderRadius: '12px',
-    border: 'none',
-    fontSize: '16px',
-    fontWeight: '600',
-    cursor: loading ? 'not-allowed' : 'pointer',
-    marginBottom: '12px',
-    transition: 'all 0.3s',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px'
-  };
-
-  if (loading) {
     return (
-      <div style={{
-        position: 'fixed', 
+    <div
+      className="subscription-container"
+      style={{
+        width: "100vw",
+        height: "100vh",
+        maxWidth: "500px",
+        maxHeight: "600px",
+        display: "flex",
+        flexDirection: "column",
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        backgroundColor: "#002550FF",
+        overflow: "hidden",
+        position: "fixed",
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+        userSelect: "none",
+        WebkitUserSelect: "none",
+        touchAction: "manipulation",
+      }}
+    >
+      {/* Background Animation */}
+      <div
+        className="background-animation"
+        style={{
+          position: "absolute",
         top: 0,           
         left: 0,          
         right: 0,         
         bottom: 0,        
-        width: '100%',    
-        height: '100%',   
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#002550FF',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-      }}>
-        <div style={{
-          width: '40px',
-          height: '40px',
-          border: '4px solid rgba(255, 220, 220, 0.3)',
-          borderTop: '4px solid #FFDCDCFF',
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite',
-          marginBottom: '20px'
-        }} />
-        <div style={{ 
-          fontSize: '16px', 
-          color: '#FFDCDCFF',
-          textAlign: 'center'
-        }}>
-          <span id="loading-text">Loading</span>
-        </div>
-        
-        <style>
-          {`
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-            
-            @keyframes dots {
-              0% { content: 'Loading'; }
-              33% { content: 'Loading.'; }
-              66% { content: 'Loading..'; }
-              100% { content: 'Loading...'; }
-            }
-            
-            #loading-text::after {
-              content: '';
-              animation: dots 1.5s infinite;
-            }
-          `}
-        </style>
-      </div>
-    );
-  }
-
-  return (
-    <div className="subscription-container" style={{...containerStyle, overflowY: 'auto'}} onClick={(e) => {
-      if (e.target === e.currentTarget) {
-        onOpenSettings();
-      }
-    }}>
-      {/* Background Animation */}
-      <div className="background-animation">
-        <div className="floating-orb subscription-orb-1"></div>
-        <div className="floating-orb subscription-orb-2"></div>
-        <div className="floating-orb subscription-orb-3"></div>
+          pointerEvents: "none",
+          zIndex: 0,
+        }}
+      >
+        <div
+          className="subscription-orb-1"
+          style={{
+            position: "absolute",
+            width: "200px",
+            height: "200px",
+            borderRadius: "50%",
+            background: "radial-gradient(circle, #FF6B6B, #FF8E8E)",
+            filter: "blur(40px)",
+            opacity: 0.3,
+            top: "10%",
+            left: "10%",
+            animation: "float 6s ease-in-out infinite",
+          }}
+        />
+        <div
+          className="subscription-orb-2"
+          style={{
+            position: "absolute",
+            width: "150px",
+            height: "150px",
+            borderRadius: "50%",
+            background: "radial-gradient(circle, #4ECDC4, #6EE7DF)",
+            filter: "blur(40px)",
+            opacity: 0.3,
+            top: "60%",
+            right: "15%",
+            animation: "float 6s ease-in-out infinite 2s",
+          }}
+        />
+        <div
+          className="subscription-orb-3"
+          style={{
+            position: "absolute",
+            width: "180px",
+            height: "180px",
+            borderRadius: "50%",
+            background: "radial-gradient(circle, #45B7D1, #67C9E1)",
+            filter: "blur(40px)",
+            opacity: 0.3,
+            bottom: "20%",
+            left: "20%",
+            animation: "float 6s ease-in-out infinite 4s",
+          }}
+        />
       </div>
 
       {/* Header */}
-      <div className="subscription-header" style={headerStyle}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div
+        className="subscription-header"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "12px 16px",
+          borderBottom: "1px solid rgba(255, 220, 220, 0.3)",
+          background: "linear-gradient(0deg, #002550FF 0%, #764ba2 100%)",
+          flexShrink: 0,
+          minHeight: "56px",
+          boxSizing: "border-box",
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
           <button 
-            onClick={() => navigate('/profile')}
+          onClick={() => window.history.back()}
             className="subscription-back-button"
             style={{ 
-              padding: '6px 8px', 
-              backgroundColor: 'rgba(255, 220, 220, 0.2)',
-              border: '1px solid rgba(255, 220, 220, 0.3)',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '16px',
-              color: '#FFDCDCFF',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginLeft: '6px'
+            padding: "6px 8px",
+            backgroundColor: "rgba(255, 220, 220, 0.2)",
+            border: "1px solid rgba(255, 220, 220, 0.3)",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontSize: "16px",
+            color: "#FFDCDCFF",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             }}
             title="Back to Profile"
           >
             <FaArrowLeft />
           </button>
           
-          <div style={{ flex: 1, textAlign: 'center' }}>
-            <h3 className="subscription-title" style={{ margin: 0, fontSize: '18px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-              Unleash AI's full powers with Premium
-            </h3>
-          </div>
-          
-          <div style={{ width: '40px' }}></div> {/* Spacer for centering */}
-        </div>
-        <p className="subscription-subtitle" style={{ margin: '8px 0 0 0', fontSize: '13px', opacity: 0.9, color: '#FFDCDCFF' }}>
-          Welcome, {user?.name || user?.email}!
+        <div style={{ minWidth: 0, flex: 1, textAlign: "center" }}>
+          <h1
+            className="subscription-title"
+            style={{
+              margin: 0,
+              color: "#FFDCDCFF",
+              fontSize: "18px",
+              fontWeight: "700",
+              lineHeight: "22px",
+            }}
+          >
+            Choose Your Plan
+          </h1>
+          <p
+            className="subscription-subtitle"
+            style={{
+              margin: 0,
+              color: "rgba(255, 220, 220, 0.8)",
+              fontSize: "12px",
+              lineHeight: "14px",
+              marginTop: "2px",
+            }}
+          >
+            Select the perfect plan for your needs
         </p>
       </div>
 
-      {/* Content */}
-      <div className="subscription-content" style={contentStyle}>
-        {/* Features */}
-        <div className="features-list" style={{ marginBottom: '20px' }}>
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '12px',
-            marginBottom: '16px',
-            padding: '12px',
-            backgroundColor: '#003A7CFF',
-            borderRadius: '8px',
-            border: '1px solid rgba(255, 220, 220, 0.2)'
-          }}>
-            <FaBullseye style={{ fontSize: '20px', color: '#FFDCDCFF' }} />
-            <div>
-              <div style={{ fontSize: '14px', fontWeight: '600', color: '#FFDCDCFF' }}>
-                Explore different AI models
-              </div>
-              <div style={{ fontSize: '12px', color: 'rgba(255, 220, 220, 0.8)' }}>
-                Priority access to powerful models with different skills.
-              </div>
-            </div>
+        <div style={{ width: "32px" }}></div>
           </div>
 
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '12px',
-            marginBottom: '16px',
-            padding: '12px',
-            backgroundColor: '#003A7CFF',
-            borderRadius: '8px',
-            border: '1px solid rgba(255, 220, 220, 0.2)'
-          }}>
-            <FaUnlock style={{ fontSize: '20px', color: '#FFDCDCFF' }} />
-            <div>
-              <div style={{ fontSize: '14px', fontWeight: '600', color: '#FFDCDCFF' }}>
-                Unlock your creativity
-              </div>
-              <div style={{ fontSize: '12px', color: 'rgba(255, 220, 220, 0.8)' }}>
-                Access models better suited for creative tasks and content generation.
-              </div>
-            </div>
-          </div>
-
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '12px',
-            marginBottom: '16px',
-            padding: '12px',
-            backgroundColor: '#003A7CFF',
-            borderRadius: '8px',
-            border: '1px solid rgba(255, 220, 220, 0.2)'
-          }}>
-            <FaEdit style={{ fontSize: '20px', color: '#FFDCDCFF' }} />
-            <div>
-              <div style={{ fontSize: '14px', fontWeight: '600', color: '#FFDCDCFF' }}>
-                Stay on topic
-              </div>
-              <div style={{ fontSize: '12px', color: 'rgba(255, 220, 220, 0.8)' }}>
-                Get more accurate answers for more nuanced conversations.
-              </div>
-            </div>
-          </div>
-
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '12px',
-            marginBottom: '20px',
-            padding: '12px',
-            backgroundColor: '#003A7CFF',
-            borderRadius: '8px',
-            border: '1px solid rgba(255, 220, 220, 0.2)'
-          }}>
-            <FaComments style={{ fontSize: '20px', color: '#FFDCDCFF' }} />
-            <div>
-              <div style={{ fontSize: '14px', fontWeight: '600', color: '#FFDCDCFF' }}>
-                Chat for longer
-              </div>
-              <div style={{ fontSize: '12px', color: 'rgba(255, 220, 220, 0.8)' }}>
-                Get higher rate limits for longer conversations.
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Plans */}
-        <div style={{ marginBottom: '20px' }}>
-          {Object.entries(plans).map(([key, plan]) => (
-            <div
-              key={key}
-              onClick={() => setSelectedPlan(key)}
-              style={planCardStyle(selectedPlan === key, plan.recommended)}
+      {/* Scrollable Content */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: "16px",
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+        }}
+      >
+        {/* Current Plan Banner */}
+        {currentPlan && (
+          <div
+            style={{
+              backgroundColor: "rgba(76, 175, 80, 0.1)",
+              border: "1px solid rgba(76, 175, 80, 0.3)",
+              borderRadius: "12px",
+              padding: "12px",
+              marginBottom: "16px",
+              textAlign: "center",
+              animation: "slideInUp 0.6s ease-out",
+            }}
+          >
+            <p
+              style={{
+                margin: 0,
+                color: "#4CAF50",
+                fontSize: "12px",
+                fontWeight: "600",
+              }}
             >
-              {plan.recommended && (
-                <div style={{
-                  position: 'absolute',
-                  top: '-8px',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  backgroundColor: '#10b981',
-                  color: 'white',
-                  fontSize: '10px',
-                  fontWeight: '600',
-                  padding: '4px 12px',
-                  borderRadius: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}>
-                  <FaCrown style={{ fontSize: '8px' }} />
-                  BEST VALUE
+              ✅ Currently on {currentPlan.name} plan ({currentPlan.status})
+            </p>
+              </div>
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <div
+            style={{
+              backgroundColor: "rgba(220, 53, 69, 0.1)",
+              border: "1px solid rgba(220, 53, 69, 0.3)",
+              borderRadius: "12px",
+              padding: "12px",
+              marginBottom: "16px",
+              color: "#FF6B6B",
+              fontSize: "12px",
+              textAlign: "center",
+            }}
+          >
+            {error}
                 </div>
               )}
               
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '16px', fontWeight: '600', color: '#FFDCDCFF' }}>
+        {/* Plans Grid */}
+        <div
+          className="subscription-plans"
+          style={{
+            position: "relative",
+            zIndex: 1,
+            display: "flex",
+            flexDirection: "column",
+            gap: "16px",
+          }}
+        >
+          {plans.map((plan, index) => {
+            const IconComponent = plan.icon;
+            const isCurrentPlan = plan.currentPlan;
+
+            return (
+              <div
+                key={plan.id}
+                className="subscription-plan"
+                style={{
+                  ...planCardStyle(selectedPlan === plan.id, plan.popular),
+                  animationDelay: `${index * 0.1}s`,
+                  marginTop: plan.popular ? "40px" : "0px", // Further increased margin for popular plan to show banner completely
+                }}
+                onClick={() => setSelectedPlan(plan.id)}
+              >
+                {plan.popular && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "-25px",
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      backgroundColor: "#FF6B6B",
+                      color: "white",
+                      padding: "10px 28px",
+                      borderRadius: "20px",
+                      fontSize: "12px",
+                      fontWeight: "600",
+                      zIndex: 10,
+                      boxShadow: "0 2px 8px rgba(255, 107, 107, 0.3)",
+                    }}
+                  >
+                    MOST POPULAR
+                    </div>
+                  )}
+
+                <div
+                  className="plan-header"
+                  style={{ textAlign: "center", marginBottom: "16px" }}
+                >
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "40px",
+                      height: "40px",
+                      borderRadius: "50%",
+                      backgroundColor: `${plan.color}20`,
+                      color: plan.color,
+                      fontSize: "16px",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    <IconComponent />
+                </div>
+
+                  <h3
+                    className="plan-title"
+                    style={{
+                      fontSize: "18px",
+                      fontWeight: "700",
+                      color: "#FFDCDCFF",
+                      margin: "0 0 4px 0",
+                    }}
+                  >
                     {plan.name}
-                  </div>
-                  {plan.savings && (
-                    <div style={{ fontSize: '11px', color: '#10b981', fontWeight: '600' }}>
-                      {plan.savings}
-                    </div>
-                  )}
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '18px', fontWeight: '700', color: '#FFDCDCFF' }}>
-                    USD ${plan.price}
-                    <span style={{ fontSize: '12px', fontWeight: '400' }}>
-                      {plan.period}
+                  </h3>
+
+                  <div className="plan-price" style={{ marginBottom: "4px" }}>
+                    <span
+                      style={{
+                        fontSize: "24px",
+                        fontWeight: "700",
+                        color: "#FFDCDCFF",
+                      }}
+                    >
+                      {plan.price}
                     </span>
-                  </div>
-                  {plan.originalPrice && (
-                    <div style={{ 
-                      fontSize: '12px', 
-                      color: 'rgba(255, 220, 220, 0.6)', 
-                      textDecoration: 'line-through' 
-                    }}>
-                      ${plan.originalPrice}
-                    </div>
+                    {plan.price !== "Custom" && (
+                      <span
+                        style={{
+                          fontSize: "12px",
+                          color: "rgba(255, 220, 220, 0.7)",
+                          marginLeft: "4px",
+                        }}
+                      >
+                        /{plan.period}
+                    </span>
                   )}
                 </div>
+
+                  <p
+                    className="plan-description"
+                    style={{
+                      fontSize: "12px",
+                      color: "rgba(255, 220, 220, 0.8)",
+                      margin: 0,
+                    }}
+                  >
+                    {plan.description}
+                  </p>
               </div>
+
+                <div className="plan-features" style={{ marginBottom: "16px" }}>
+                  {plan.features.map((feature, featureIndex) => (
+                    <div
+                      key={featureIndex}
+                      className="plan-feature"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        marginBottom: "8px",
+                        fontSize: "12px",
+                        color: "#FFDCDCFF",
+                      }}
+                    >
+                      <FaCheck
+                        style={{
+                          color: "#4CAF50",
+                          marginRight: "8px",
+                          flexShrink: 0,
+                          fontSize: "10px",
+                        }}
+                      />
+                      <span>{feature}</span>
             </div>
           ))}
         </div>
 
-        {error && (
-          <div style={{
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fca5a5',
-            borderRadius: '8px',
-            padding: '12px',
-            marginBottom: '16px',
-            fontSize: '14px',
-            color: '#dc2626'
-          }}>
-            {error}
+                <div className="plan-actions" style={{ textAlign: "center" }}>
+                  {isCurrentPlan ? (
+                    <div
+                      style={{
+                        backgroundColor: "rgba(76, 175, 80, 0.1)",
+                        border: "1px solid rgba(76, 175, 80, 0.3)",
+                        borderRadius: "8px",
+                        padding: "12px",
+                        color: "#4CAF50",
+                        fontSize: "14px",
+                        fontWeight: "600",
+                      }}
+                    >
+                      Current Plan
           </div>
-        )}
-
-        {/* Trial Button */}
+                  ) : plan.id === "free" ? (
         <button
-          onClick={handleTrial}
+                      onClick={() => handleSubscribe(plan.name)}
           disabled={loading}
+                      className="plan-button"
           style={{
-            ...buttonStyle,
-            backgroundColor: loading ? '#4a5568' : '#10b981',
-            color: 'white'
-          }}
-        >
-          {loading ? (
-            <>
-              <div style={{
-                width: '16px',
-                height: '16px',
-                border: '2px solid transparent',
-                borderTop: '2px solid #ffffff',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite'
-              }} />
-              Processing...
-            </>
-          ) : (
-            <>
-              <FaGift />
-              Try 7 days free
-            </>
-          )}
+                        width: "100%",
+                        padding: "8px 16px",
+                        backgroundColor: "#4ECDC4",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "8px",
+                        fontSize: "12px",
+                        fontWeight: "600",
+                        cursor: loading ? "not-allowed" : "pointer",
+                        opacity: loading ? 0.6 : 1,
+                        transition: "all 0.3s ease",
+                      }}
+                    >
+                      {loading ? "Processing..." : "Get Started"}
+                    </button>
+                  ) : (
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button
+                        onClick={() => handleTrial(plan.name)}
+                        disabled={loading}
+                        className="plan-button"
+                        style={{
+                          flex: 1,
+                          padding: "8px 12px",
+                          backgroundColor: "transparent",
+                          color: "#FF6B6B",
+                          border: "1px solid #FF6B6B",
+                          borderRadius: "8px",
+                          fontSize: "11px",
+                          fontWeight: "600",
+                          cursor: loading ? "not-allowed" : "pointer",
+                          opacity: loading ? 0.6 : 1,
+                          transition: "all 0.3s ease",
+                        }}
+                      >
+                        {loading ? "Processing..." : "Start Trial"}
         </button>
-
-        {/* Subscribe Button */}
         <button
-          onClick={handleSubscribe}
+                        onClick={() => handleSubscribe(plan.name)}
           disabled={loading}
+                        className="plan-button"
           style={{
-            ...buttonStyle,
-            backgroundColor: loading ? '#4a5568' : '#3b82f6',
-            color: 'white'
-          }}
-        >
-          {loading ? (
-            <>
-              <div style={{
-                width: '16px',
-                height: '16px',
-                border: '2px solid transparent',
-                borderTop: '2px solid #ffffff',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite'
-              }} />
-              Processing...
-            </>
-          ) : (
-            <>
-              <FaCreditCard />
-              Subscribe {plans[selectedPlan].name}
-            </>
-          )}
-        </button>
+                          flex: 1,
+                          padding: "8px 12px",
+                          backgroundColor: "#FF6B6B",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "8px",
+                          fontSize: "11px",
+                          fontWeight: "600",
+                          cursor: loading ? "not-allowed" : "pointer",
+                          opacity: loading ? 0.6 : 1,
+                          transition: "all 0.3s ease",
+                        }}
+                      >
+                        {loading ? "Processing..." : "Subscribe"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
 
-        {/* Use API Key Button */}
+          {/* OR Separator */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              margin: "0px",
+              position: "relative",
+              zIndex: 1,
+            }}
+          >
+            <div
+              style={{
+                flex: 1,
+                height: "1px",
+                backgroundColor: "rgba(255, 220, 220, 0.3)",
+              }}
+            />
+            <div
+              style={{
+                padding: "0 8px",
+                color: "rgba(255, 220, 220, 0.8)",
+                fontSize: "14px",
+                fontWeight: "600",
+                backgroundColor: "#00255000",
+              }}
+            >
+              OR
+            </div>
+            <div
+              style={{
+                flex: 1,
+                height: "1px",
+                backgroundColor: "rgba(255, 220, 220, 0.3)",
+              }}
+            />
+          </div>
+
+          {/* API Key Option */}
+          <div
+            style={{
+              backgroundColor: "rgba(255, 220, 220, 0.08)",
+              border: "1px solid rgba(255, 220, 220, 0.2)",
+              borderRadius: "12px",
+              padding: "16px",
+              marginTop: "16px",
+              textAlign: "center",
+            }}
+          >
+            <h4
+              style={{
+                color: "#FFDCDCFF",
+                fontSize: "14px",
+                fontWeight: "600",
+                margin: "0 0 8px 0",
+              }}
+            >
+              Use Your Own API Key
+            </h4>
+            <p
+              style={{
+                fontSize: "12px",
+                color: "rgba(255, 220, 220, 0.8)",
+                margin: "0 0 12px 0",
+              }}
+            >
+              Configure your personal API keys for unlimited usage
+            </p>
         <button
           onClick={onOpenSettings}
           style={{
-            ...buttonStyle,
-            backgroundColor: 'transparent',
-            color: '#FFDCDCFF',
-            border: '1px solid rgba(255, 220, 220, 0.3)',
-            marginBottom: '16px'
-          }}
-        >
-          <FaKey />
-          Use your API key instead
+                width: "100%",
+                padding: "10px 16px",
+                backgroundColor: "transparent",
+                color: "#FF6B6B",
+                border: "1px solid #FF6B6B",
+                borderRadius: "8px",
+                fontSize: "12px",
+                fontWeight: "600",
+                cursor: "pointer",
+                transition: "all 0.3s ease",
+              }}
+            >
+              Open Settings
         </button>
+          </div>
+        </div>
 
         {/* Footer */}
-        <div style={{ textAlign: 'center', marginTop: '16px' }}>
-          <p style={{ 
-            fontSize: '11px', 
-            color: 'rgba(255, 220, 220, 0.8)',
-            margin: '0 0 12px 0'
-          }}>
-            All subscriptions are auto-renewed but can be cancelled at any time before renewal.
+        <div
+          style={{
+            position: "relative",
+            zIndex: 1,
+            textAlign: "center",
+            padding: "12px 16px",
+            color: "rgba(255, 220, 220, 0.6)",
+            fontSize: "10px",
+            borderTop: "1px solid rgba(255, 220, 220, 0.2)",
+            backgroundColor: "rgba(255, 255, 255, 0.02)",
+          }}
+        >
+          <p style={{ margin: "0 0 4px 0" }}>
+            All plans include secure authentication and data protection
           </p>
+          <p style={{ margin: 0 }}>Need help? Contact our support team</p>
         </div>
       </div>
-
-      {/* Spinner animation */}
-      <style>
-        {`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}
-      </style>
     </div>
   );
 };

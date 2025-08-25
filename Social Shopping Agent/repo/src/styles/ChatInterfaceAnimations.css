@@ -182,36 +182,60 @@
 
 .chat-input:focus {
   animation: pulseGlow 0.5s ease-out;
-  box-shadow: 0 0 15px rgba(255, 220, 220, 0.3);
+}
+
+.chat-input:focus + .chat-send-button {
+  animation: glow 0.5s ease-out;
 }
 
 .chat-send-button {
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
 }
 
-.chat-send-button::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.4s ease;
+.chat-send-button:not(:disabled):hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 240, 100, 0.4) !important;
 }
 
-.chat-send-button:hover::before {
-  left: 100%;
-}
-
-.chat-send-button:hover {
-  transform: scale(1.05);
+.chat-send-button:not(:disabled):active {
+  transform: scale(0.95);
 }
 
 .chat-stop-button {
-  animation: pulse 1.5s ease-in-out infinite;
+  animation: stopButtonPulse 1.5s ease-in-out infinite;
+  transition: all 0.2s ease;
+  position: absolute !important;
+  top: 50% !important;
+  right: 6px !important;
+  transform: translateY(-50%) !important;
+}
+
+@keyframes stopButtonPulse {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 2px 8px rgba(224, 36, 94, 0.9);
+  }
+  50% {
+    opacity: 0.8;
+    box-shadow: 0 4px 12px rgba(224, 36, 94, 0.7);
+  }
+}
+
+.chat-stop-button:hover {
+  transform: translateY(-50%) scale(1.1) !important;
+  box-shadow: 0 4px 12px rgba(224, 36, 94, 0.5) !important;
+}
+
+.chat-stop-button:active {
+  transform: translateY(-50%) scale(0.95) !important;
+}
+
+/* Input container focus effect */
+.chat-input-container:focus-within > form > div {
+  border-color: #00F064FF !important;
+  box-shadow: 0 0 0 2px rgba(0, 240, 100, 0.2);
 }
 
 /* Connection Status Animation */
