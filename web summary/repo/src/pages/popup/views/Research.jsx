@@ -1,0 +1,299 @@
+// src/components/Research.jsx
+import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
+import useChatStream from '@/hooks/useChatStream';
+
+import { renderMarkdown } from '@/lib/markdownUtils';
+import SettingsButton from '@/pages/popup/components/SettingsButton';
+
+const Research = React.memo(function Research({
+  onSettingsClick,
+  onAnalysePage,
+  onFactChecker,
+
+  // initial state (optional)
+  researchDepth = 'comprehensive',
+  inputMessage = '',
+  inputRef: externalInputRef,
+}) {
+  // ---------- local state ----------
+  const [topic, setTopic] = useState(inputMessage);
+  const [depth, setDepth] = useState(researchDepth);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isToolsDropdownOpen, setIsToolsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  const toolsDropdownRef = useRef(null);
+  const localInputRef = useRef(null);
+  const inputRef = externalInputRef || localInputRef;
+
+  // streaming hook
+  const { isStreaming, preview, full, error, start, stop } = useChatStream();
+
+  // ---------- dropdown outside click ----------
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        const isDropdownOption = event.target.closest('[data-dropdown-option]');
+        if (!isDropdownOption) setIsDropdownOpen(false);
+      }
+      if (toolsDropdownRef.current && !toolsDropdownRef.current.contains(event.target)) {
+        setIsToolsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // ---------- depth options ----------
+  const depthOptions = [
+    { value: 'quick', label: 'Quick Research', description: 'Fast overview with key points' },
+    { value: 'comprehensive', label: 'Comprehensive', description: 'Detailed analysis with multiple sources' },
+    { value: 'expert', label: 'Expert Level', description: 'In-depth research with academic rigor' },
+  ];
+  const currentOption = depthOptions.find(o => o.value === depth) || depthOptions[1];
+
+  const handleDepthSelect = (value) => {
+    setDepth(value);
+    setIsDropdownOpen(false);
+  };
+
+  // ---------- actions ----------
+  const runResearch = async () => {
+    if (!topic.trim() || isStreaming) return;
+    await start({
+      kind: 'research',
+      payload: { topic: topic.trim(), depth },
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    if (isStreaming) {
+      await stop();
+    } else {
+      await runResearch();
+    }
+  };
+
+  // ---------- UI ----------
+  return (
+    <motion.div
+      className="w-full h-full flex flex-col relative overflow-hidden"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+    >
+      {/* Background */}
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 bg-gradient-radial from-red-500/10 via-orange-500/5 to-transparent"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-white via-gray-50/80 to-white"></div>
+      </div>
+
+      {/* Header (Title left; Settings + Depth dropdown grouped on right) */}
+      <div className="bg-white/90 backdrop-blur-sm text-gray-800 p-4 shadow-sm relative z-10 border-b border-gray-200">
+        <div className="flex items-center justify-between gap-3">
+          {/* Title on the left (single line) */}
+          <h2 className="text-lg font-bold text-gray-800 whitespace-nowrap">AI Researcher</h2>
+
+          {/* Right-side group: Settings (left) + Depth dropdown (right) */}
+          <div className="flex items-center gap-3">
+            <SettingsButton onSettingsClick={onSettingsClick} />
+
+            {/* Depth selector */}
+            <div className="relative" ref={dropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="bg-white text-gray-700 border border-gray-300 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 flex items-center justify-between min-w-[160px] hover:bg-gray-50 transition-colors duration-200 shadow-sm"
+                disabled={isStreaming}
+                title="Research Depth"
+              >
+                <span className="font-medium">{currentOption.label}</span>
+                <motion.svg
+                  className="w-4 h-4 ml-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                  animate={{ rotate: isDropdownOpen ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                </motion.svg>
+              </button>
+
+              {isDropdownOpen && createPortal(
+                <AnimatePresence>
+                  <motion.ul
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="fixed bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-y-auto backdrop-blur-sm"
+                    style={{
+                      pointerEvents: 'auto',
+                      width: 'max-content',
+                      minWidth: '200px',
+                      maxWidth: '300px',
+                      top: '80px',
+                      right: '20px',
+                      zIndex: 999999
+                    }}
+                  >
+                    {depthOptions.map((option) => (
+                      <li
+                        key={option.value}
+                        data-dropdown-option="true"
+                        className={`px-4 py-3 cursor-pointer transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl ${
+                          option.value === currentOption.value
+                            ? 'bg-red-50 text-red-700 border-l-4 border-red-500'
+                            : 'hover:bg-gray-50 text-gray-700'
+                        }`}
+                        onClick={() => handleDepthSelect(option.value)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{option.label}</span>
+                          {option.value === currentOption.value && (
+                            <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">{option.description}</p>
+                      </li>
+                    ))}
+                  </motion.ul>
+                </AnimatePresence>,
+                document.body
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 p-4 overflow-y-auto relative z-10">
+        {!preview && !full && !isStreaming && !error && (
+          <div className="text-center text-gray-500 mt-8">
+            <div className="w-24 h-24 mx-auto mb-6 shadow-lg rounded-full overflow-hidden bg-white p-2">
+              <img src="/icons/wootz.png" alt="AI Researcher Logo" className="w-full h-full object-cover" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Welcome to AI Researcher!</h3>
+            <p className="text-sm text-gray-600">Enter a topic and get a streamed Markdown report with sources, findings, and takeaways.</p>
+          </div>
+        )}
+
+        {isStreaming && (
+          <div className="flex flex-col items-center justify-center py-8">
+            <div className="w-8 h-8 border-2 border-gray-200 border-t-red-500 rounded-full animate-spin mb-4 opacity-60"></div>
+
+            {/* Topic shown with loader (not in header) */}
+            {topic && (
+              <div className="bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl px-4 py-2 mb-3 max-w-sm">
+                <p className="text-gray-800 text-sm font-semibold">{topic}</p>
+              </div>
+            )}
+
+            <p className="text-gray-500 text-xs">Streaming response…</p>
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 mb-4">
+            <div className="flex items-center space-x-2">
+              <span className="text-yellow-600">⚠️</span>
+              <span className="text-yellow-700 text-sm font-medium">Stream Error</span>
+            </div>
+            <p className="text-yellow-700 text-xs mt-1">{String(error.message || error)}</p>
+          </div>
+        )}
+
+        {(preview || full) && (
+          <div className="prose max-w-none prose-sm sm:prose-base">
+            {renderMarkdown(full || preview)}
+          </div>
+        )}
+      </div>
+
+      {/* Input Form */}
+      <div className="p-4 relative z-10 border-t border-gray-200 bg-white/90 backdrop-blur-sm">
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="flex space-x-1">
+            <input
+              ref={inputRef}
+              type="text"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) handleSubmit(e);
+              }}
+              placeholder="Enter research topic..."
+              className="flex-1 bg-white text-gray-700 border border-gray-300 rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 placeholder-gray-400 shadow-sm"
+              autoComplete="off"
+              disabled={isStreaming}
+            />
+
+            {/* Web Summary Tools */}
+            <div className="relative flex-shrink-0" ref={toolsDropdownRef}>
+              <button
+                type="button"
+                className="w-11 h-11 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white rounded-xl transition-all duration-300 shadow-lg flex items-center justify-center"
+                onClick={() => setIsToolsDropdownOpen(!isToolsDropdownOpen)}
+                title="Web Summary Tools"
+              >
+                <span className="text-base">⚡</span>
+              </button>
+
+              {isToolsDropdownOpen && (
+                <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 min-w-40 bg-white/95 backdrop-blur-lg rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
+                  <div
+                    onClick={() => {
+                      setIsToolsDropdownOpen(false);
+                      onAnalysePage?.();
+                    }}
+                    className="flex items-center px-3 py-2 text-gray-800 cursor-pointer transition-all duration-200 hover:bg-red-50"
+                  >
+                    <span className="mr-2 text-sm">📊</span>
+                    <span className="text-xs font-medium">Analyse Page</span>
+                  </div>
+                  <div
+                    onClick={() => {
+                      setIsToolsDropdownOpen(false);
+                      onFactChecker?.();
+                    }}
+                    className="flex items-center px-3 py-2 text-gray-800 cursor-pointer transition-all duration-200 hover:bg-red-50"
+                  >
+                    <span className="mr-2 text-sm">✅</span>
+                    <span className="text-xs font-medium">Facts Checker</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              className={`flex-shrink-0 ${
+                isStreaming
+                  ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800'
+                  : 'bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600'
+              } text-white px-3 py-3 rounded-xl transition-all duration-300 shadow-lg`}
+              title={isStreaming ? 'Stop' : 'Start'}
+            >
+              {isStreaming ? (
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M6 6h12v12H6z"/>
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+                </svg>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </motion.div>
+  );
+});
+
+export default Research;
