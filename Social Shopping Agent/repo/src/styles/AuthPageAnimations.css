@@ -58,6 +58,53 @@
   display: inline-block;
 }
 
+/* Neon glow animation for robot icon */
+@keyframes robotNeonGlow {
+  0% {
+    color: #FFD1D1FF;
+    filter: drop-shadow(0 0 8px rgba(255, 209, 209, 0.6));
+  }
+  25% {
+    color: #FFB6C1FF;
+    filter: drop-shadow(0 0 12px rgba(255, 182, 193, 0.8));
+  }
+  50% {
+    color: #87CEEBFF;
+    filter: drop-shadow(0 0 10px rgba(135, 206, 235, 0.7));
+  }
+  75% {
+    color: #FFD1D1FF;
+    filter: drop-shadow(0 0 8px rgba(255, 209, 209, 0.6));
+  }
+  100% {
+    color: #FFD1D1FF;
+    filter: drop-shadow(0 0 8px rgba(255, 209, 209, 0.6));
+  }
+}
+
+/* Breathing animation for robot icon */
+@keyframes robotBreathe {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+/* Title gradient shift animation */
+@keyframes titleGradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
 /* Title and subtitle don't animate on form switch */
 .auth-title {
   position: relative;
@@ -106,6 +153,46 @@
 
 .auth-input:focus {
   animation: pulseGlow 0.5s ease-out;
+}
+
+/* Neon button animation for authenticate button */
+@keyframes authNeonGlow {
+  0% {
+    background: rgba(255, 255, 255, 0.1);
+    color: #FF6B6B;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 0 15px rgba(255, 107, 107, 0.5);
+  }
+  25% {
+    background: rgba(255, 255, 255, 0.15);
+    color: #87CEEB;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 0 15px rgba(135, 206, 235, 0.6);
+  }
+  50% {
+    background: rgba(255, 255, 255, 0.12);
+    color: #4ECDC4;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 0 15px rgba(78, 205, 196, 0.5);
+  }
+  75% {
+    background: rgba(255, 255, 255, 0.18);
+    color: #FFD93D;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 15px rgba(255, 217, 61, 0.6);
+  }
+  100% {
+    background: rgba(255, 255, 255, 0.1);
+    color: #FF6B6B;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 0 15px rgba(255, 107, 107, 0.5);
+  }
+}
+
+.auth-neon-button:not(:disabled) {
+  animation: authNeonGlow 3s ease-in-out infinite;
+  transition: all 0.3s ease;
+}
+
+.auth-neon-button:not(:disabled):hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 8px 35px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 30px rgba(255, 107, 107, 0.8) !important;
 }
 
 /* Label Float Animation */
@@ -173,9 +260,7 @@
 }
 
 /* Loading Spinner */
-.auth-loading-spinner {
-  animation: spin 1s linear infinite;
-}
+/* Loading spinner is now handled by GlobalAnimations.css */
 
 /* Shimmer Effect for Inputs */
 .auth-input-shimmer {
@@ -192,6 +277,58 @@
   height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
   animation: shimmer 2s ease-in-out infinite;
+}
+
+@keyframes inputNeonBorder {
+  0% {
+    border-color: #FF6B6B;
+    box-shadow: 0 0 5px rgba(255, 107, 107, 0.3);
+  }
+  25% {
+    border-color: #4ECDC4;
+    box-shadow: 0 0 5px rgba(78, 205, 196, 0.3);
+  }
+  50% {
+    border-color: #45B7D1;
+    box-shadow: 0 0 5px rgba(69, 183, 209, 0.3);
+  }
+  75% {
+    border-color: #FFD93D;
+    box-shadow: 0 0 5px rgba(255, 217, 61, 0.3);
+  }
+  100% {
+    border-color: #FF6B6B;
+    box-shadow: 0 0 5px rgba(255, 107, 107, 0.3);
+  }
+}
+
+@keyframes slideInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
 }
 
 /* Responsive Orbs for smaller screens */

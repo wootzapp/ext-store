@@ -124,6 +124,133 @@
   100% { transform: rotate(360deg); }
 }
 
+/* 
+ * LOADING ANIMATIONS
+ * 
+ * Usage:
+ * 1. Spinner Loader: <div className="spinner-loader"></div>
+ * 2. Text Loader: <div className="text-loader"></div>
+ * 
+ * You can customize size and color by overriding the CSS properties:
+ * - width, height for size
+ * - border-right-color for spinner color
+ * - color for text loader color
+ */
+
+/* Spinner Loader Animation */
+.spinner-loader {
+  width: 50px;
+  aspect-ratio: 1;
+  display: grid;
+  border: 4px solid transparent;
+  border-radius: 50%;
+  border-right-color: #ffffff;
+  animation: spinner-rotate 1s infinite linear;
+}
+.spinner-loader::before,
+.spinner-loader::after {    
+  content: "";
+  grid-area: 1/1;
+  margin: 2px;
+  border: inherit;
+  border-radius: 50%;
+  animation: spinner-rotate 2s infinite;
+}
+.spinner-loader::after {
+  margin: 8px;
+  animation-duration: 3s;
+}
+@keyframes spinner-rotate{ 
+  100%{transform: rotate(1turn)}
+}
+
+/* Task Status Loader Animation */
+@keyframes taskStatusRotate{ 
+  100%{transform: rotate(1turn)}
+}
+
+/* New Task Status Loader Animation */
+@keyframes l19{ 
+  100%{transform: rotate(1turn)}
+}
+
+/* Profile Page and Request Counter Loader Animation */
+@keyframes l27{ 
+  100%{transform: rotate(1turn)}
+}
+
+/* Profile Page and Request Counter Loader */
+.profile-loader {
+  --d:22px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  color: #ffe9e9;
+  box-shadow: 
+    calc(1*var(--d))      calc(0*var(--d))     0 0,
+    calc(0.707*var(--d))  calc(0.707*var(--d)) 0 1px,
+    calc(0*var(--d))      calc(1*var(--d))     0 2px,
+    calc(-0.707*var(--d)) calc(0.707*var(--d)) 0 3px,
+    calc(-1*var(--d))     calc(0*var(--d))     0 4px,
+    calc(-0.707*var(--d)) calc(-0.707*var(--d))0 5px,
+    calc(0*var(--d))      calc(-1*var(--d))    0 6px;
+  animation: l27 1s infinite steps(8);
+}
+
+/* Text Loader Animation */
+.text-loader {
+  --w:10ch;
+  font-weight: bold;
+  font-family: monospace;
+  font-size: 30px;
+  line-height: 1.4em;
+  letter-spacing: var(--w);
+  width: var(--w);
+  overflow: hidden;
+  white-space: nowrap;
+  color: #0000;
+  text-shadow: 
+        calc( 0*var(--w)) 0 #ffe9e9,calc(-1*var(--w)) 0 #ffe9e9,calc(-2*var(--w)) 0 #ffe9e9,calc(-3*var(--w)) 0 #ffe9e9,calc(-4*var(--w)) 0 #ffe9e9, 
+        calc(-5*var(--w)) 0 #ffe9e9,calc(-6*var(--w)) 0 #ffe9e9,calc(-7*var(--w)) 0 #ffe9e9,calc(-8*var(--w)) 0 #ffe9e9,calc(-9*var(--w)) 0 #ffe9e9;
+  animation: l20 2s infinite linear;
+}
+.text-loader:before {
+  content:"Loading...";
+}
+
+@keyframes l20 {
+  9.09% {text-shadow: 
+        calc( 0*var(--w)) -10px #ffe9e9,calc(-1*var(--w)) 0 #ffe9e9,calc(-2*var(--w)) 0 #ffe9e9,calc(-3*var(--w)) 0 #ffe9e9,calc(-4*var(--w)) 0 #ffe9e9, 
+        calc(-5*var(--w)) 0 #ffe9e9,calc(-6*var(--w)) 0 #ffe9e9,calc(-7*var(--w)) 0 #ffe9e9,calc(-8*var(--w)) 0 #ffe9e9,calc(-9*var(--w)) 0 #ffe9e9}
+  18.18% {text-shadow: 
+        calc( 0*var(--w)) 0 #ffe9e9,calc(-1*var(--w)) -10px #ffe9e9,calc(-2*var(--w)) 0 #ffe9e9,calc(-3*var(--w)) 0 #ffe9e9,calc(-4*var(--w)) 0 #ffe9e9, 
+        calc(-5*var(--w)) 0 #ffe9e9,calc(-6*var(--w)) 0 #ffe9e9,calc(-7*var(--w)) 0 #ffe9e9,calc(-8*var(--w)) 0 #ffe9e9,calc(-9*var(--w)) 0 #ffe9e9}
+  27.27% {text-shadow: 
+        calc( 0*var(--w)) 0 #ffe9e9,calc(-1*var(--w)) 0 #ffe9e9,calc(-2*var(--w)) -10px #ffe9e9,calc(-3*var(--w)) 0 #ffe9e9,calc(-4*var(--w)) 0 #ffe9e9, 
+        calc(-5*var(--w)) 0 #ffe9e9,calc(-6*var(--w)) 0 #ffe9e9,calc(-7*var(--w)) 0 #ffe9e9,calc(-8*var(--w)) 0 #ffe9e9,calc(-9*var(--w)) 0 #ffe9e9}
+  36.36% {text-shadow: 
+        calc( 0*var(--w)) 0 #ffe9e9,calc(-1*var(--w)) 0 #ffe9e9,calc(-2*var(--w)) 0 #ffe9e9,calc(-3*var(--w)) -10px #ffe9e9,calc(-4*var(--w)) 0 #ffe9e9, 
+        calc(-5*var(--w)) 0 #ffe9e9,calc(-6*var(--w)) 0 #ffe9e9,calc(-7*var(--w)) 0 #ffe9e9,calc(-8*var(--w)) 0 #ffe9e9,calc(-9*var(--w)) 0 #ffe9e9}
+  45.45% {text-shadow: 
+        calc( 0*var(--w)) 0 #ffe9e9,calc(-1*var(--w)) 0 #ffe9e9,calc(-2*var(--w)) 0 #ffe9e9,calc(-3*var(--w)) 0 #ffe9e9,calc(-4*var(--w)) -10px #ffe9e9, 
+        calc(-5*var(--w)) 0 #ffe9e9,calc(-6*var(--w)) 0 #ffe9e9,calc(-7*var(--w)) 0 #ffe9e9,calc(-8*var(--w)) 0 #ffe9e9,calc(-9*var(--w)) 0 #ffe9e9}
+  54.54% {text-shadow: 
+        calc( 0*var(--w)) 0 #ffe9e9,calc(-1*var(--w)) 0 #ffe9e9,calc(-2*var(--w)) 0 #ffe9e9,calc(-3*var(--w)) 0 #ffe9e9,calc(-4*var(--w)) 0 #ffe9e9, 
+        calc(-5*var(--w)) -10px #ffe9e9,calc(-6*var(--w)) 0 #ffe9e9,calc(-7*var(--w)) 0 #ffe9e9,calc(-8*var(--w)) 0 #ffe9e9,calc(-9*var(--w)) 0 #ffe9e9}
+  63.63% {text-shadow: 
+        calc( 0*var(--w)) 0 #ffe9e9,calc(-1*var(--w)) 0 #ffe9e9,calc(-2*var(--w)) 0 #ffe9e9,calc(-3*var(--w)) 0 #ffe9e9,calc(-4*var(--w)) 0 #ffe9e9, 
+        calc(-5*var(--w)) 0 #ffe9e9,calc(-6*var(--w)) -10px #ffe9e9,calc(-7*var(--w)) 0 #ffe9e9,calc(-8*var(--w)) 0 #ffe9e9,calc(-9*var(--w)) 0 #ffe9e9}
+  72.72% {text-shadow: 
+        calc( 0*var(--w)) 0 #ffe9e9,calc(-1*var(--w)) 0 #ffe9e9,calc(-2*var(--w)) 0 #ffe9e9,calc(-3*var(--w)) 0 #ffe9e9,calc(-4*var(--w)) 0 #ffe9e9, 
+        calc(-5*var(--w)) 0 #ffe9e9,calc(-6*var(--w)) 0 #ffe9e9,calc(-7*var(--w)) -10px #ffe9e9,calc(-8*var(--w)) 0 #ffe9e9,calc(-9*var(--w)) 0 #ffe9e9}
+  81.81% {text-shadow: 
+        calc( 0*var(--w)) 0 #ffe9e9,calc(-1*var(--w)) 0 #ffe9e9,calc(-2*var(--w)) 0 #ffe9e9,calc(-3*var(--w)) 0 #ffe9e9,calc(-4*var(--w)) 0 #ffe9e9, 
+        calc(-5*var(--w)) 0 #ffe9e9,calc(-6*var(--w)) 0 #ffe9e9,calc(-7*var(--w)) 0 #ffe9e9,calc(-8*var(--w)) -10px #ffe9e9,calc(-9*var(--w)) 0 #ffe9e9}
+  90.90% {text-shadow: 
+        calc( 0*var(--w)) 0 #ffe9e9,calc(-1*var(--w)) 0 #ffe9e9,calc(-2*var(--w)) 0 #ffe9e9,calc(-3*var(--w)) 0 #ffe9e9,calc(-4*var(--w)) 0 #ffe9e9, 
+        calc(-5*var(--w)) 0 #ffe9e9,calc(-6*var(--w)) 0 #ffe9e9,calc(-7*var(--w)) 0 #ffe9e9,calc(-8*var(--w)) 0 #ffe9e9,calc(-9*var(--w)) -10px #ffe9e9}
+}
+
 @keyframes bounce {
   0%, 100% {
     transform: translateY(0);
