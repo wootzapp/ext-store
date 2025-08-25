@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { truncateUrl } from '../utils/urlUtils';
+import { renderMarkdown, CopyButton, formatSectionForCopy, formatPageForCopy } from '../utils/markdownUtils';
 import SettingsButton from './SettingsButton';
 
 // Helper function to open URLs in new Chrome tabs
@@ -24,6 +25,14 @@ const AnalysisPage = ({
   const [userQuestion, setUserQuestion] = React.useState('');
   const [isAskingQuestion, setIsAskingQuestion] = React.useState(false);
   const [questionAnswer, setQuestionAnswer] = React.useState('');
+
+  // Clear local UI state when URL changes or when explicitly requested
+  React.useEffect(() => {
+    console.log('🔄 AnalysisPage: URL or data changed, clearing UI state');
+    setUserQuestion('');
+    setQuestionAnswer('');
+    setIsAskingQuestion(false);
+  }, [currentPageUrl, analysisData]); // Clear UI when URL or data changes
 
   const handleAskQuestion = async () => {
     if (!userQuestion.trim() || isAskingQuestion) return;
@@ -69,20 +78,28 @@ const AnalysisPage = ({
       {/* Header */}
       <div className="bg-white/90 backdrop-blur-sm text-gray-800 p-4 shadow-sm relative z-10 border-b border-gray-200">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-3 flex-1">
             <SettingsButton onSettingsClick={onSettingsClick} />
             <button
               onClick={onBack}
               className="flex items-center space-x-2 text-gray-600 hover:text-red-500 transition-colors"
             >
-              <span>←</span>
               <span className="text-sm font-medium">Back</span>
             </button>
           </div>
-          <div className="flex items-center">
+          <div className="flex items-center justify-center flex-1">
             <h1 className="text-lg font-bold text-gray-800">Page Analysis</h1>
           </div>
-          <div className="flex space-x-2">
+          <div className="flex items-center justify-end space-x-3 flex-1">
+            {analysisData && (
+              <CopyButton
+                text={formatPageForCopy(analysisData, 'Page Analysis', currentPageUrl)}
+                variant="secondary"
+                size="lg"
+              >
+                Copy All
+              </CopyButton>
+            )}
             <button
               type="button"
               onClick={onClearHistory}
@@ -128,13 +145,21 @@ const AnalysisPage = ({
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <h2 className="text-gray-800 font-semibold mb-4 flex items-center">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center mr-3">
-                    <span className="text-white text-sm">📊</span>
-                  </div>
-                  Summary (50 words max)
-                </h2>
-                <p className="text-gray-700 text-sm leading-relaxed">{analysisData.summary}</p>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-gray-800 font-semibold flex items-center">
+                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center mr-3">
+                      <span className="text-white text-sm">📊</span>
+                    </div>
+                    Summary (50 words max)
+                  </h2>
+                  <CopyButton
+                    text={formatSectionForCopy(analysisData.summary, 'Summary')}
+                    size="xs"
+                  />
+                </div>
+                <div className="text-gray-700 text-sm leading-relaxed">
+                  {renderMarkdown(analysisData.summary)}
+                </div>
               </motion.div>
             )}
 
@@ -146,17 +171,34 @@ const AnalysisPage = ({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
               >
-                <h2 className="text-gray-800 font-semibold mb-4 flex items-center">
-                  <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-teal-500 rounded-full flex items-center justify-center mr-3">
-                    <span className="text-white text-sm">❓</span>
-                  </div>
-                  Frequently Asked Questions
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-gray-800 font-semibold flex items-center">
+                    <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-teal-500 rounded-full flex items-center justify-center mr-3">
+                      <span className="text-white text-sm">❓</span>
+                    </div>
+                    Frequently Asked Questions
+                  </h2>
+                  <CopyButton
+                    text={formatSectionForCopy(analysisData.faqs, 'Frequently Asked Questions')}
+                    size="xs"
+                  />
+                </div>
                 <div className="space-y-4">
                   {analysisData.faqs.slice(0, 5).map((faq, index) => (
-                    <div key={index} className="border-l-4 border-blue-400 pl-4 bg-gray-50 rounded-r-lg p-3">
-                      <p className="text-gray-800 font-medium text-sm mb-1">{faq.question}</p>
-                      <p className="text-gray-600 text-xs leading-relaxed">{faq.answer}</p>
+                    <div key={index} className="border-l-4 border-blue-400 pl-4 bg-gray-50 rounded-r-lg p-3 relative">
+                      <div className="absolute top-2 right-2">
+                        <CopyButton
+                          text={formatSectionForCopy(faq, `FAQ ${index + 1}`)}
+                          size="xs"
+                          variant="default"
+                        />
+                      </div>
+                      <p className="text-gray-800 font-medium text-sm mb-1 pr-16">
+                        {renderMarkdown(faq.question)}
+                      </p>
+                      <div className="text-gray-600 text-xs leading-relaxed pr-16">
+                        {renderMarkdown(faq.answer)}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -204,17 +246,21 @@ const AnalysisPage = ({
                 {/* Question Answer Display */}
                 {questionAnswer && (
                   <motion.div 
-                    className="border-l-4 border-green-400 pl-4 bg-gray-50 rounded-r-lg p-3 mt-3"
+                    className="border-l-4 border-green-400 pl-4 bg-gray-50 rounded-r-lg p-3 mt-3 relative"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                   >
-                    <p className="text-gray-800 font-medium text-sm mb-1">Answer:</p>
-                    <div 
-                      className="text-gray-600 text-xs leading-relaxed"
-                      dangerouslySetInnerHTML={{
-                        __html: questionAnswer.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                      }}
-                    />
+                    <div className="absolute top-2 right-2">
+                      <CopyButton
+                        text={formatSectionForCopy(questionAnswer, 'Question Answer')}
+                        size="xs"
+                        variant="default"
+                      />
+                    </div>
+                    <p className="text-gray-800 font-medium text-sm mb-1 pr-16">Answer:</p>
+                    <div className="text-gray-600 text-xs leading-relaxed pr-16">
+                      {renderMarkdown(questionAnswer)}
+                    </div>
                   </motion.div>
                 )}
               </div>
