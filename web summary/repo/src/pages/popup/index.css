@@ -2,7 +2,51 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom gradient utilities for red theme */
-.bg-gradient-radial {
-  background: radial-gradient(circle, var(--tw-gradient-stops));
+/* ==== hard clamps so the popup never scrolls or spills ==== */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+
+  /* lock to the visible viewport (Chrome supports d* units) */
+  width: 100dvw;
+  height: 100dvh;
+
+  /* turn off every kind of page scroll */
+  overflow: clip;            /* stricter than hidden (no scrollbars, no scroll position) */
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
 }
+
+@supports not (width: 100dvw) {
+  html, body { width: 100vw; height: 100vh; overflow: hidden; }
+}
+
+/* Root must also be fixed & non-scrolling */
+#root {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: clip;
+  display: flex;
+  flex-direction: column;
+
+  /* This is the key to prevent flex children from forcing horizontal overflow */
+  min-width: 0;
+}
+
+/* Utility hook for any container you render at the top (keep it!) */
+.app-root, .no-x-overflow {
+  overflow-x: hidden !important;
+  min-width: 0 !important;
+}
+
+/* Media should never push width */
+img, svg, canvas, video { max-width: 100%; height: auto; }
+
+/* Your gradient helper */
+.bg-gradient-radial { background: radial-gradient(circle, var(--tw-gradient-stops)); }

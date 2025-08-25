@@ -1,11 +1,18 @@
 // Storage utilities for managing user preferences (API keys and model selection)
 
 const STORAGE_KEYS = {
+  // API Preferences
+    USE_OWN_KEY: 'useOwnKey',
     USER_PREFERENCES: 'userPreferences',
     SELECTED_MODEL: 'selectedModel',
     API_KEYS: 'apiKeys',
     SETUP_COMPLETED: 'setupCompleted',
-    SELECTED_SEARCH_ENGINE: 'selectedSearchEngine'
+    SELECTED_SEARCH_ENGINE: 'selectedSearchEngine',
+
+  // Auth
+    AUTH_USER: 'user',
+    AUTH_IS_AUTHENTICATED: 'isAuthenticated',
+    AUTH_LAST_LOGIN: 'lastLogin',
   };
   
   // Search engine configurations
@@ -90,13 +97,37 @@ const STORAGE_KEYS = {
   
   // Storage utilities class
   class StorageUtils {
+
+    // Persist toggle: true = use direct API key; false = use backend
+    static async setUseOwnKey(flag) {
+      try {
+        await chrome.storage.local.set({ [STORAGE_KEYS.USE_OWN_KEY]: !!flag });
+        return { success: true };
+      } catch (error) {
+        console.error('❌ Error saving useOwnKey:', error);
+        return { success: false, error: error.message };
+      }
+    }
+
+    static async getUseOwnKey() {
+      try {
+        const out = await chrome.storage.local.get([STORAGE_KEYS.USE_OWN_KEY]);
+        // return boolean if present, else null so callers can detect "unset"
+        return (STORAGE_KEYS.USE_OWN_KEY in out) ? !!out[STORAGE_KEYS.USE_OWN_KEY] : null;
+      } catch (error) {
+        console.error('❌ Error getting useOwnKey:', error);
+        return null;
+      }
+    }
+
     
     // Save user preferences (model selection and API keys)
     static async saveUserPreferences(preferences) {
       try {
         await chrome.storage.local.set({
           [STORAGE_KEYS.USER_PREFERENCES]: preferences,
-          [STORAGE_KEYS.SETUP_COMPLETED]: true
+          [STORAGE_KEYS.SETUP_COMPLETED]: true,
+          [STORAGE_KEYS.USE_OWN_KEY]: !!preferences?.useOwnKey,  // <— mirror
         });
         console.log('✅ User preferences saved successfully');
         return { success: true };
@@ -256,7 +287,8 @@ const STORAGE_KEYS = {
           STORAGE_KEYS.USER_PREFERENCES,
           STORAGE_KEYS.SELECTED_MODEL,
           STORAGE_KEYS.API_KEYS,
-          STORAGE_KEYS.SETUP_COMPLETED
+          STORAGE_KEYS.SETUP_COMPLETED,
+          STORAGE_KEYS.USE_OWN_KEY,     // <— NEW
         ]);
         console.log('✅ All user data cleared');
         return { success: true };
@@ -520,6 +552,59 @@ const STORAGE_KEYS = {
         return { success: false, error: error.message };
       }
     }
+
+    // ======================
+    // Auth/session storage
+    // ======================
+
+    static async saveAuthUser(user) {
+      try {
+        await chrome?.storage?.local?.set?.({
+          [STORAGE_KEYS.AUTH_USER]: user,
+          [STORAGE_KEYS.AUTH_IS_AUTHENTICATED]: true,
+          [STORAGE_KEYS.AUTH_LAST_LOGIN]: Date.now(),
+        });
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+
+    static async getAuthSession() {
+      try {
+        const out = await chrome?.storage?.local?.get?.([
+          STORAGE_KEYS.AUTH_USER,
+          STORAGE_KEYS.AUTH_IS_AUTHENTICATED,
+          STORAGE_KEYS.AUTH_LAST_LOGIN,
+        ]);
+        return {
+          user: out?.[STORAGE_KEYS.AUTH_USER] || null,
+          isAuthenticated: !!out?.[STORAGE_KEYS.AUTH_IS_AUTHENTICATED],
+          lastLogin: out?.[STORAGE_KEYS.AUTH_LAST_LOGIN] || null,
+        };
+      } catch (e) {
+        return { user: null, isAuthenticated: false, lastLogin: null };
+      }
+    }
+
+    static async clearAuthSession() {
+      try {
+        await chrome?.storage?.local?.remove?.([
+          STORAGE_KEYS.AUTH_USER,
+          STORAGE_KEYS.AUTH_IS_AUTHENTICATED,
+          STORAGE_KEYS.AUTH_LAST_LOGIN,
+        ]);
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+
+    static async isUserAuthenticated() {
+      const s = await this.getAuthSession();
+      return !!s.isAuthenticated;
+    }
+
   }
   
   export default StorageUtils;

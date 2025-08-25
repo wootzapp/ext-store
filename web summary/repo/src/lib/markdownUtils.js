@@ -1,248 +1,186 @@
+// src/lib/markdownUtils.js
 import React from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkLinkifyRegex from 'remark-linkify-regex';
+import rehypeSlug from 'rehype-slug';
+import rehypeExternalLinks from 'rehype-external-links';
+import rehypeAutolinkHeadings from 'rehype-autolink-headings';
+import rehypeSanitize from 'rehype-sanitize';
+// If you *must* allow raw HTML inside markdown, use rehypeRaw instead of rehypeSanitize (less safe):
+// import rehypeRaw from 'rehype-raw';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import copy from 'copy-to-clipboard';
 
-export const convertToMarkdown = (text) => {
-  if (!text) return '';
-  
-  let markdown = text;
-  
-  // Convert bold text (**text** or __text__)
-  markdown = markdown.replace(/\*\*(.*?)\*\*/g, '**$1**');
-  markdown = markdown.replace(/__(.*?)__/g, '**$1**');
-  
-  // Convert italic text (*text* or _text_)
-  markdown = markdown.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '*$1*');
-  markdown = markdown.replace(/(?<!_)_([^_]+)_(?!_)/g, '*$1*');
-  
-  // Convert code blocks
-  markdown = markdown.replace(/```([\s\S]*?)```/g, '```\n$1\n```');
-  
-  // Convert inline code
-  markdown = markdown.replace(/`([^`]+)`/g, '`$1`');
-  
-  // Convert lists (numbered and bulleted)
-  markdown = markdown.replace(/^\d+\.\s+(.+)$/gm, '1. $1');
-  markdown = markdown.replace(/^[-*+]\s+(.+)$/gm, '- $1');
-  
-  // Convert headers
-  markdown = markdown.replace(/^### (.+)$/gm, '### $1');
-  markdown = markdown.replace(/^## (.+)$/gm, '## $1');
-  markdown = markdown.replace(/^# (.+)$/gm, '# $1');
-  
-  // Convert links
-  markdown = markdown.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '[$1]($2)');
-  
-  // Convert line breaks
-  markdown = markdown.replace(/\n\n/g, '\n\n');
-  
-  return markdown;
+/** Open a URL in a new Chrome tab (fallback to window.open for non-extension envs) */
+const openInNewTab = (url) => {
+  if (!url) return;
+  try {
+    if (typeof chrome !== 'undefined' && chrome?.tabs?.create) {
+      chrome.tabs.create({ url });
+      return;
+    }
+  } catch (_) {}
+  window.open(url, '_blank', 'noopener,noreferrer');
 };
 
+const normalizeUrl = (href = '') => {
+  if (!href) return '#';
+  if (/^https?:\/\//i.test(href)) return href;
+  // bare domain like example.com/path
+  if (/^[\w.-]+\.[A-Za-z]{2,}(\/.*)?$/i.test(href)) return `https://${href}`;
+  return href; // mailto:, #anchors, etc.
+};
+
+/**
+ * Kept for backward compatibility. With react-markdown you can pass MD directly.
+ */
+export const convertToMarkdown = (text) => (typeof text === 'string' ? text : '');
+
+/** Custom link that works in both Chrome extension and web pages */
+const Link = ({ href, children, ...props }) => {
+  const url = normalizeUrl(href);
+  const onClick = (e) => {
+    e.preventDefault();
+    openInNewTab(url);
+  };
+  return (
+    <a
+      href={url}
+      onClick={onClick}
+      className="text-blue-600 underline hover:text-blue-700 break-all"
+      rel="noreferrer"
+      {...props}
+    >
+      {children}
+    </a>
+  );
+};
+
+/** Code renderer with Prism highlighting (block vs inline) */
+const Code = ({ inline, className, children, ...props }) => {
+  const match = /language-(\w+)/.exec(className || '');
+  if (!inline) {
+    return (
+      <SyntaxHighlighter
+        language={(match && match[1]) || 'text'}
+        PreTag="div"
+        {...props}
+      >
+        {String(children).replace(/\n$/, '')}
+      </SyntaxHighlighter>
+    );
+  }
+  return (
+    <code className="bg-gray-100 px-1 py-0.5 rounded text-xs font-mono" {...props}>
+      {children}
+    </code>
+  );
+};
+
+/**
+ * Render Markdown using react-markdown + remark/rehype plugins.
+ * - GFM tables/task-lists
+ * - Auto-linking for https://, www., and bare example.com/… domains
+ * - Heading slugs + autolinked headers
+ * - Sanitization for safety (swap to rehypeRaw if you *need* raw HTML)
+ */
 export const renderMarkdown = (text) => {
   if (!text) return null;
-  
-  const lines = text.split('\n');
-  const elements = [];
-  let inCodeBlock = false;
-  let codeBlockContent = [];
-  let listItems = [];
-  let inList = false;
-  
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    
-    // Handle code blocks
-    if (line.trim().startsWith('```')) {
-      if (inCodeBlock) {
-        // End code block
-        elements.push(
-          <pre key={`code-${i}`} className="bg-gray-100 rounded-lg p-3 text-sm overflow-x-auto mb-3">
-            <code className="text-gray-800">{codeBlockContent.join('\n')}</code>
-          </pre>
-        );
-        codeBlockContent = [];
-        inCodeBlock = false;
-      } else {
-        // Start code block
-        inCodeBlock = true;
-      }
-      continue;
-    }
-    
-    if (inCodeBlock) {
-      codeBlockContent.push(line);
-      continue;
-    }
-    
-    // Handle lists
-    if (line.match(/^[-*+]\s+/) || line.match(/^\d+\.\s+/)) {
-      if (!inList) {
-        inList = true;
-        listItems = [];
-      }
-      const listContent = line.replace(/^[-*+]\s+/, '').replace(/^\d+\.\s+/, '');
-      listItems.push(
-        <li key={`list-${i}`} className="mb-1">
-          {formatInlineMarkdown(listContent)}
-        </li>
-      );
-    } else {
-      // End list if we were in one
-      if (inList) {
-        elements.push(
-          <ul key={`list-group-${i}`} className="list-disc list-inside text-gray-700 text-sm space-y-1 mb-3 ml-4">
-            {listItems}
-          </ul>
-        );
-        listItems = [];
-        inList = false;
-      }
-      
-      // Handle headers
-      if (line.startsWith('### ')) {
-        elements.push(
-          <h3 key={`h3-${i}`} className="text-md font-semibold text-gray-800 mb-2 mt-4">
-            {line.substring(4)}
-          </h3>
-        );
-      } else if (line.startsWith('## ')) {
-        elements.push(
-          <h2 key={`h2-${i}`} className="text-lg font-semibold text-gray-800 mb-3 mt-4">
-            {line.substring(3)}
-          </h2>
-        );
-      } else if (line.startsWith('# ')) {
-        elements.push(
-          <h1 key={`h1-${i}`} className="text-xl font-bold text-gray-800 mb-3 mt-4">
-            {line.substring(2)}
-          </h1>
-        );
-      } else if (line.trim() === '') {
-        // Empty line
-        elements.push(<br key={`br-${i}`} />);
-      } else {
-        // Regular paragraph
-        elements.push(
-          <p key={`p-${i}`} className="text-gray-700 text-sm leading-relaxed mb-2">
-            {formatInlineMarkdown(line)}
-          </p>
-        );
-      }
-    }
-  }
-  
-  // Close any remaining list
-  if (inList) {
-    elements.push(
-      <ul key="list-final" className="list-disc list-inside text-gray-700 text-sm space-y-1 mb-3 ml-4">
-        {listItems}
-      </ul>
-    );
-  }
-  
-  return <div className="markdown-content">{elements}</div>;
+
+  // Linkify bare domains like example.com/path (no scheme / no www)
+  const linkifyBareDomains = remarkLinkifyRegex(
+    /(?:https?:\/\/|www\.)[^\s)]+|(?:\b[\w.-]+\.[A-Za-z]{2,}(?:\/[^\s]*)?)/g
+  );
+
+  return (
+    <div className="markdown-content">
+      <ReactMarkdown
+        children={text}
+        remarkPlugins={[remarkGfm, linkifyBareDomains]}
+        rehypePlugins={[
+          rehypeSlug,
+          [rehypeExternalLinks, { target: '_blank', rel: ['noreferrer'] }],
+          rehypeAutolinkHeadings,
+          rehypeSanitize, // safer default
+          // rehypeRaw,    // ← enable instead of sanitize ONLY if you trust the content
+        ]}
+        components={{
+          a: Link,
+          code: Code,
+          img: (props) => <img loading="lazy" className="max-w-full" {...props} />,
+          p: (p) => (
+            <p
+              className="text-gray-700 text-base leading-relaxed mb-3 break-words"
+              {...p}
+            />
+          ),
+          h1: (h) => (
+            <h1
+              className="text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-900 mb-5 mt-7"
+              {...h}
+            />
+          ),
+          h2: (h) => (
+            <h2
+              className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 mb-4 mt-6"
+              {...h}
+            />
+          ),
+          h3: (h) => (
+            <h3
+              className="text-lg sm:text-xl font-semibold tracking-tight text-gray-900 mb-3 mt-5"
+              {...h}
+            />
+          ),
+          ul: (u) => (
+            <ul
+              className="list-disc list-inside text-gray-700 text-sm space-y-1 mb-3 ml-4"
+              {...u}
+            />
+          ),
+          ol: (o) => (
+            <ol
+              className="list-decimal list-inside text-gray-700 text-sm space-y-1 mb-3 ml-4"
+              {...o}
+            />
+          ),
+          blockquote: (q) => (
+            <blockquote
+              className="border-l-4 border-gray-300 pl-3 italic my-3 text-gray-700"
+              {...q}
+            />
+          ),
+          table: (t) => (
+            <div className="overflow-x-auto my-3">
+              <table className="min-w-full text-sm" {...t} />
+            </div>
+          ),
+          th: (th) => <th className="border px-2 py-1 text-left bg-gray-50" {...th} />,
+          td: (td) => <td className="border px-2 py-1 align-top" {...td} />,
+          hr: () => <hr className="my-4 border-gray-200" />,
+        }}
+      />
+    </div>
+  );
 };
 
-const formatInlineMarkdown = (text) => {
-  const parts = [];
-  let lastIndex = 0;
-  
-  // Handle bold text
-  const boldRegex = /\*\*(.*?)\*\*/g;
-  let match;
-  
-  while ((match = boldRegex.exec(text)) !== null) {
-    // Add text before the match
-    if (match.index > lastIndex) {
-      parts.push(text.substring(lastIndex, match.index));
-    }
-    
-    // Add the bold text
-    parts.push(
-      <strong key={`bold-${match.index}`} className="font-semibold">
-        {match[1]}
-      </strong>
-    );
-    
-    lastIndex = boldRegex.lastIndex;
-  }
-  
-  // Add remaining text
-  if (lastIndex < text.length) {
-    parts.push(text.substring(lastIndex));
-  }
-  
-  // Handle italic text in the remaining parts
-  const processedParts = [];
-  parts.forEach((part, index) => {
-    if (typeof part === 'string') {
-      const italicRegex = /\*([^*]+)\*/g;
-      let italicMatch;
-      let lastItalicIndex = 0;
-      
-      while ((italicMatch = italicRegex.exec(part)) !== null) {
-        if (italicMatch.index > lastItalicIndex) {
-          processedParts.push(part.substring(lastItalicIndex, italicMatch.index));
-        }
-        
-        processedParts.push(
-          <em key={`italic-${index}-${italicMatch.index}`} className="italic">
-            {italicMatch[1]}
-          </em>
-        );
-        
-        lastItalicIndex = italicRegex.lastIndex;
-      }
-      
-      if (lastItalicIndex < part.length) {
-        processedParts.push(part.substring(lastItalicIndex));
-      }
-    } else {
-      processedParts.push(part);
-    }
-  });
-  
-  // Handle inline code
-  const finalParts = [];
-  processedParts.forEach((part, index) => {
-    if (typeof part === 'string') {
-      const codeRegex = /`([^`]+)`/g;
-      let codeMatch;
-      let lastCodeIndex = 0;
-      
-      while ((codeMatch = codeRegex.exec(part)) !== null) {
-        if (codeMatch.index > lastCodeIndex) {
-          finalParts.push(part.substring(lastCodeIndex, codeMatch.index));
-        }
-        
-        finalParts.push(
-          <code key={`code-${index}-${codeMatch.index}`} className="bg-gray-100 px-1 py-0.5 rounded text-xs font-mono">
-            {codeMatch[1]}
-          </code>
-        );
-        
-        lastCodeIndex = codeRegex.lastIndex;
-      }
-      
-      if (lastCodeIndex < part.length) {
-        finalParts.push(part.substring(lastCodeIndex));
-      }
-    } else {
-      finalParts.push(part);
-    }
-  });
-  
-  return <>{finalParts}</>;
-};
-
+/** Copy text to clipboard (navigator.clipboard → copy-to-clipboard → fallback) */
 export const copyToClipboard = async (text) => {
   try {
-    // Modern clipboard API
     if (navigator.clipboard && window.isSecureContext) {
       await navigator.clipboard.writeText(text);
       return true;
     }
-    
-    // Fallback method
+  } catch (_) {
+    // ignore and try next strategy
+  }
+  try {
+    if (copy(text)) return true;
+  } catch (_) {
+    // ignore and try manual fallback
+  }
+  try {
     const textArea = document.createElement('textarea');
     textArea.value = text;
     textArea.style.position = 'fixed';
@@ -251,43 +189,37 @@ export const copyToClipboard = async (text) => {
     document.body.appendChild(textArea);
     textArea.focus();
     textArea.select();
-    
-    const result = document.execCommand('copy');
+    const ok = document.execCommand('copy');
     document.body.removeChild(textArea);
-    
-    return result;
+    return ok;
   } catch (error) {
     console.error('Failed to copy to clipboard:', error);
     return false;
   }
 };
 
+/** Extracts visible text from a DOM element */
 export const extractTextContent = (element) => {
   if (!element) return '';
-  
   let text = '';
-  
-  // Get all text nodes
   const walker = document.createTreeWalker(
     element,
     NodeFilter.SHOW_TEXT,
     null,
     false
   );
-  
   let node;
-  while (node = walker.nextNode()) {
+  // eslint-disable-next-line no-cond-assign
+  while ((node = walker.nextNode())) {
     text += node.textContent + ' ';
   }
-  
-  // Clean up the text
   return text.replace(/\s+/g, ' ').trim();
 };
 
-
+/** Helpers for generating markdown from data */
 export const formatSectionForCopy = (sectionData, sectionTitle) => {
   let markdown = `# ${sectionTitle}\n\n`;
-  
+
   if (typeof sectionData === 'string') {
     markdown += sectionData + '\n\n';
   } else if (Array.isArray(sectionData)) {
@@ -299,23 +231,22 @@ export const formatSectionForCopy = (sectionData, sectionTitle) => {
       }
     });
     markdown += '\n';
-  } else if (typeof sectionData === 'object') {
+  } else if (typeof sectionData === 'object' && sectionData !== null) {
     markdown += formatObjectToMarkdown(sectionData);
   }
-  
+
   return markdown;
 };
 
 const formatObjectToMarkdown = (obj, index = null) => {
   let markdown = '';
-  
-  if (index) {
-    markdown += `## ${index}. `;
-  }
-  
+  if (index) markdown += `## ${index}. `;
+
   Object.entries(obj).forEach(([key, value]) => {
-    const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    
+    const formattedKey = key
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+
     if (typeof value === 'string') {
       if (key === 'title' || key === 'question') {
         markdown += `${formattedKey}: **${value}**\n`;
@@ -324,51 +255,62 @@ const formatObjectToMarkdown = (obj, index = null) => {
       }
     } else if (Array.isArray(value)) {
       markdown += `${formattedKey}:\n`;
-      value.forEach(item => {
+      value.forEach((item) => {
         markdown += `- ${item}\n`;
       });
-    } else if (typeof value === 'object') {
+    } else if (typeof value === 'object' && value !== null) {
       markdown += `${formattedKey}:\n`;
       Object.entries(value).forEach(([subKey, subValue]) => {
-        const formattedSubKey = subKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        const formattedSubKey = subKey
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, (l) => l.toUpperCase());
         markdown += `  - ${formattedSubKey}: ${subValue}\n`;
       });
     }
   });
-  
+
   return markdown + '\n';
 };
 
 export const formatPageForCopy = (pageData, pageTitle, pageUrl) => {
   let markdown = `# ${pageTitle}\n\n`;
-  
+
   if (pageUrl) {
     markdown += `**Source:** ${pageUrl}\n\n`;
   }
-  
-  markdown += `**Generated:** ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}\n\n`;
+
+  const now = new Date();
+  markdown += `**Generated:** ${now.toLocaleDateString()} ${now.toLocaleTimeString()}\n\n`;
   markdown += `---\n\n`;
-  
+
   // Add all sections
-  Object.entries(pageData).forEach(([sectionKey, sectionData]) => {
-    if (sectionData && (typeof sectionData === 'string' || Array.isArray(sectionData) || typeof sectionData === 'object')) {
-      const sectionTitle = sectionKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  Object.entries(pageData || {}).forEach(([sectionKey, sectionData]) => {
+    if (
+      sectionData &&
+      (typeof sectionData === 'string' ||
+        Array.isArray(sectionData) ||
+        typeof sectionData === 'object')
+    ) {
+      const sectionTitle = sectionKey
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (l) => l.toUpperCase());
       markdown += formatSectionForCopy(sectionData, sectionTitle);
     }
   });
-  
+
   return markdown;
 };
 
-export const CopyButton = ({ 
-  text, 
-  className = '', 
+/** Copy button (UI) */
+export const CopyButton = ({
+  text,
+  className = '',
   size = 'sm',
   variant = 'default',
-  children = 'Copy'
+  children = 'Copy',
 }) => {
   const [copied, setCopied] = React.useState(false);
-  
+
   const handleCopy = async () => {
     const success = await copyToClipboard(text);
     if (success) {
@@ -376,27 +318,30 @@ export const CopyButton = ({
       setTimeout(() => setCopied(false), 1800);
     }
   };
-  
+
   const sizeClasses = {
     xs: 'px-1.5 py-0.5 text-xs',
     sm: 'px-2 py-1 text-xs',
     md: 'px-2.5 py-1.5 text-xs',
-    lg: 'px-3 py-2 text-sm'
+    lg: 'px-3 py-2 text-sm',
   };
-  
+
   const iconSizes = {
     xs: 'w-2.5 h-2.5',
     sm: 'w-3 h-3',
     md: 'w-3.5 h-3.5',
-    lg: 'w-4 h-4'
+    lg: 'w-4 h-4',
   };
-  
+
   const variantClasses = {
-    default: 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 shadow-sm',
-    primary: 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white border border-red-500 shadow-md',
-    secondary: 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border border-blue-500 shadow-md'
+    default:
+      'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 shadow-sm',
+    primary:
+      'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white border border-red-500 shadow-md',
+    secondary:
+      'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border border-blue-500 shadow-md',
   };
-  
+
   return (
     <button
       onClick={handleCopy}
@@ -431,9 +376,9 @@ export const CopyButton = ({
           </>
         )}
       </div>
-      
+
       {/* Subtle shine effect */}
-      <div className="absolute inset-0 opacity-0 hover:opacity-20 bg-gradient-to-r from-transparent via-white to-transparent transform -skew-x-12 translate-x-full hover:translate-x-[-100%] transition-all duration-700"></div>
+      <div className="absolute inset-0 opacity-0 hover:opacity-20 bg-gradient-to-r from-transparent via-white to-transparent transform -skew-x-12 translate-x-full hover:translate-x-[-100%] transition-all duration-700" />
     </button>
   );
 };
@@ -445,5 +390,5 @@ export default {
   extractTextContent,
   formatSectionForCopy,
   formatPageForCopy,
-  CopyButton
+  CopyButton,
 };
