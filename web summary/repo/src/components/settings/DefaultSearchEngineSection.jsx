@@ -1,4 +1,3 @@
-// components/settings/DefaultSearchEngineSection.jsx
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SEARCH_ENGINES } from '@/storage';
@@ -73,16 +72,42 @@ function getSearchEngineIcon(id, size = 'sm') {
 export default function DefaultSearchEngineSection({ isEditMode, selectedSearchEngine, onSelect }) {
   const [expanded, setExpanded] = React.useState(false);
 
+  const selected = React.useMemo(
+    () => SEARCH_ENGINES.find(e => e.id === selectedSearchEngine) || null,
+    [selectedSearchEngine]
+  );
+
   return (
     <div className="max-w-full">
+      {/* Section title to match other sections */}
+      <h2 className="text-lg font-medium text-gray-800 mb-3">Default Search Engine</h2>
+
+      {/* Summary / toggle card shows the CURRENT selection, not the section title */}
       <button
         type="button"
+        aria-label="Change default search engine"
         onClick={() => setExpanded(v => !v)}
         className="w-full p-4 rounded-xl border border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 transition-colors flex items-center justify-between overflow-hidden"
       >
-        <span className="text-gray-800 font-medium">Default Search Engine</span>
-        <svg className={`w-5 h-5 text-gray-500 transition-transform ${expanded ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M10 12a1 1 0 01-.707-.293l-4-4a1 1 0 111.414-1.414L10 9.586l3.293-3.293a1 1 0 111.414 1.414l-4 4A1 1 0 0110 12z" clipRule="evenodd" />
+        <div className="flex items-center gap-3 min-w-0">
+          {getSearchEngineIcon(selected?.id, 'sm')}
+          <div className="min-w-0">
+            <div className="text-xs text-gray-500">Selected</div>
+            <div className="font-medium text-gray-800 truncate">
+              {selected?.name || 'Not set'}
+            </div>
+          </div>
+        </div>
+        <svg
+          className={`w-5 h-5 text-gray-500 transition-transform ${expanded ? 'rotate-180' : ''}`}
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fillRule="evenodd"
+            d="M10 12a1 1 0 01-.707-.293l-4-4a1 1 0 111.414-1.414L10 9.586l3.293-3.293a1 1 0 111.414 1.414l-4 4A1 1 0 0110 12z"
+            clipRule="evenodd"
+          />
         </svg>
       </button>
 
@@ -96,32 +121,39 @@ export default function DefaultSearchEngineSection({ isEditMode, selectedSearchE
             className="mt-3 max-w-full"
           >
             <div className="grid gap-3 max-w-full">
-              {SEARCH_ENGINES.map((engine) => (
-                <button
-                  type="button"
-                  key={engine.id}
-                  onClick={() => isEditMode && onSelect(engine.id)}
-                  className={`w-full max-w-full p-4 rounded-xl border text-left transition-colors overflow-hidden
-                    ${selectedSearchEngine === engine.id
-                      ? 'border-red-500 bg-red-50'
-                      : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'}
-                    ${!isEditMode ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'}`}
-                >
-                  <div className="flex items-center space-x-3 max-w-full">
-                    {getSearchEngineIcon(engine.id)}
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-gray-800 truncate">{engine.name}</div>
-                    </div>
-                    {selectedSearchEngine === engine.id && (
-                      <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shrink-0">
-                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
+              {SEARCH_ENGINES.map((engine) => {
+                const isSelected = selectedSearchEngine === engine.id;
+                return (
+                  <button
+                    type="button"
+                    key={engine.id}
+                    onClick={() => {
+                      if (!isEditMode) return;
+                      onSelect(engine.id);
+                      setExpanded(false);
+                    }}
+                    className={`w-full max-w-full p-4 rounded-xl border text-left transition-colors overflow-hidden
+                      ${isSelected
+                        ? 'border-red-500 bg-red-50'
+                        : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'}
+                      ${!isEditMode ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'}`}
+                  >
+                    <div className="flex items-center space-x-3 max-w-full">
+                      {getSearchEngineIcon(engine.id)}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-800 truncate">{engine.name}</div>
                       </div>
-                    )}
-                  </div>
-                </button>
-              ))}
+                      {isSelected && (
+                        <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shrink-0">
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </motion.div>
         )}

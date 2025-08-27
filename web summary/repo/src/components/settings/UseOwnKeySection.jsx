@@ -24,6 +24,7 @@ export default function UseOwnKeySection({
   onSave,
   validationError,
   successMessage,
+  showSaveButton = true,
 }) {
   const selectedModelConfig = selectedModel ? SUPPORTED_MODELS[selectedModel] : null;
 
@@ -62,69 +63,79 @@ export default function UseOwnKeySection({
         </button>
       </div>
 
-      {useOwnKey && (
-        <div className="mt-4 space-y-6">
-          <div className="max-w-full">
-            <h3 className="text-base font-medium text-gray-800 mb-3">Provider</h3>
+      {/* Provider + API key are always visible */}
+      <div className="mt-4 space-y-6">
+        <div className="max-w-full">
+          <h3 className="text-base font-medium text-gray-800 mb-3">Provider</h3>
 
-            <div role="radiogroup" className="grid gap-3 max-w-full">
-              {Object.entries(SUPPORTED_MODELS).map(([modelId, modelConfig]) => {
-                const selected = selectedModel === modelId;
-                return (
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    key={modelId}
-                    onClick={() => isEditMode && setSelectedModel(modelId)}
-                    disabled={!isEditMode}
-                    className={`w-full max-w-full p-4 rounded-xl border text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 overflow-hidden
-                      ${selected ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'}
-                      ${!isEditMode ? 'opacity-75 cursor-not-allowed' : 'cursor-pointer'}`}
-                  >
-                    <div className="flex items-center gap-3 max-w-full">
-                      {getModelIcon(modelId)}
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-800 truncate">{modelConfig.name}</div>
-                        <div className="text-sm text-gray-600 mt-1 truncate">{modelConfig.description}</div>
+          <div role="radiogroup" className="grid gap-3 max-w-full">
+            {Object.entries(SUPPORTED_MODELS).map(([modelId, modelConfig]) => {
+              const selected = selectedModel === modelId;
+              return (
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  key={modelId}
+                  onClick={() => isEditMode && setSelectedModel(modelId)}
+                  disabled={!isEditMode}
+                  className={`w-full max-w-full p-4 rounded-xl border text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 overflow-hidden
+                    ${selected ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'}
+                    ${!isEditMode ? 'opacity-75 cursor-not-allowed' : 'cursor-pointer'}`}
+                >
+                  <div className="flex items-center gap-3 max-w-full">
+                    {getModelIcon(modelId)}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-gray-800 whitespace-normal break-words">
+                        {modelConfig.name}
                       </div>
-                      <span
-                        className={`shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full border
-                          ${selected ? 'bg-red-500 border-red-500 text-white' : 'border-gray-300 text-transparent'}`}
-                        aria-hidden="true"
-                      >
-                        <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </span>
+                      <div className="text-sm text-gray-600 mt-1 whitespace-normal break-words">
+                        {modelConfig.description}
+                      </div>
                     </div>
-                  </button>
-                );
-              })}
-            </div>
+                    <span
+                      className={`shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full border
+                        ${selected ? 'bg-red-500 border-red-500 text-white' : 'border-gray-300 text-transparent'}`}
+                      aria-hidden="true"
+                    >
+                      <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
-
-          {selectedModel && selectedModelConfig && (
-            <div className="max-w-full">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {selectedModelConfig.name} API Key
-              </label>
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                onKeyPress={onKeyPress}
-                placeholder={selectedModelConfig.keyPlaceholder}
-                className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors duration-200
-                  ${!isEditMode ? 'bg-gray-50 cursor-not-allowed' : ''}`}
-                disabled={isValidating || !isEditMode}
-                readOnly={!isEditMode}
-              />
-            </div>
-          )}
         </div>
-      )}
 
+        {selectedModel && selectedModelConfig && (
+          <div className="max-w-full">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {selectedModelConfig.name} API Key
+            </label>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              onKeyPress={onKeyPress}
+              placeholder={selectedModelConfig.keyPlaceholder}
+              className={`w-full px-4 py-3 rounded-lg bg-white
+                border border-gray-300
+                outline-none focus:outline-none
+                ring-0 focus:ring-2 focus:ring-red-500 focus:ring-offset-0
+                focus:border-red-500
+                shadow-none focus:shadow-none
+                transition-colors duration-200
+                ${!isEditMode ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+              disabled={isValidating || !isEditMode}
+              readOnly={!isEditMode}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Alerts */}
       <AnimatePresence>
         {validationError && (
           <motion.div
@@ -159,7 +170,8 @@ export default function UseOwnKeySection({
         )}
       </AnimatePresence>
 
-      {isEditMode && (
+      {/* Inline Save (kept optional) */}
+      {isEditMode && showSaveButton && (
         <motion.button
           onClick={onSave}
           disabled={isValidating}

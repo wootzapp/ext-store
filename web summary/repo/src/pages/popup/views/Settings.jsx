@@ -1,6 +1,6 @@
 // pages/popup/views/Settings/Settings.jsx
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import useAuthAndPrefs from '@/hooks/useAuthAndPrefs';
 import useUserOrgs from '@/hooks/useUserOrgs';
@@ -20,12 +20,10 @@ function useSubscriptionInfo(userFromApi, organizations) {
   return React.useMemo(() => {
     const currentOrg =
       (userFromApi?.selectedOrganizationId &&
-        organizations?.find(o => o.id === userFromApi.selectedOrganizationId)) ||
+        organizations?.find(o => Number(o.id) === Number(userFromApi.selectedOrganizationId))) ||
       (organizations?.[0] ?? null);
 
-    if (!currentOrg) {
-      return { invalid: true, reason: 'No subscription found', org: null };
-    }
+    if (!currentOrg) return { invalid: true, reason: 'No subscription found', org: null };
 
     const status = String(currentOrg.subscriptionStatus || '').toLowerCase();
     const type = String(currentOrg.subscriptionType || 'free').toLowerCase();
@@ -37,7 +35,7 @@ function useSubscriptionInfo(userFromApi, organizations) {
     const isExpired = expiryTs ? expiryTs <= now : false;
     const isBadStatus = ['canceled', 'past_due', 'unpaid', 'inactive'].includes(status);
     const isInactive = currentOrg.isActive === false;
-    const isNotPaid = type !== 'paid'; // treat Free as not valid for backend usage
+    const isNotPaid = type !== 'paid';
 
     const invalid = isInactive || isBadStatus || isExpired || isNotPaid;
 
@@ -46,70 +44,128 @@ function useSubscriptionInfo(userFromApi, organizations) {
     else if (isBadStatus) reason = `Your subscription is ${status.replace('_', ' ')}.`;
     else if (isExpired) reason = 'Your subscription has expired.';
     else if (isNotPaid) reason = 'You are on the Free plan.';
-    else reason = '';
 
     return { invalid, reason, org: currentOrg };
   }, [userFromApi, organizations]);
 }
 
-export default function Settings({ onBack, onSetupComplete }) {
-  // auth + prefs
+// Snapshot helpers (compare local draft vs last saved)
+function makeSnapshot(draft, draftSearchEngine) {
+  return {
+    useOwnKey: !!draft.useOwnKey,
+    selectedModel: draft.selectedModel || '',
+    apiKey: draft.apiKey || '',
+    selectedSearchEngine: draftSearchEngine || '',
+  };
+}
+function snapshotsEqual(a, b) {
+  return (
+    a.useOwnKey === b.useOwnKey &&
+    a.selectedModel === b.selectedModel &&
+    a.apiKey === b.apiKey &&
+    a.selectedSearchEngine === b.selectedSearchEngine
+  );
+}
+
+export default function Settings({ onBack }) {
   const {
     authUser, isAuthed, authLoading, authError, setAuthError,
     prefs, setPrefs, selectedSearchEngine, setSelectedSearchEngine,
     loadPrefs, savePrefs,
   } = useAuthAndPrefs();
 
-  const contentRef = useRef(null);   // scrollable container
-  const ownKeyRef = useRef(null);    // anchor wrapper for UseOwnKeySection
+  const contentRef = useRef(null);
+  const ownKeyRef = useRef(null);
 
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [hasBeenSaved, setHasBeenSaved] = useState(false);
 
-  // validation banners
   const [validationError, setValidationError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [isValidating, setIsValidating] = useState(false);
 
-  // orgs/plan area
   const { loading: orgsLoading, error: orgsError, user: userFromApi, organizations } = useUserOrgs();
   const subInfo = useSubscriptionInfo(userFromApi, organizations);
 
-  // smooth scroll helper to the UseOwnKey section
+  // ---------- LOCAL DRAFT ----------
+  const [draft, setDraft] = useState({ useOwnKey: false, selectedModel: '', apiKey: '' });
+  const [draftSearchEngine, setDraftSearchEngine] = useState('');
+  const [savedSnapshot, setSavedSnapshot] = useState(makeSnapshot(draft, draftSearchEngine));
+  const [snapshotInitialized, setSnapshotInitialized] = useState(false);
+  const [confirmLeaveOpen, setConfirmLeaveOpen] = useState(false);
+
+  const currentSnapshot = useMemo(
+    () => makeSnapshot(draft, draftSearchEngine),
+    [draft, draftSearchEngine]
+  );
+  const hasUnsaved = useMemo(
+    () => snapshotInitialized && !snapshotsEqual(savedSnapshot, currentSnapshot),
+    [snapshotInitialized, savedSnapshot, currentSnapshot]
+  );
+
+  // Smooth scroll
   const scrollToOwnKey = useCallback(() => {
     const container = contentRef.current;
     const anchor = ownKeyRef.current;
     if (!container || !anchor) return;
-
-    // Prefer scrolling the scrollable container itself for reliable behavior
     const containerRect = container.getBoundingClientRect();
     const anchorRect = anchor.getBoundingClientRect();
-    const delta = anchorRect.top - containerRect.top + container.scrollTop - 12; // 12px top padding
+    const delta = anchorRect.top - containerRect.top + container.scrollTop - 12;
     container.scrollTo({ top: delta, behavior: 'smooth' });
   }, []);
 
-  // load prefs when authed
+  // ---- HYDRATION FIX ----
+  // 1) Start loading persisted prefs on mount.
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      if (!isAuthed) return;
-      const { hasPrefs } = await loadPrefs();
-      if (!mounted) return;
-      setHasBeenSaved(!!hasPrefs);
-      setIsEditMode(!hasPrefs);
-      setIsLoading(false);
-    })();
-    return () => { mounted = false; };
+    if (!isAuthed) return;
+    (async () => { await loadPrefs(); })();
   }, [isAuthed, loadPrefs]);
 
+  // 2) When persisted prefs actually hydrate, mirror them into the draft
+  //    (unless the user has local edits). Only then mark screen as loaded.
   useEffect(() => {
-    if (successMessage) {
-      const t = setTimeout(() => setSuccessMessage(''), 3000);
-      return () => clearTimeout(t);
+    if (!isAuthed) return;
+    if (!hasUnsaved) {
+      const nextDraft = {
+        useOwnKey: !!(prefs?.useOwnKey),
+        selectedModel: prefs?.selectedModel || '',
+        apiKey: prefs?.apiKey || '',
+      };
+      const nextEngine = selectedSearchEngine || '';
+      setDraft(nextDraft);
+      setDraftSearchEngine(nextEngine);
+      setSavedSnapshot(makeSnapshot(nextDraft, nextEngine));
+      setSnapshotInitialized(true);
+      setIsLoading(false);
     }
+  }, [
+    isAuthed,
+    prefs?.useOwnKey,
+    prefs?.selectedModel,
+    prefs?.apiKey,
+    selectedSearchEngine,
+    hasUnsaved,
+  ]);
+  // ---- /HYDRATION FIX ----
+
+  // Success toast timeout
+  useEffect(() => {
+    if (!successMessage) return;
+    const t = setTimeout(() => setSuccessMessage(''), 3000);
+    return () => clearTimeout(t);
   }, [successMessage]);
+
+  // beforeunload guard
+  useEffect(() => {
+    const handler = (e) => {
+      if (hasUnsaved) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [hasUnsaved]);
 
   const openManageSubscription = () => {
     try {
@@ -121,33 +177,34 @@ export default function Settings({ onBack, onSetupComplete }) {
     }
   };
 
+  // SAVE uses local draft exclusively
   const handleSave = useCallback(async () => {
     setValidationError('');
     setSuccessMessage('');
 
-    const { selectedModel, apiKey, useOwnKey } = prefs;
+    const { selectedModel, apiKey, useOwnKey } = draft;
 
+    // Only enforce validation when user intends to use their own key
     if (useOwnKey) {
       if (!selectedModel) {
         setValidationError('Please select a model');
-        return;
+        return false;
       }
       if (!apiKey?.trim()) {
         setValidationError('Please enter your API key');
-        return;
+        return false;
       }
     }
 
     setIsValidating(true);
     try {
-      if (useOwnKey) {
+      if (useOwnKey && selectedModel && apiKey?.trim()) {
         const formatValidation = StorageUtils.validateApiKey(selectedModel, apiKey);
         if (!formatValidation.valid) {
           setValidationError(`Invalid API key format: ${formatValidation.error}`);
           setIsValidating(false);
-          return;
+          return false;
         }
-
         const testResult = await StorageUtils.testApiKey(selectedModel, apiKey.trim());
         if (!testResult.valid) {
           const baseError = testResult.error || 'The API key you entered is not valid or has expired.';
@@ -167,52 +224,63 @@ export default function Settings({ onBack, onSetupComplete }) {
           }
           setValidationError(msg);
           setIsValidating(false);
-          return;
+          return false;
         }
       }
 
-      // Persist
+      // Persist draft (always store model/key; toggle decides whether extension uses it)
       const toSave = {
-        selectedModel: useOwnKey ? prefs.selectedModel : '',
-        apiKey: useOwnKey ? prefs.apiKey.trim() : '',
+        selectedModel: draft.selectedModel,
+        apiKey: draft.apiKey.trim(),
         useOwnKey: !!useOwnKey,
         setupDate: new Date().toISOString(),
       };
-      await savePrefs(toSave, selectedSearchEngine);
+      await savePrefs(toSave, draftSearchEngine);
       await StorageUtils.setUseOwnKey(!!useOwnKey);
 
-      if (useOwnKey) {
-        await StorageUtils.saveApiKey(prefs.selectedModel, prefs.apiKey.trim());
-        await StorageUtils.saveSelectedModel(prefs.selectedModel);
+      if (draft.selectedModel) await StorageUtils.saveSelectedModel(draft.selectedModel);
+      if (draft.apiKey?.trim()) await StorageUtils.saveApiKey(draft.selectedModel, draft.apiKey.trim());
 
-        // Optional: update WootzApp config
-        const selectedEngineData = SEARCH_ENGINES.find(e => e.id === selectedSearchEngine);
-        const selectedModelData = SUPPORTED_MODELS[prefs.selectedModel];
-        if (chrome?.wootz?.changeWootzAppSearchConfiguration && selectedModelData) {
-          chrome.wootz.changeWootzAppSearchConfiguration(
-            selectedEngineData?.keyword,
-            selectedModelData?.baseUrlToSearch,
-            prefs.apiKey.trim(),
-            (result) => {
-              if (!result.success) console.error('❌ Error saving Wootz configuration:', result.error);
-            }
-          );
-        }
+      // Update Wootz browser config if we have a model + key
+      const selectedEngineData = SEARCH_ENGINES.find(e => e.id === draftSearchEngine);
+      const selectedModelData = SUPPORTED_MODELS[draft.selectedModel];
+      if (
+        chrome?.wootz?.changeWootzAppSearchConfiguration &&
+        selectedModelData &&
+        draft.apiKey?.trim()
+      ) {
+        chrome.wootz.changeWootzAppSearchConfiguration(
+          selectedEngineData?.keyword,
+          selectedModelData?.baseUrlToSearch,
+          draft.apiKey.trim(),
+          (result) => {
+            if (!result.success) console.error('❌ Error saving Wootz configuration:', result.error);
+          }
+        );
       }
 
-      setSuccessMessage('Settings saved successfully!');
-      setHasBeenSaved(true);
-      setIsEditMode(false);
+      // Sync hook state (for other screens)
+      setSelectedSearchEngine(draftSearchEngine);
+      setPrefs(toSave);
+
+      // Update baseline snapshot
+      const newSnap = makeSnapshot(draft, draftSearchEngine);
+      setSavedSnapshot(newSnap);
+      if (!snapshotInitialized) setSnapshotInitialized(true);
+
+      setSuccessMessage('Settings updated!');
+      return true;
     } catch (err) {
       console.error('❌ Settings update error:', err);
       setValidationError('Failed to save settings. Please check your connection and try again.');
+      return false;
     } finally {
       setIsValidating(false);
     }
-  }, [prefs, selectedSearchEngine, savePrefs]);
+  }, [draft, draftSearchEngine, savePrefs, setPrefs, setSelectedSearchEngine, snapshotInitialized]);
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !isValidating) handleSave();
+    if (e.key === 'Enter' && !isValidating && hasUnsaved) handleSave();
   };
 
   // ---------- AUTH GATE ----------
@@ -306,38 +374,45 @@ export default function Settings({ onBack, onSetupComplete }) {
       {/* Header */}
       <div className="bg-white/90 backdrop-blur-sm text-gray-800 p-4 shadow-sm relative z-10 border-b border-gray-200">
         <div className="flex items-center justify-between gap-3">
-          <button onClick={onBack} className="text-sm font-medium text-gray-600 hover:text-red-500 transition-colors">Back</button>
+          <button
+            onClick={() => {
+              if (hasUnsaved) setConfirmLeaveOpen(true);
+              else onBack();
+            }}
+            className="text-sm font-medium text-gray-600 hover:text-red-500 transition-colors"
+          >
+            Back
+          </button>
+
           <h1 className="text-lg font-bold text-gray-800 whitespace-nowrap">Settings</h1>
+
           <div className="flex items-center gap-3">
-            {!isEditMode && hasBeenSaved && (
-              <motion.button
-                onClick={() => { setIsEditMode(true); setSuccessMessage(''); }}
-                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors duration-200"
-              >
-                Edit
-              </motion.button>
-            )}
-            {isEditMode && hasBeenSaved && (
-              <motion.button
-                onClick={async () => {
-                  setIsEditMode(false);
-                  await loadPrefs();
-                  setSuccessMessage('');
-                  setValidationError('');
-                  requestAnimationFrame(scrollToOwnKey);
-                }}
-                className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors duration-200"
-              >
-                Cancel
-              </motion.button>
-            )}
+            <AnimatePresence>
+              {hasUnsaved && (
+                <motion.button
+                  key="update-btn"
+                  onClick={handleSave}
+                  disabled={isValidating}
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                    isValidating
+                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                      : 'bg-red-500 hover:bg-red-600 text-white shadow'
+                  }`}
+                >
+                  {isValidating ? 'Saving…' : 'Update'}
+                </motion.button>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>
 
       {/* Content */}
       <div ref={contentRef} className="flex-1 p-6 overflow-y-auto overflow-x-hidden relative z-10">
-        {!isEditMode && hasBeenSaved && (
+        {!hasUnsaved && successMessage && (
           <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
             <div className="flex items-center space-x-2">
               <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
@@ -360,9 +435,7 @@ export default function Settings({ onBack, onSetupComplete }) {
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.72-1.36 3.485 0l6.518 11.588c.718 1.277-.18 2.863-1.742 2.863H3.48c-1.562 0-2.46-1.586-1.742-2.863L8.257 3.1zM11 14a1 1 0 10-2 0 1 1 0 002 0zm-1-2a1 1 0 01-1-1V8a1 1 0 112 0v3a1 1 0 01-1 1z" clipRule="evenodd" />
                 </svg>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-amber-900">
-                    Subscription not active
-                  </p>
+                  <p className="text-sm font-semibold text-amber-900">Subscription not active</p>
                   <p className="text-sm text-amber-800 mt-1">
                     {subInfo.reason || 'Your subscription is not active.'} You can purchase a plan or use your own API key to continue.
                   </p>
@@ -375,13 +448,9 @@ export default function Settings({ onBack, onSetupComplete }) {
                     </button>
                     <button
                       onClick={() => {
-                        // open edit mode and toggle "Use custom API key"
-                        setIsEditMode(true);
                         setSuccessMessage('');
                         setValidationError('');
-                        setPrefs(p => ({ ...p, useOwnKey: true }));
-
-                        // Scroll to the UseOwnKey section and focus the input
+                        setDraft(d => ({ ...d, useOwnKey: true }));
                         requestAnimationFrame(() => {
                           scrollToOwnKey();
                           setTimeout(() => {
@@ -405,30 +474,34 @@ export default function Settings({ onBack, onSetupComplete }) {
             error={orgsError}
             user={userFromApi}
             organizations={organizations}
-            onManageClick={openManageSubscription} // does nothing functional right now
+            onManageClick={openManageSubscription}
           />
 
           <DefaultSearchEngineSection
-            isEditMode={isEditMode}
-            selectedSearchEngine={selectedSearchEngine}
+            isEditMode={true}
+            selectedSearchEngine={draftSearchEngine}
             onSelect={(id) => {
-              if (!isEditMode) return;
-              setSelectedSearchEngine(id);
+              setDraftSearchEngine(id);
               setSuccessMessage('');
             }}
           />
 
-          {/* Anchor wrapper so we can scroll to this section reliably */}
           <div ref={ownKeyRef}>
             <UseOwnKeySection
-              isEditMode={isEditMode}
+              isEditMode={true}
+              showSaveButton={false}
               isValidating={isValidating}
-              useOwnKey={prefs.useOwnKey}
-              setUseOwnKey={(v) => setPrefs(p => ({ ...p, useOwnKey: typeof v === 'function' ? v(p.useOwnKey) : v }))}
-              selectedModel={prefs.selectedModel}
-              setSelectedModel={(modelId) => setPrefs(p => ({ ...p, selectedModel: modelId }))}
-              apiKey={prefs.apiKey}
-              setApiKey={(k) => setPrefs(p => ({ ...p, apiKey: k }))}
+              useOwnKey={draft.useOwnKey}
+              setUseOwnKey={(updater) =>
+                setDraft(prev => {
+                  const nextVal = typeof updater === 'function' ? updater(prev.useOwnKey) : updater;
+                  return { ...prev, useOwnKey: nextVal };
+                })
+              }
+              selectedModel={draft.selectedModel}
+              setSelectedModel={(modelId) => setDraft(prev => ({ ...prev, selectedModel: modelId }))}
+              apiKey={draft.apiKey}
+              setApiKey={(k) => setDraft(prev => ({ ...prev, apiKey: k }))}
               onKeyPress={handleKeyPress}
               onSave={handleSave}
               validationError={validationError}
@@ -437,6 +510,61 @@ export default function Settings({ onBack, onSetupComplete }) {
           </div>
         </div>
       </div>
+
+      {/* Unsaved changes modal */}
+      <AnimatePresence>
+        {confirmLeaveOpen && (
+          <motion.div
+            key="unsaved-modal"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              initial={{ y: 12, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 12, opacity: 0 }}
+              className="w-[92%] max-w-md rounded-2xl bg-white p-5 shadow-xl border border-gray-200"
+            >
+              <h3 className="text-lg font-semibold text-gray-900">Unsaved changes</h3>
+              <p className="text-sm text-gray-600 mt-1">You’ve made changes to your settings. Save them before leaving?</p>
+
+              <div className="mt-5 flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={async () => {
+                    const ok = await handleSave();
+                    if (ok) {
+                      setConfirmLeaveOpen(false);
+                      onBack();
+                    }
+                  }}
+                  disabled={isValidating}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium ${
+                    isValidating
+                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-red-500 to-orange-500 text-white hover:from-red-600 hover:to-orange-600'
+                  }`}
+                >
+                  {isValidating ? 'Saving…' : 'Save & leave'}
+                </button>
+                <button
+                  onClick={() => { setConfirmLeaveOpen(false); onBack(); }}
+                  className="flex-1 px-4 py-2 rounded-lg font-medium bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-200"
+                >
+                  Discard
+                </button>
+                <button
+                  onClick={() => setConfirmLeaveOpen(false)}
+                  className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:text-gray-800"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

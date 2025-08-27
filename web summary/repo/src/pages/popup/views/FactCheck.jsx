@@ -29,6 +29,13 @@ const FactCheck = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPageUrl]);
 
+  // Clear handler
+  const handleClear = () => {
+    try { stop(); } catch {}
+    reset();
+    onClearHistory?.();
+  };
+
   const pageText = full || preview || '';
 
   return (
@@ -45,10 +52,9 @@ const FactCheck = ({
         <div className="absolute inset-0 bg-gradient-to-b from-white via-gray-50/80 to-white"></div>
       </div>
 
-      {/* Header: Back — Title — (Settings + Clear) */}
+      {/* Header */}
       <div className="bg-white/90 backdrop-blur-sm text-gray-800 p-4 shadow-sm relative z-10 border-b border-gray-200">
         <div className="flex items-center justify-between gap-3">
-          {/* Back (left) */}
           <button
             onClick={onBack}
             className="flex items-center space-x-2 text-gray-600 hover:text-red-500 transition-colors"
@@ -56,15 +62,13 @@ const FactCheck = ({
             <span className="text-sm font-medium">Back</span>
           </button>
 
-          {/* Title (center, single line) */}
           <h1 className="text-lg font-bold text-gray-800 whitespace-nowrap">Fact Checker</h1>
 
-          {/* Right group: Settings + Clear */}
           <div className="flex items-center gap-3">
             <SettingsButton onSettingsClick={onSettingsClick} />
             <button
               type="button"
-              onClick={onClearHistory}
+              onClick={handleClear}
               className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
               title="Clear Fact Check"
             >
