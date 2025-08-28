@@ -1,5 +1,6 @@
 // services/user/index.js
 import { BACKEND_BASE_URL, withCreds } from '@/config/backend';
+export * from './quota';
 
 const USER_API = `${BACKEND_BASE_URL}/user`;
 const LS_KEY = 'selectedOrganizationId';

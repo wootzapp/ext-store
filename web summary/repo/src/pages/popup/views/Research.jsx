@@ -1,10 +1,11 @@
-// src/components/Research.jsx
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import useChatStream from '@/hooks/useChatStream';
 import { renderMarkdown } from '@/lib/markdownUtils';
-import SettingsButton from '@/pages/popup/components/SettingsButton';
+import useAuthAndPrefs from '@/hooks/useAuthAndPrefs';
+import useQuotaGate from '@/hooks/useQuotaGate';
+import QuotaGateOverlay from '@/pages/popup/components/QuotaGateOverlay';
 
 /* ---------- Hook: stick to bottom with RAF + near-bottom detection ---------- */
 function useStickToBottom(scrollRef, { threshold = 96 } = {}) {
@@ -29,11 +30,11 @@ function useStickToBottom(scrollRef, { threshold = 96 } = {}) {
 
   const bump = useCallback((smooth = false) => {
     const el = scrollRef.current;
-    if (!el || !pinnedRef.current) return; // don't hijack if user scrolled up
+    if (!el || !pinnedRef.current) return;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
       if (smooth) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-      else el.scrollTop = el.scrollHeight; // instant keeps up with rapid typing
+      else el.scrollTop = el.scrollHeight;
     });
   }, [scrollRef]);
 
@@ -44,7 +45,7 @@ function useStickToBottom(scrollRef, { threshold = 96 } = {}) {
 function TypewriterMarkdown({
   text,
   isStreaming,
-  mode = 'word',   // 'word' | 'char'
+  mode = 'word',
   intervalMs = 30,
   onProgress,
 }) {
@@ -57,7 +58,7 @@ function TypewriterMarkdown({
 
   const lastLenRef = useRef(0);
   useEffect(() => {
-    if (text.length < lastLenRef.current) setTyped(''); // new response
+    if (text.length < lastLenRef.current) setTyped('');
     lastLenRef.current = text.length;
   }, [text.length]);
 
@@ -82,7 +83,7 @@ function TypewriterMarkdown({
         if (curr.length >= src.length) return curr;
         const next = nextIndex(src, curr.length);
         const out = src.slice(0, next);
-        onProgressRef.current?.(); // request scroll (instant)
+        onProgressRef.current?.();
         return out;
       });
     }, Math.max(8, intervalMs));
@@ -105,9 +106,10 @@ function TypewriterMarkdown({
 
 /* -------------------------------- Component -------------------------------- */
 const Research = React.memo(function Research({
-  onSettingsClick,
-  onAnalysePage,
-  onFactChecker,
+  onBack,
+  onOpenSettings,
+  onAnalysePage,   // (kept for your wiring)
+  onFactChecker,   // (kept for your wiring)
   researchDepth = 'comprehensive',
   inputMessage = '',
   inputRef: externalInputRef,
@@ -115,37 +117,33 @@ const Research = React.memo(function Research({
   const [topic, setTopic] = useState(inputMessage);
   const [depth, setDepth] = useState(researchDepth);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isToolsDropdownOpen, setIsToolsDropdownOpen] = useState(false);
+
   const dropdownRef = useRef(null);
-  const toolsDropdownRef = useRef(null);
   const localInputRef = useRef(null);
   const inputRef = externalInputRef || localInputRef;
 
+  const { prefs, loadPrefs } = useAuthAndPrefs();
+  const [prefsReady, setPrefsReady] = useState(false);
+  useEffect(() => { (async () => { await loadPrefs(); setPrefsReady(true); })(); }, [loadPrefs]);
+  const useOwnKey = !!prefs?.useOwnKey;
+
+  const quota = useQuotaGate({ useOwnKey });
+  const isGated = prefsReady ? (!useOwnKey && quota.shouldGate) : false;
+
   const { isStreaming, preview, full, error, start, stop } = useChatStream();
 
-  // Scroll management
+  // Stick-to-bottom
   const scrollRef = useRef(null);
   const bumpScroll = useStickToBottom(scrollRef, { threshold: 96 });
+  useEffect(() => { bumpScroll(true); }, [isStreaming]);                 // smooth at start/end
+  useEffect(() => { bumpScroll(false); }, [preview, full, bumpScroll]);  // instant while typing
 
-  // smooth snap at start/end only (not every tick)
-  useEffect(() => {
-    // on stream start or finish, do a single smooth snap
-    bumpScroll(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isStreaming]);
-
-  // also nudge on new chunks from the stream (instant)
-  useEffect(() => { bumpScroll(false); }, [preview, full, bumpScroll]);
-
-  // outside click
+  // close depth dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         const isDropdownOption = event.target.closest('[data-dropdown-option]');
         if (!isDropdownOption) setIsDropdownOpen(false);
-      }
-      if (toolsDropdownRef.current && !toolsDropdownRef.current.contains(event.target)) {
-        setIsToolsDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -153,26 +151,33 @@ const Research = React.memo(function Research({
   }, []);
 
   const depthOptions = [
-    { value: 'quick', label: 'Quick Research', description: 'Fast overview with key points' },
-    { value: 'comprehensive', label: 'Comprehensive', description: 'Detailed analysis with multiple sources' },
-    { value: 'expert', label: 'Expert Level', description: 'In-depth research with academic rigor' },
+    { value: 'quick',          label: 'Quick Research',  description: 'Fast overview with key points' },
+    { value: 'comprehensive',  label: 'Comprehensive',   description: 'Detailed analysis with multiple sources' },
+    { value: 'expert',         label: 'Expert Level',    description: 'In-depth research with academic rigor' },
   ];
   const currentOption = depthOptions.find(o => o.value === depth) || depthOptions[1];
   const handleDepthSelect = (v) => { setDepth(v); setIsDropdownOpen(false); };
 
   const runResearch = async () => {
-    if (!topic.trim() || isStreaming) return;
+    if (!topic.trim() || isStreaming || isGated) return;
     await start({ kind: 'research', payload: { topic: topic.trim(), depth } });
   };
+
+  // Stop if gate flips on while streaming
+  useEffect(() => {
+    if (isGated && isStreaming) { try { stop(); } catch {} }
+  }, [isGated, isStreaming, stop]);
+
   const handleSubmit = async (e) => {
     e?.preventDefault(); e?.stopPropagation();
+    if (isGated) return;
     if (isStreaming) await stop(); else await runResearch();
   };
 
   return (
     <motion.div className="w-full h-full flex flex-col relative overflow-hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       {/* Background */}
-      <div className="absolute inset-0">
+      <div className="absolute inset-0 pointer-events-none">
         <div className="absolute inset-0 bg-gradient-radial from-red-500/10 via-orange-500/5 to-transparent"></div>
         <div className="absolute inset-0 bg-gradient-to-b from-white via-gray-50/80 to-white"></div>
       </div>
@@ -180,15 +185,22 @@ const Research = React.memo(function Research({
       {/* Header */}
       <div className="bg-white/90 backdrop-blur-sm text-gray-800 p-4 shadow-sm relative z-10 border-b border-gray-200">
         <div className="flex items-center justify-between gap-3">
+          <button
+            onClick={() => onBack?.()}
+            className="flex items-center space-x-2 text-gray-600 hover:text-red-500 transition-colors"
+          >
+            <span className="text-sm font-medium">Back</span>
+          </button>
+
           <h2 className="text-lg font-bold text-gray-800 whitespace-nowrap">AI Researcher</h2>
+
           <div className="flex items-center gap-3">
-            <SettingsButton onSettingsClick={onSettingsClick} />
             <div className="relative" ref={dropdownRef}>
               <button
                 type="button"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="bg-white text-gray-700 border border-gray-300 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 flex items-center justify-between min-w-[160px] hover:bg-gray-50 transition-colors duration-200 shadow-sm"
-                disabled={isStreaming}
+                disabled={isStreaming || isGated}
                 title="Research Depth"
               >
                 <span className="font-medium">{currentOption.label}</span>
@@ -207,10 +219,10 @@ const Research = React.memo(function Research({
                   >
                     {depthOptions.map((option) => (
                       <li key={option.value} data-dropdown-option="true"
-                        className={`px-4 py-3 cursor-pointer transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl ${
-                          option.value === currentOption.value ? 'bg-red-50 text-red-700 border-l-4 border-red-500' : 'hover:bg-gray-50 text-gray-700'
-                        }`}
-                        onClick={() => handleDepthSelect(option.value)}
+                          className={`px-4 py-3 cursor-pointer transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl ${
+                            option.value === currentOption.value ? 'bg-red-50 text-red-700 border-l-4 border-red-500' : 'hover:bg-gray-50 text-gray-700'
+                          }`}
+                          onClick={() => handleDepthSelect(option.value)}
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-medium">{option.label}</span>
@@ -272,7 +284,7 @@ const Research = React.memo(function Research({
             isStreaming={isStreaming}
             mode="word"
             intervalMs={28}
-            onProgress={() => bumpScroll(false)} // instant during typing
+            onProgress={() => bumpScroll(false)}
           />
         )}
       </div>
@@ -280,7 +292,7 @@ const Research = React.memo(function Research({
       {/* Input Form */}
       <div className="p-4 relative z-10 border-t border-gray-200 bg-white/90 backdrop-blur-sm">
         <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="flex space-x-1">
+          <div className="flex items-stretch gap-2">
             <input
               ref={inputRef}
               type="text"
@@ -290,40 +302,10 @@ const Research = React.memo(function Research({
               placeholder="Enter research topic..."
               className="flex-1 bg-white text-gray-700 border border-gray-300 rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 placeholder-gray-400 shadow-sm"
               autoComplete="off"
-              disabled={isStreaming}
+              disabled={isStreaming || isGated}
             />
 
-            {/* Web Summary Tools */}
-            <div className="relative flex-shrink-0" ref={toolsDropdownRef}>
-              <button
-                type="button"
-                className="w-11 h-11 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white rounded-xl transition-all duration-300 shadow-lg flex items-center justify-center"
-                onClick={() => setIsToolsDropdownOpen(!isToolsDropdownOpen)}
-                title="Web Summary Tools"
-              >
-                <span className="text-base">⚡</span>
-              </button>
-
-              {isToolsDropdownOpen && (
-                <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 min-w-40 bg-white/95 backdrop-blur-lg rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
-                  <div
-                    onClick={() => { setIsToolsDropdownOpen(false); onAnalysePage?.(); }}
-                    className="flex items-center px-3 py-2 text-gray-800 cursor-pointer transition-all duration-200 hover:bg-red-50"
-                  >
-                    <span className="mr-2 text-sm">📊</span>
-                    <span className="text-xs font-medium">Analyse Page</span>
-                  </div>
-                  <div
-                    onClick={() => { setIsToolsDropdownOpen(false); onFactChecker?.(); }}
-                    className="flex items-center px-3 py-2 text-gray-800 cursor-pointer transition-all duration-200 hover:bg-red-50"
-                  >
-                    <span className="mr-2 text-sm">✅</span>
-                    <span className="text-xs font-medium">Facts Checker</span>
-                  </div>
-                </div>
-              )}
-            </div>
-
+            {/* Start / Stop */}
             <button
               type="submit"
               className={`flex-shrink-0 ${isStreaming
@@ -331,6 +313,7 @@ const Research = React.memo(function Research({
                 : 'bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600'
               } text-white px-3 py-3 rounded-xl transition-all duration-300 shadow-lg`}
               title={isStreaming ? 'Stop' : 'Start'}
+                disabled={isGated}
             >
               {isStreaming ? (
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
@@ -341,6 +324,9 @@ const Research = React.memo(function Research({
           </div>
         </form>
       </div>
+
+      {/* Quota gate overlay */}
+      <QuotaGateOverlay show={isGated} orgId={quota.orgId} onOpenSettings={onOpenSettings} usingOwnKey={useOwnKey} />
     </motion.div>
   );
 });

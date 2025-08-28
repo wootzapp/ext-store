@@ -167,6 +167,24 @@ export default function Settings({ onBack }) {
     return () => window.removeEventListener('beforeunload', handler);
   }, [hasUnsaved]);
 
+  // Settings.jsx (add this near other effects)
+  useEffect(() => {
+    try {
+      const k = localStorage.getItem('intent.scrollToOwnKeyOnce');
+      if (k === '1') {
+        localStorage.removeItem('intent.scrollToOwnKeyOnce');
+      // ensure the toggle is on so the section is relevant
+      setDraft(d => ({ ...d, useOwnKey: true }));
+      // wait a tick for layout, then scroll and focus input
+      setTimeout(() => {
+        scrollToOwnKey();
+        const input = ownKeyRef.current?.querySelector('input[type="password"], input');
+        input?.focus();
+      }, 150);
+      }
+    } catch {}
+  }, []);
+
   const openManageSubscription = () => {
     try {
       if (chrome?.tabs?.open) chrome.tabs.open(PRICING_URL);

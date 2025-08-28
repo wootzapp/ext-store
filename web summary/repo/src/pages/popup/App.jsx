@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import HomeHub from '@/pages/popup/views/HomeHub';
 import Research from '@/pages/popup/views/Research';
 import Analysis from '@/pages/popup/views/Analysis';
 import FactCheck from '@/pages/popup/views/FactCheck';
@@ -117,6 +118,7 @@ const LandingPage = React.memo(({ onGetStarted }) => (
 
 const Popup = () => {
   const [showLanding, setShowLanding] = useState(true);
+  const [showHome, setShowHome] = useState(false);      // NEW hub screen
   const [showResearch, setShowResearch] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showFactChecker, setShowFactChecker] = useState(false);
@@ -222,6 +224,9 @@ const Popup = () => {
       return;
     }
     switch (message.route) {
+      case '/home':
+        setCurrentRoute('/home');
+        break;
       case '/research':
         setCurrentRoute('/research');
         break;
@@ -313,7 +318,7 @@ const Popup = () => {
           if (useOwnKey && !hasConfig) {
             setCurrentRoute('/settings');
           } else {
-            setCurrentRoute('/research');
+            setCurrentRoute('/home');
           }
         }
       } catch (error) {
@@ -493,10 +498,10 @@ const Popup = () => {
         case '/research': setCurrentRoute('/research'); break;
         case '/analysis': handleAnalysePage(); break;
         case '/fact-checker': handleFactChecker(); break;
-        default: setCurrentRoute('/research');
+        default: setCurrentRoute('/home');
       }
     } else {
-      setCurrentRoute('/research');
+      setCurrentRoute('/home');
     }
   }, [intendedRoute, handleAnalysePage, handleFactChecker]);
 
@@ -513,7 +518,7 @@ const Popup = () => {
   }, []);
 
   const handleBackFromAnalysis = useCallback(() => {
-    setCurrentRoute('/research');
+    setCurrentRoute('/home');
     setAnalysisData(null);
   }, []);
 
@@ -536,8 +541,12 @@ const Popup = () => {
   }, []);
 
   const handleBackFromFactChecker = useCallback(() => {
-    setCurrentRoute('/research');
+    setCurrentRoute('/home');
     setFactCheckData(null);
+  }, []);
+
+  const handleBackFromResearch = useCallback(() => {
+    setCurrentRoute('/home');
   }, []);
 
   const handleRetryFactCheck = useCallback(() => {
@@ -607,33 +616,36 @@ Please provide a detailed and helpful answer based on the content and context of
     if (intendedRoute) {
       setCurrentRoute(intendedRoute.route);
     } else {
-      setCurrentRoute('/research');
+      setCurrentRoute('/home');
     }
   }, [intendedRoute]);
 
   useEffect(() => {
     switch (currentRoute) {
+      case '/home':
+        setShowLanding(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(false); setShowResearch(false); setShowHome(true);
+        break;
       case '/research':
-        setShowLanding(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(false); setShowResearch(true);
+        setShowLanding(false); setShowHome(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(false); setShowResearch(true);
         break;
       case '/analysis':
-        setShowLanding(false); setShowResearch(false); setShowFactChecker(false); setShowSettings(false); setShowAnalysis(true);
+        setShowLanding(false); setShowHome(false); setShowResearch(false); setShowFactChecker(false); setShowSettings(false); setShowAnalysis(true);
         handleAnalysePage();
         break;
       case '/fact-checker':
-        setShowLanding(false); setShowResearch(false); setShowAnalysis(false); setShowSettings(false); setShowFactChecker(true);
+        setShowLanding(false); setShowHome(false); setShowResearch(false); setShowAnalysis(false); setShowSettings(false); setShowFactChecker(true);
         handleFactChecker();
         break;
       case '/settings':
-        setShowLanding(false); setShowResearch(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(true);
+        setShowLanding(false); setShowHome(false); setShowResearch(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(true);
         break;
       case '/landing':
-        setShowResearch(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(false); setShowLanding(true);
+        setShowResearch(false); setShowHome(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(false); setShowLanding(true);
         break;
       case null:
         return;
       default:
-        setShowResearch(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(false); setShowLanding(true);
+        setShowResearch(false); setShowHome(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(false); setShowLanding(true);
         break;
     }
   }, [currentRoute, handleAnalysePage, handleFactChecker]);
@@ -643,7 +655,19 @@ Please provide a detailed and helpful answer based on the content and context of
       <AnimatePresence mode="wait">
         {showLanding ? (
           <LandingPage key="landing" onGetStarted={handleLandingButtonClick} />
-        ) : showAnalysis ? (
+        ) : showHome ? (
+        <HomeHub
+          key="home"
+          onOpenSettings={handleSettingsClick}
+          onOpenResearch={() => {
+            setShowHome(false);
+            setShowResearch(true);
+            setCurrentRoute('/research');
+          }}
+          onOpenAnalysis={handleAnalysePage}
+          onOpenFactChecker={handleFactChecker}
+        />
+      ) : showAnalysis ? (
           <Analysis
             key="analysis"
             analysisData={analysisData}
@@ -654,7 +678,7 @@ Please provide a detailed and helpful answer based on the content and context of
             onRetry={handleRetryAnalysis}
             onAskQuestion={handleAskQuestion}
             onClearHistory={handleClearAnalysisHistory}
-            onSettingsClick={handleSettingsClick}
+            onOpenSettings={handleSettingsClick}
           />
         ) : showFactChecker ? (
           <FactCheck
@@ -666,7 +690,7 @@ Please provide a detailed and helpful answer based on the content and context of
             onBack={handleBackFromFactChecker}
             onRetry={handleRetryFactCheck}
             onClearHistory={handleClearFactCheckHistory}
-            onSettingsClick={handleSettingsClick}
+            onOpenSettings={handleSettingsClick}
           />
         ) : showSettings ? (
           <Settings key="settings" onBack={handleBackFromSettings} onSetupComplete={handleSettingsComplete} />
@@ -674,6 +698,7 @@ Please provide a detailed and helpful answer based on the content and context of
           <div className="relative w-full h-full overflow-hidden min-w-0">
             <Research
               key="research"
+              onBack={handleBackFromResearch}
               researchResults={researchResults}
               isLoading={isResearchLoading}
               isLoadingSavedResearch={isLoadingSavedResearch}
@@ -687,7 +712,7 @@ Please provide a detailed and helpful answer based on the content and context of
               onStopResearch={handleStopResearch}
               onAnalysePage={handleAnalysePage}
               onFactChecker={handleFactChecker}
-              onSettingsClick={handleSettingsClick}
+              onOpenSettings={handleSettingsClick}
               inputRef={inputRef}
             />
           </div>

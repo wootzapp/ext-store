@@ -3,7 +3,9 @@ import { motion } from 'framer-motion';
 import { truncateUrl } from '@/lib/urlUtils';
 import useChatStream from '@/hooks/useChatStream';
 import { renderMarkdown } from '@/lib/markdownUtils';
-import SettingsButton from '@/pages/popup/components/SettingsButton';
+import useAuthAndPrefs from '@/hooks/useAuthAndPrefs';
+import useQuotaGate from '@/hooks/useQuotaGate';
+import QuotaGateOverlay from '@/pages/popup/components/QuotaGateOverlay';
 
 /* stick-to-bottom (RAF + near-bottom detection) */
 function useStickToBottom(scrollRef, { threshold = 96 } = {}) {
@@ -95,21 +97,32 @@ function TypewriterMarkdown({ text, isStreaming, intervalMs = 28, mode = 'word',
   );
 }
 
-const Analysis = ({ currentPageUrl, onBack, onClearHistory, onSettingsClick }) => {
+const Analysis = ({ currentPageUrl, onBack, onClearHistory, onOpenSettings }) => {
   const { isStreaming, preview, full, error, start, stop, reset } = useChatStream();
 
-  // Kick off streaming whenever the URL changes
+  const { prefs, loadPrefs } = useAuthAndPrefs();
+  const [prefsReady, setPrefsReady] = useState(false);
+  useEffect(() => { (async () => { await loadPrefs(); setPrefsReady(true); })(); }, [loadPrefs]);
+  const useOwnKey = !!prefs?.useOwnKey;
+
+  const quota = useQuotaGate({ useOwnKey });
+  const isGated = prefsReady ? (!useOwnKey && quota.shouldGate) : false;
+
+  // Kick off streaming whenever the URL changes (only if gate allows)
   useEffect(() => {
     if (!currentPageUrl) return;
+    if (quota.loading || isGated) return;
     (async () => {
       await start({ kind: 'pageAnalysis', payload: { url: currentPageUrl } });
     })();
     return () => { try { stop(); } catch {} reset(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPageUrl]);
+  }, [currentPageUrl, quota.loading, isGated]);
+
+  // Stop if the gate flips on
+  useEffect(() => { if (isGated && isStreaming) { try { stop(); } catch {} } }, [isGated, isStreaming, stop]);
 
   const handleClear = () => { try { stop(); } catch {} reset(); onClearHistory?.(); };
-
   const pageText = full || preview || '';
 
   // better auto-scroll
@@ -140,12 +153,12 @@ const Analysis = ({ currentPageUrl, onBack, onClearHistory, onSettingsClick }) =
           </button>
           <h1 className="text-lg font-bold text-gray-800 whitespace-nowrap">Page Analysis</h1>
           <div className="flex items-center gap-3">
-            <SettingsButton onSettingsClick={onSettingsClick} />
             <button
               type="button"
               onClick={handleClear}
               className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
               title="Clear Analysis"
+              disabled={isGated}
             >
               Clear
             </button>
@@ -191,6 +204,9 @@ const Analysis = ({ currentPageUrl, onBack, onClearHistory, onSettingsClick }) =
           </div>
         )}
       </div>
+
+      {/* Quota gate overlay */}
+      <QuotaGateOverlay show={isGated} orgId={quota.orgId} onOpenSettings={onOpenSettings} usingOwnKey={useOwnKey} />
     </motion.div>
   );
 };
