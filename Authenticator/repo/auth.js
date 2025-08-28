@@ -1,4 +1,3 @@
-console.log('Auth page loaded');
 
 const authFrame = document.getElementById('authFrame');
 const statusDiv = document.getElementById('status');
@@ -50,7 +49,6 @@ function setupEventListeners() {
   if (openDirectLink) {
     openDirectLink.addEventListener('click', function(e) {
       e.preventDefault();
-      console.log('Opening Okta URL directly');
       window.open(OKTA_URL, '_blank');
     });
   }
@@ -83,7 +81,6 @@ function updateStatus(message, type = 'loading') {
   statusDiv.className = className;
   statusDiv.innerHTML = icon + message;
   
-  console.log('Auth Status:', message);
   
   // Also send to popup
   chrome.runtime.sendMessage({
@@ -93,7 +90,6 @@ function updateStatus(message, type = 'loading') {
 }
 
 function showCustomLoginForm() {
-  console.log('Showing custom login form');
   updateStatus('Ready to authenticate', 'info');
   
   if (customLoginForm) {
@@ -105,7 +101,6 @@ function showCustomLoginForm() {
 }
 
 function showIframeLogin() {
-  console.log('Switching to iframe login');
   updateStatus('Loading Okta authentication page...', 'loading');
   
   if (customLoginForm) {
@@ -116,7 +111,6 @@ function showIframeLogin() {
   }
   
   // Load Okta URL in iframe
-  console.log('Loading Okta URL:', OKTA_URL);
   authFrame.src = OKTA_URL;
   
   // Set up iframe event listeners
@@ -191,7 +185,6 @@ async function handleCustomLogin(e) {
     // due to CORS and security restrictions, we'll simulate the process
     // and then fall back to the iframe method
     
-    console.log('Attempting custom authentication...');
     
     // Simulate authentication delay
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -215,14 +208,11 @@ async function handleCustomLogin(e) {
 function setupIframeListeners() {
   // Handle iframe load events
   authFrame.addEventListener('load', function() {
-    console.log('Iframe loaded');
     
     try {
       const iframeUrl = authFrame.contentWindow.location.href;
-      console.log('Iframe URL:', iframeUrl);
       updateStatus('Please enter your credentials to continue', 'info');
     } catch (error) {
-      console.log('Cannot access iframe URL (cross-origin):', error.message);
       updateStatus('Please enter your credentials to continue', 'info');
     }
     
@@ -240,7 +230,6 @@ function setupIframeListeners() {
   // Timeout fallback
   setTimeout(function() {
     if (authFrame.src === 'about:blank' || !authFrame.contentDocument) {
-      console.log('Iframe failed to load, showing fallback');
       fallbackDiv.style.display = 'block';
     }
   }, 5000);
@@ -249,12 +238,10 @@ function setupIframeListeners() {
 // Direct link fallback
 openDirectLink.addEventListener('click', function(e) {
   e.preventDefault();
-  console.log('Opening Okta URL directly');
   window.open(OKTA_URL, '_blank');
 });
 
 function monitorForSamlResponse() {
-  console.log('Starting SAML monitoring');
   
   // Method 1: Monitor URL changes
   let lastUrl = '';
@@ -263,10 +250,8 @@ function monitorForSamlResponse() {
       const currentUrl = authFrame.contentWindow.location.href;
       if (currentUrl !== lastUrl) {
         lastUrl = currentUrl;
-        console.log('URL changed:', currentUrl);
         
         if (currentUrl.includes('SAMLResponse')) {
-          console.log('SAML response detected in URL');
           clearInterval(urlMonitor);
           extractSamlFromUrl(currentUrl);
         }
@@ -278,10 +263,8 @@ function monitorForSamlResponse() {
   
   // Method 2: Listen for postMessage
   window.addEventListener('message', function(event) {
-    console.log('Received message:', event.data);
     
     if (event.data && event.data.type === 'samlResponse') {
-      console.log('SAML response received via postMessage');
       clearInterval(urlMonitor);
       processSamlResponse(event.data.response);
     }
@@ -292,7 +275,6 @@ function monitorForSamlResponse() {
     try {
       const currentUrl = authFrame.contentWindow.location.href;
       if (currentUrl.includes('success') || currentUrl.includes('dashboard') || currentUrl.includes('app')) {
-        console.log('Possible successful authentication detected');
         updateStatus('Authentication may have succeeded - verifying...', 'loading');
       }
     } catch (error) {
@@ -307,10 +289,8 @@ function extractSamlFromUrl(url) {
     const samlResponse = urlObj.searchParams.get('SAMLResponse');
     
     if (samlResponse) {
-      console.log('SAML response found in URL parameters');
       processSamlResponse(samlResponse);
     } else {
-      console.log('No SAML response in URL parameters');
       updateStatus('Authentication completed but no SAML response found', 'error');
     }
   } catch (error) {
@@ -319,18 +299,12 @@ function extractSamlFromUrl(url) {
 }
 
 function processSamlResponse(samlResponse) {
-  console.log('Processing SAML response...');
-  console.log('SAML Response length:', samlResponse.length);
-  console.log('SAML Response preview:', samlResponse.substring(0, 100) + '...');
   
   updateStatus('SAML response captured, processing...', 'loading');
   
   try {
     // Try to decode base64 SAML response
     const decodedSaml = atob(samlResponse);
-    console.log('Successfully decoded SAML response');
-    console.log('Decoded length:', decodedSaml.length);
-    console.log('Decoded preview:', decodedSaml.substring(0, 200) + '...');
     
     // Send to background script
     chrome.runtime.sendMessage({
@@ -339,7 +313,6 @@ function processSamlResponse(samlResponse) {
     });
     
   } catch (error) {
-    console.log('Could not decode as base64, sending raw response:', error);
     
     // Send raw response if decoding fails
     chrome.runtime.sendMessage({
@@ -351,7 +324,6 @@ function processSamlResponse(samlResponse) {
 
 // Listen for auth result
 chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
-  console.log('Auth page received message:', message);
   
   if (message.action === 'authResult') {
     if (message.success) {
@@ -366,4 +338,3 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
   }
 });
 
-console.log('Auth script setup complete');
