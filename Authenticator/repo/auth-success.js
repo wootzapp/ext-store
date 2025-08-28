@@ -37,7 +37,6 @@ document.addEventListener('DOMContentLoaded', function() {
   // Check for SAML response passed from background
   chrome.storage.local.get(['pendingSamlResponse'], function(result) {
     if (result.pendingSamlResponse) {
-      console.log('Processing pending SAML response');
       
       // Send to browser
       chrome.runtime.sendMessage({

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "SAML Authenticator & Sensitive Content Detector",
-  "version": "1.0.0",
-  "description": "Handles Okta SAML authentication and detects sensitive content using AI",
+  "name": "SAML Authenticator & Zero-Trust Access",
+  "version": "1.1.0",
+  "description": "Handles Okta SAML authentication, detects sensitive content using AI, and provides zero-trust access to internal applications",
   "icons": {
     "16": "Okta.png",
     "32": "Okta.png",
@@ -12,12 +12,14 @@
   "permissions": [
     "activeTab",
     "storage",
-    "tabs"
+    "tabs",
+    "cookies"
   ],
   "host_permissions": [
     "https://integrator-2373294.okta.com/*",
     "https://*.okta.com/*",
-    "https://generativelanguage.googleapis.com/*"
+    "https://generativelanguage.googleapis.com/*",
+    "https://test.aashish.icu/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -53,6 +55,6 @@
       ],
       "run_at": "document_start",
       "all_frames": true
-    }
+        }
   ]
 }

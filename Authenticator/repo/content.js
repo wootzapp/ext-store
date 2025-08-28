@@ -83,6 +83,117 @@
     }
 
     // ======================
+    // CERTIFICATE AUTHENTICATION INTEGRATION
+    // ======================
+
+    // Check if current page is a certificate-protected resource (dynamic from SAML)
+    async function isCertificateProtectedPage() {
+      const currentUrl = window.location.href;
+      
+      // Check against dynamic domains from SAML
+      try {
+        const response = await chrome.runtime.sendMessage({
+          action: 'checkInternalDomain',
+          url: currentUrl
+        });
+        return response && response.isInternal;
+      } catch (e) {
+        // Fallback to hardcoded check if message fails
+        return currentUrl.includes('internal.aashish.icu') || 
+               currentUrl.includes('test.aashish.icu');
+      }
+    }
+
+    // Monitor for certificate authentication
+    function monitorCertificateAuth() {
+      if (!isCertificateProtectedPage()) return;
+
+      console.log('🔐 Monitoring for certificate authentication...');
+
+      // Check for authentication status
+      chrome.runtime.sendMessage({
+        action: 'checkCertificateAuth'
+      }, (response) => {
+        if (response && response.success) {
+          console.log('🔐 Certificate auth status:', response);
+        }
+      });
+    }
+
+    // Inject WootzApp headers for certificate-protected requests
+    function injectCertificateHeaders() {
+      if (!isCertificateProtectedPage()) return;
+
+      console.log('🔧 Injecting WootzApp headers for certificate-protected page...');
+
+      // Add headers to all fetch requests
+      const originalFetch = window.fetch;
+      window.fetch = function(url, options = {}) {
+        if (typeof url === 'string' && url.includes('aashish.icu')) {
+          options.headers = {
+            ...options.headers,
+            'X-WootzApp-Client': 'true',
+            'X-Request-Source': 'wootzapp-browser'
+          };
+        }
+        return originalFetch(url, options);
+      };
+
+      // Add headers to all XMLHttpRequest
+      const originalXHROpen = XMLHttpRequest.prototype.open;
+      XMLHttpRequest.prototype.open = function(method, url, ...args) {
+        if (typeof url === 'string' && url.includes('aashish.icu')) {
+          this.addEventListener('readystatechange', function() {
+            if (this.readyState === 1) { // OPENED
+              this.setRequestHeader('X-WootzApp-Client', 'true');
+              this.setRequestHeader('X-Request-Source', 'wootzapp-browser');
+            }
+          });
+        }
+        return originalXHROpen.call(this, method, url, ...args);
+      };
+    }
+
+    // Initialize certificate authentication integration
+    function initializeCertificateIntegration() {
+      if (isCertificateProtectedPage()) {
+        console.log('🔐 Initializing certificate authentication integration for protected page');
+        monitorCertificateAuth();
+        injectCertificateHeaders();
+        
+        // Check session status
+        chrome.runtime.sendMessage({
+          action: 'checkCertificateAuth'
+        }, (response) => {
+          if (response && response.success) {
+            if (response.isAuthenticated) {
+              console.log('✅ Valid certificate authentication found');
+            } else {
+              console.log('❌ No valid certificate authentication, may need authentication');
+            }
+          }
+        });
+      }
+    }
+
+    // Listen for certificate authentication messages
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      if (message.action === 'certificateSessionExpired') {
+        console.log('❌ Certificate session expired, redirecting to login...');
+        // Redirect to Okta login
+        window.location.href = 'https://integrator-2373294.okta.com';
+      }
+      
+      if (message.action === 'certificateAuthenticationSuccess') {
+        console.log('✅ Certificate authentication established');
+        // Optionally refresh the page or show success message
+      }
+    });
+
+    // Initialize on page load
+    initializeCertificateIntegration();
+
+    // ======================
     // CONTENT ANALYSIS FUNCTIONALITY (NEW)
     // ======================
 
@@ -264,7 +375,17 @@
       });
     });
 
-    observer.observe(document.body, { childList: true, subtree: true });
+    // Only observe if document.body exists
+    if (document.body) {
+      observer.observe(document.body, { childList: true, subtree: true });
+    } else {
+      // Wait for body to be available
+      document.addEventListener('DOMContentLoaded', () => {
+        if (document.body) {
+          observer.observe(document.body, { childList: true, subtree: true });
+        }
+      });
+    }
 
     // Listen for navigation events (for SPAs)
     window.addEventListener("popstate", handleNavigation);

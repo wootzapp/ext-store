@@ -4,6 +4,34 @@ document.addEventListener("DOMContentLoaded", function () {
   const progressBar = document.getElementById("progressBar");
   const progressFill = document.getElementById("progressFill");
 
+  // Certificate authentication status tracking
+  let certificateStatus = {
+    hasCertificate: false,
+    isAuthenticated: false,
+    sessionInfo: null
+  };
+
+  function updateCertificateStatus() {
+    chrome.runtime.sendMessage({
+      action: 'checkCertificateAuth'
+    }, (response) => {
+      if (response && response.success) {
+        certificateStatus = {
+          hasCertificate: response.hasCertificate,
+          isAuthenticated: response.isAuthenticated,
+          sessionInfo: response.sessionInfo
+        };
+        updateCertificateUI();
+      }
+    });
+  }
+
+  function updateCertificateUI() {
+    // Certificate status is now handled through the main status display
+    // No separate UI element needed since we're using Nginx authentication
+    console.log('Certificate status updated:', certificateStatus);
+  }
+
   const OKTA_URL =
     "https://integrator-2373294.okta.com/home/integrator-2373294_wootzapp_1/0oatpx2h4ye8vjezl697/alntpxch84VdDzIUW697";
 
@@ -141,6 +169,29 @@ document.addEventListener("DOMContentLoaded", function () {
 
       // Clear the result
       chrome.storage.local.remove(["authResult"]);
+    }
+  });
+
+  // Initialize certificate authentication status
+  updateCertificateStatus();
+
+  // Listen for certificate authentication messages
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === 'certificateAuthenticationSuccess') {
+      console.log('✅ Certificate authentication established');
+      updateCertificateStatus();
+      updateStatus('Certificate authentication activated!', 'success');
+    }
+    
+    if (message.action === 'certificateSessionExpired') {
+      console.log('❌ Certificate session expired');
+      updateCertificateStatus();
+      updateStatus('Session expired, re-authentication required', 'error');
+    }
+    
+    if (message.action === 'certificateStorageFailed') {
+      console.log('❌ Certificate storage failed');
+      updateStatus(`Certificate setup failed: ${message.error}`, 'error');
     }
   });
 
