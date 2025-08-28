@@ -1,23 +1,117 @@
 // src/components/Research.jsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import useChatStream from '@/hooks/useChatStream';
-
 import { renderMarkdown } from '@/lib/markdownUtils';
 import SettingsButton from '@/pages/popup/components/SettingsButton';
 
+/* ---------- Hook: stick to bottom with RAF + near-bottom detection ---------- */
+function useStickToBottom(scrollRef, { threshold = 96 } = {}) {
+  const pinnedRef = useRef(true);
+  const rafRef = useRef(0);
+
+  const measure = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+    pinnedRef.current = dist <= threshold;
+  }, [scrollRef, threshold]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    measure();
+    const onScroll = () => measure();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [measure, scrollRef]);
+
+  const bump = useCallback((smooth = false) => {
+    const el = scrollRef.current;
+    if (!el || !pinnedRef.current) return; // don't hijack if user scrolled up
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      if (smooth) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+      else el.scrollTop = el.scrollHeight; // instant keeps up with rapid typing
+    });
+  }, [scrollRef]);
+
+  return bump;
+}
+
+/* ------------------------- Typewriter Markdown ------------------------------ */
+function TypewriterMarkdown({
+  text,
+  isStreaming,
+  mode = 'word',   // 'word' | 'char'
+  intervalMs = 30,
+  onProgress,
+}) {
+  const [typed, setTyped] = useState('');
+  const targetRef = useRef(text);
+  const onProgressRef = useRef(onProgress);
+
+  useEffect(() => { targetRef.current = text; }, [text]);
+  useEffect(() => { onProgressRef.current = onProgress; }, [onProgress]);
+
+  const lastLenRef = useRef(0);
+  useEffect(() => {
+    if (text.length < lastLenRef.current) setTyped(''); // new response
+    lastLenRef.current = text.length;
+  }, [text.length]);
+
+  const nextIndex = useCallback((src, from) => {
+    if (from >= src.length) return src.length;
+    if (mode === 'char') return from + 1;
+    const re = /(\s+|[^\s]+)/g; re.lastIndex = from;
+    const m = re.exec(src);
+    return m ? re.lastIndex : src.length;
+  }, [mode]);
+
+  const patchUnclosedFences = useCallback((s) => {
+    const count = (s.match(/```/g) || []).length;
+    return count % 2 === 1 ? s + '\n```' : s;
+  }, []);
+
+  useEffect(() => {
+    if (!targetRef.current) { setTyped(''); return; }
+    const id = setInterval(() => {
+      const src = targetRef.current || '';
+      setTyped((curr) => {
+        if (curr.length >= src.length) return curr;
+        const next = nextIndex(src, curr.length);
+        const out = src.slice(0, next);
+        onProgressRef.current?.(); // request scroll (instant)
+        return out;
+      });
+    }, Math.max(8, intervalMs));
+    return () => clearInterval(id);
+  }, [intervalMs, nextIndex]);
+
+  const visible = patchUnclosedFences(typed);
+  const compiled = renderMarkdown(visible);
+  const isString = typeof compiled === 'string';
+
+  return (
+    <div className="prose max-w-none prose-sm sm:prose-base prose-pre:rounded-lg prose-pre:shadow-sm">
+      {isString ? <div dangerouslySetInnerHTML={{ __html: compiled }} /> : compiled}
+      {(isStreaming || typed.length < (targetRef.current?.length || 0)) && (
+        <span aria-hidden className="inline-block align-baseline w-[1px] h-4 ml-0.5 bg-gray-700 animate-pulse" />
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------- Component -------------------------------- */
 const Research = React.memo(function Research({
   onSettingsClick,
   onAnalysePage,
   onFactChecker,
-
-  // initial state (optional)
   researchDepth = 'comprehensive',
   inputMessage = '',
   inputRef: externalInputRef,
 }) {
-  // ---------- local state ----------
   const [topic, setTopic] = useState(inputMessage);
   const [depth, setDepth] = useState(researchDepth);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -27,10 +121,23 @@ const Research = React.memo(function Research({
   const localInputRef = useRef(null);
   const inputRef = externalInputRef || localInputRef;
 
-  // streaming hook
   const { isStreaming, preview, full, error, start, stop } = useChatStream();
 
-  // ---------- dropdown outside click ----------
+  // Scroll management
+  const scrollRef = useRef(null);
+  const bumpScroll = useStickToBottom(scrollRef, { threshold: 96 });
+
+  // smooth snap at start/end only (not every tick)
+  useEffect(() => {
+    // on stream start or finish, do a single smooth snap
+    bumpScroll(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isStreaming]);
+
+  // also nudge on new chunks from the stream (instant)
+  useEffect(() => { bumpScroll(false); }, [preview, full, bumpScroll]);
+
+  // outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -45,62 +152,37 @@ const Research = React.memo(function Research({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // ---------- depth options ----------
   const depthOptions = [
     { value: 'quick', label: 'Quick Research', description: 'Fast overview with key points' },
     { value: 'comprehensive', label: 'Comprehensive', description: 'Detailed analysis with multiple sources' },
     { value: 'expert', label: 'Expert Level', description: 'In-depth research with academic rigor' },
   ];
   const currentOption = depthOptions.find(o => o.value === depth) || depthOptions[1];
+  const handleDepthSelect = (v) => { setDepth(v); setIsDropdownOpen(false); };
 
-  const handleDepthSelect = (value) => {
-    setDepth(value);
-    setIsDropdownOpen(false);
-  };
-
-  // ---------- actions ----------
   const runResearch = async () => {
     if (!topic.trim() || isStreaming) return;
-    await start({
-      kind: 'research',
-      payload: { topic: topic.trim(), depth },
-    });
+    await start({ kind: 'research', payload: { topic: topic.trim(), depth } });
   };
-
   const handleSubmit = async (e) => {
-    e?.preventDefault();
-    e?.stopPropagation();
-    if (isStreaming) {
-      await stop();
-    } else {
-      await runResearch();
-    }
+    e?.preventDefault(); e?.stopPropagation();
+    if (isStreaming) await stop(); else await runResearch();
   };
 
-  // ---------- UI ----------
   return (
-    <motion.div
-      className="w-full h-full flex flex-col relative overflow-hidden"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-    >
+    <motion.div className="w-full h-full flex flex-col relative overflow-hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       {/* Background */}
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-radial from-red-500/10 via-orange-500/5 to-transparent"></div>
         <div className="absolute inset-0 bg-gradient-to-b from-white via-gray-50/80 to-white"></div>
       </div>
 
-      {/* Header (Title left; Settings + Depth dropdown grouped on right) */}
+      {/* Header */}
       <div className="bg-white/90 backdrop-blur-sm text-gray-800 p-4 shadow-sm relative z-10 border-b border-gray-200">
         <div className="flex items-center justify-between gap-3">
-          {/* Title on the left (single line) */}
           <h2 className="text-lg font-bold text-gray-800 whitespace-nowrap">AI Researcher</h2>
-
-          {/* Right-side group: Settings (left) + Depth dropdown (right) */}
           <div className="flex items-center gap-3">
             <SettingsButton onSettingsClick={onSettingsClick} />
-
-            {/* Depth selector */}
             <div className="relative" ref={dropdownRef}>
               <button
                 type="button"
@@ -110,44 +192,23 @@ const Research = React.memo(function Research({
                 title="Research Depth"
               >
                 <span className="font-medium">{currentOption.label}</span>
-                <motion.svg
-                  className="w-4 h-4 ml-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                  animate={{ rotate: isDropdownOpen ? 180 : 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                <motion.svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                  animate={{ rotate: isDropdownOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                 </motion.svg>
               </button>
 
               {isDropdownOpen && createPortal(
                 <AnimatePresence>
                   <motion.ul
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
+                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
                     className="fixed bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-y-auto backdrop-blur-sm"
-                    style={{
-                      pointerEvents: 'auto',
-                      width: 'max-content',
-                      minWidth: '200px',
-                      maxWidth: '300px',
-                      top: '80px',
-                      right: '20px',
-                      zIndex: 999999
-                    }}
+                    style={{ pointerEvents: 'auto', width: 'max-content', minWidth: '200px', maxWidth: '300px', top: '80px', right: '20px', zIndex: 999999 }}
                   >
                     {depthOptions.map((option) => (
-                      <li
-                        key={option.value}
-                        data-dropdown-option="true"
+                      <li key={option.value} data-dropdown-option="true"
                         className={`px-4 py-3 cursor-pointer transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl ${
-                          option.value === currentOption.value
-                            ? 'bg-red-50 text-red-700 border-l-4 border-red-500'
-                            : 'hover:bg-gray-50 text-gray-700'
+                          option.value === currentOption.value ? 'bg-red-50 text-red-700 border-l-4 border-red-500' : 'hover:bg-gray-50 text-gray-700'
                         }`}
                         onClick={() => handleDepthSelect(option.value)}
                       >
@@ -172,7 +233,7 @@ const Research = React.memo(function Research({
       </div>
 
       {/* Body */}
-      <div className="flex-1 p-4 overflow-y-auto relative z-10">
+      <div ref={scrollRef} className="flex-1 p-4 overflow-y-auto relative z-10">
         {!preview && !full && !isStreaming && !error && (
           <div className="text-center text-gray-500 mt-8">
             <div className="w-24 h-24 mx-auto mb-6 shadow-lg rounded-full overflow-hidden bg-white p-2">
@@ -186,14 +247,11 @@ const Research = React.memo(function Research({
         {isStreaming && (
           <div className="flex flex-col items-center justify-center py-8">
             <div className="w-8 h-8 border-2 border-gray-200 border-t-red-500 rounded-full animate-spin mb-4 opacity-60"></div>
-
-            {/* Topic shown with loader (not in header) */}
             {topic && (
               <div className="bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl px-4 py-2 mb-3 max-w-sm">
                 <p className="text-gray-800 text-sm font-semibold">{topic}</p>
               </div>
             )}
-
             <p className="text-gray-500 text-xs">Streaming response…</p>
           </div>
         )}
@@ -209,9 +267,13 @@ const Research = React.memo(function Research({
         )}
 
         {(preview || full) && (
-          <div className="prose max-w-none prose-sm sm:prose-base">
-            {renderMarkdown(full || preview)}
-          </div>
+          <TypewriterMarkdown
+            text={full || preview}
+            isStreaming={isStreaming}
+            mode="word"
+            intervalMs={28}
+            onProgress={() => bumpScroll(false)} // instant during typing
+          />
         )}
       </div>
 
@@ -224,9 +286,7 @@ const Research = React.memo(function Research({
               type="text"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) handleSubmit(e);
-              }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) handleSubmit(e); }}
               placeholder="Enter research topic..."
               className="flex-1 bg-white text-gray-700 border border-gray-300 rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 placeholder-gray-400 shadow-sm"
               autoComplete="off"
@@ -247,20 +307,14 @@ const Research = React.memo(function Research({
               {isToolsDropdownOpen && (
                 <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 min-w-40 bg-white/95 backdrop-blur-lg rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
                   <div
-                    onClick={() => {
-                      setIsToolsDropdownOpen(false);
-                      onAnalysePage?.();
-                    }}
+                    onClick={() => { setIsToolsDropdownOpen(false); onAnalysePage?.(); }}
                     className="flex items-center px-3 py-2 text-gray-800 cursor-pointer transition-all duration-200 hover:bg-red-50"
                   >
                     <span className="mr-2 text-sm">📊</span>
                     <span className="text-xs font-medium">Analyse Page</span>
                   </div>
                   <div
-                    onClick={() => {
-                      setIsToolsDropdownOpen(false);
-                      onFactChecker?.();
-                    }}
+                    onClick={() => { setIsToolsDropdownOpen(false); onFactChecker?.(); }}
                     className="flex items-center px-3 py-2 text-gray-800 cursor-pointer transition-all duration-200 hover:bg-red-50"
                   >
                     <span className="mr-2 text-sm">✅</span>
@@ -272,21 +326,16 @@ const Research = React.memo(function Research({
 
             <button
               type="submit"
-              className={`flex-shrink-0 ${
-                isStreaming
-                  ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800'
-                  : 'bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600'
+              className={`flex-shrink-0 ${isStreaming
+                ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800'
+                : 'bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600'
               } text-white px-3 py-3 rounded-xl transition-all duration-300 shadow-lg`}
               title={isStreaming ? 'Stop' : 'Start'}
             >
               {isStreaming ? (
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M6 6h12v12H6z"/>
-                </svg>
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
               ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
-                </svg>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
               )}
             </button>
           </div>

@@ -1,42 +1,121 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import { truncateUrl } from '@/lib/urlUtils';
 import useChatStream from '@/hooks/useChatStream';
 import { renderMarkdown } from '@/lib/markdownUtils';
 import SettingsButton from '@/pages/popup/components/SettingsButton';
 
-const FactCheck = ({
-  currentPageUrl,
-  onBack,
-  onClearHistory,
-  onSettingsClick,
-}) => {
+/* stick-to-bottom (RAF + near-bottom detection) */
+function useStickToBottom(scrollRef, { threshold = 96 } = {}) {
+  const pinnedRef = useRef(true);
+  const rafRef = useRef(0);
+
+  const measure = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+    pinnedRef.current = dist <= threshold;
+  }, [scrollRef, threshold]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    measure();
+    const onScroll = () => measure();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [measure, scrollRef]);
+
+  const bump = useCallback((smooth = false) => {
+    const el = scrollRef.current;
+    if (!el || !pinnedRef.current) return;
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      if (smooth) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+      else el.scrollTop = el.scrollHeight;
+    });
+  }, [scrollRef]);
+
+  return bump;
+}
+
+/** TypewriterMarkdown (same as Analysis) */
+function TypewriterMarkdown({ text, isStreaming, intervalMs = 28, mode = 'word', onProgress }) {
+  const [typed, setTyped] = useState('');
+  const targetRef = useRef(text);
+  const lastLenRef = useRef(0);
+  const onProgressRef = useRef(onProgress);
+
+  useEffect(() => { targetRef.current = text; }, [text]);
+  useEffect(() => { onProgressRef.current = onProgress; }, [onProgress]);
+  useEffect(() => {
+    if (text.length < lastLenRef.current) setTyped('');
+    lastLenRef.current = text.length;
+  }, [text.length]);
+
+  const nextIndex = useCallback((src, from) => {
+    if (from >= src.length) return src.length;
+    if (mode === 'char') return from + 1;
+    const re = /(\s+|[^\s]+)/g; re.lastIndex = from;
+    const m = re.exec(src);
+    return m ? re.lastIndex : src.length;
+  }, [mode]);
+
+  const patchUnclosedFences = useCallback((s) => {
+    const cnt = (s.match(/```/g) || []).length;
+    return cnt % 2 === 1 ? s + '\n```' : s;
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const src = targetRef.current || '';
+      setTyped(curr => {
+        if (curr.length >= src.length) return curr;
+        const next = nextIndex(src, curr.length);
+        const out = src.slice(0, next);
+        onProgressRef.current?.(); // instant nudge
+        return out;
+      });
+    }, Math.max(8, intervalMs));
+    return () => clearInterval(id);
+  }, [intervalMs, nextIndex]);
+
+  const visible = patchUnclosedFences(typed);
+  const compiled = renderMarkdown(visible);
+  const isString = typeof compiled === 'string';
+
+  return (
+    <div className="prose max-w-none prose-sm sm:prose-base prose-pre:rounded-lg prose-pre:shadow-sm">
+      {isString ? <div dangerouslySetInnerHTML={{ __html: compiled }} /> : compiled}
+      {(isStreaming || typed.length < (targetRef.current?.length || 0)) && (
+        <span aria-hidden className="inline-block align-baseline w-[1px] h-4 ml-0.5 bg-gray-700 animate-pulse" />
+      )}
+    </div>
+  );
+}
+
+const FactCheck = ({ currentPageUrl, onBack, onClearHistory, onSettingsClick }) => {
   const { isStreaming, preview, full, error, start, stop, reset } = useChatStream();
 
   // Start fact-check stream when URL changes
   useEffect(() => {
     if (!currentPageUrl) return;
     (async () => {
-      await start({
-        kind: 'factCheck',
-        payload: { url: currentPageUrl },
-      });
+      await start({ kind: 'factCheck', payload: { url: currentPageUrl } });
     })();
-    return () => {
-      try { stop(); } catch {}
-      reset();
-    };
+    return () => { try { stop(); } catch {} reset(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPageUrl]);
 
-  // Clear handler
-  const handleClear = () => {
-    try { stop(); } catch {}
-    reset();
-    onClearHistory?.();
-  };
+  const handleClear = () => { try { stop(); } catch {} reset(); onClearHistory?.(); };
 
   const pageText = full || preview || '';
+
+  // better auto-scroll
+  const scrollRef = useRef(null);
+  const bumpScroll = useStickToBottom(scrollRef, { threshold: 96 });
+  useEffect(() => { bumpScroll(true); }, [isStreaming, bumpScroll]); // smooth on start/end
+  useEffect(() => { bumpScroll(false); }, [pageText, bumpScroll]);   // instant while typing
 
   return (
     <motion.div
@@ -55,10 +134,7 @@ const FactCheck = ({
       {/* Header */}
       <div className="bg-white/90 backdrop-blur-sm text-gray-800 p-4 shadow-sm relative z-10 border-b border-gray-200">
         <div className="flex items-center justify-between gap-3">
-          <button
-            onClick={onBack}
-            className="flex items-center space-x-2 text-gray-600 hover:text-red-500 transition-colors"
-          >
+          <button onClick={onBack} className="flex items-center space-x-2 text-gray-600 hover:text-red-500 transition-colors">
             <span className="text-sm font-medium">Back</span>
           </button>
 
@@ -79,7 +155,7 @@ const FactCheck = ({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 relative z-10">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 relative z-10">
         {/* URL panel */}
         <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-2xl p-4 shadow-lg">
           <p className="text-gray-600 text-xs font-medium mb-1">Fact-checking:</p>
@@ -103,11 +179,16 @@ const FactCheck = ({
           </div>
         )}
 
+        {/* Plain summary (no rectangle) */}
         {!!pageText && (
-          <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-2xl p-6 shadow-lg">
-            <div className="prose max-w-none prose-sm sm:prose-base">
-              {renderMarkdown(pageText)}
-            </div>
+          <div className="mt-2">
+            <TypewriterMarkdown
+              text={pageText}
+              isStreaming={isStreaming}
+              intervalMs={28}
+              mode="word"
+              onProgress={() => bumpScroll(false)}
+            />
           </div>
         )}
       </div>
