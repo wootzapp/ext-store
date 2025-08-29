@@ -17,6 +17,8 @@ const TaskStatus = ({ status }) => {
         return "#e0245e";
       case "failed":
         return "#e0245e";
+      case "cancelled":
+        return "#657786";
       default:
         return "#657786";
     }
@@ -36,42 +38,68 @@ const TaskStatus = ({ status }) => {
         return "❌";
       case "failed":
         return "⚠️";
+      case "cancelled":
+        return "🛑";
       default:
         return "⏳";
+    }
+  };
+
+  const getStatusMessage = (statusType) => {
+    switch (statusType) {
+      case "planning":
+        return "Analyzing your request...";
+      case "executing":
+        return "Your task is being executed by AI agent";
+      case "validating":
+        return "Verifying task completion...";
+      case "completed":
+        return "Task completed successfully!";
+      case "error":
+        return "An error occurred during execution";
+      case "failed":
+        return "Task execution failed";
+      case "cancelled":
+        return "Task was cancelled";
+      default:
+        return "Processing your request...";
     }
   };
 
   return (
     <div
       style={{
-        padding: "6px 12px",
-        backgroundColor: "#f7f9fa",
+        padding: "8px 16px",
+        backgroundColor: "#f8f9fa",
         borderBottom: "1px solid #e1e8ed",
         display: "flex",
         alignItems: "center",
-        gap: "6px",
+        gap: "8px",
         flexShrink: 0,
+        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
       }}
     >
       <div
         style={{
-          width: "16px",
-          height: "16px",
+          width: "20px",
+          height: "20px",
           borderRadius: "50%",
           backgroundColor: getStatusColor(status.status),
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontSize: "10px",
+          fontSize: "12px",
           flexShrink: 0,
+          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+          animation: status.status === "executing" ? "taskStatusPulse 2s infinite" : "none",
         }}
       >
         {status.status === "executing" ? (
           <div
             className="loader"
             style={{
-              width: "12px",
-              height: "12px",
+              width: "14px",
+              height: "14px",
               aspectRatio: "1",
               display: "grid",
               color: "#ffffff",
@@ -111,7 +139,7 @@ const TaskStatus = ({ status }) => {
             />
           </div>
         ) : (
-          <span style={{ fontSize: "8px" }}>
+          <span style={{ fontSize: "10px" }}>
             {getStatusIcon(status.status)}
           </span>
         )}
@@ -120,31 +148,31 @@ const TaskStatus = ({ status }) => {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
-            fontSize: "12px",
+            fontSize: "13px",
             fontWeight: "600",
             color: "#14171a",
-            lineHeight: "14px",
+            lineHeight: "16px",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
           }}
         >
-          {status.message || `Status: ${status.status}`}
+          {getStatusMessage(status.status)}
         </div>
 
-        {status.task && status.task.steps && (
+        {/* {status.status === "executing" && (
           <div
             style={{
-              fontSize: "10px",
+              fontSize: "11px",
               color: "#657786",
-              marginTop: "1px",
-              lineHeight: "12px",
+              marginTop: "2px",
+              lineHeight: "13px",
+              fontStyle: "italic",
             }}
           >
-            Progress: {status.task.steps.length}/
-            {status.task.plan?.actions?.length || 0} steps
+            Please wait while the AI processes your request...
           </div>
-        )}
+        )} */}
       </div>
     </div>
   );

@@ -15,9 +15,10 @@ import {
   FaHistory,
   // FaCog
 } from 'react-icons/fa';
-// import RequestCounter from './RequestCounter';
+import RequestCounter from './RequestCounter';
 import SubscriptionChoice from './SubscriptionChoice';
 import { useNavigate } from 'react-router-dom';
+import apiService from '../services/api';
 
 const ChatInterface = ({ user, subscription, onLogout }) => {
   const navigate = useNavigate();
@@ -39,6 +40,8 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
 
   // Add state for subscription choice modal
   const [showSubscriptionChoice, setShowSubscriptionChoice] = useState(false);
+  // Add state to track if popup has been shown for current session
+  const [hasShownPopupThisSession, setHasShownPopupThisSession] = useState(false);
 
   // Add state for message input
   const [messageInput, setMessageInput] = useState('');
@@ -46,16 +49,69 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
   // Add state for typing indicator
   const [isTyping, setIsTyping] = useState(false);
 
-  // Refresh subscription data when component mounts
+  // Simple refresh function for request counter - use ref to avoid re-render issues
+  const requestCounterRefreshRef = useRef(null);
+  
+  // Debug: Log when refresh function is set
   useEffect(() => {
-    if (subscription?.loadSubscriptionData) {
-      subscription.loadSubscriptionData();
+    console.log("ChatInterface: requestCounterRefresh function set:", !!requestCounterRefreshRef.current);
+  }, []);
+
+  // Refresh on mount - simple approach
+  useEffect(() => {
+    if (requestCounterRefreshRef.current && typeof requestCounterRefreshRef.current === 'function') {
+      // Add a small delay to ensure component is fully mounted
+      setTimeout(() => {
+        if (requestCounterRefreshRef.current && typeof requestCounterRefreshRef.current === 'function') {
+          requestCounterRefreshRef.current();
+        }
+      }, 100);
     }
-  }, [subscription]);
+  }, []);
+
+  // Check if subscription choice should be shown on mount - only after subscription data is loaded
+  useEffect(() => {
+    if (subscription && !subscription.loading && !hasShownPopupThisSession) {
+      // Only check subscription popup if we haven't shown it this session
+      checkAndShowSubscriptionPopup();
+    }
+  }, [subscription?.loading, subscription?.usingPersonalAPI, hasShownPopupThisSession]);
 
   // Add function to handle template clicks
   const handleTemplateClick = (templateCommand) => {
     setMessageInput(templateCommand);
+  };
+
+  // Function to check if subscription popup should be shown
+  const checkAndShowSubscriptionPopup = async (isUserAction = false) => {
+    try {
+      // Only check if this is a user action (sending message) or if popup hasn't been shown this session
+      if (!isUserAction && hasShownPopupThisSession) {
+        return;
+      }
+
+      // Don't check if subscription is still loading
+      if (subscription?.loading) {
+        return;
+      }
+
+      // Don't check if using personal API
+      if (subscription?.usingPersonalAPI) {
+        return;
+      }
+
+      // Get fresh quota data directly from API
+      const quotaResponse = await apiService.getActiveOrganizationQuota();
+      if (quotaResponse && quotaResponse.quotas) {
+        const chatQuota = quotaResponse.quotas.find(q => q.featureKey === 'chat');
+        if (chatQuota && chatQuota.remaining <= 0) {
+          setShowSubscriptionChoice(true);
+          setHasShownPopupThisSession(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking subscription status:', error);
+    }
   };
 
   // Helper function to detect markdown content
@@ -244,29 +300,25 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
               });
               break;
 
-            case 'plan_display':
+            case 'observation_strategy':
               setIsExecuting(true);
               setIsTyping(true);
               setTaskStatus({ 
                 status: 'executing', 
-                message: 'Displaying execution plan...' 
+                message: 'Analyzing current situation...' 
               });
               
-              // Create a more detailed plan display message
-              let planContent = `📋 **Execution Plan (Step ${message.step || 'N/A'})**\n\n`;
-              if (message.strategy) {
-                planContent += `**Strategy:** ${message.strategy}\n\n`;
+              let obsStratContent = '🔍 **Current Analysis:**\n\n';
+              if (message.observation) {
+                obsStratContent += `**Observation:** ${message.observation}\n\n`;
               }
-              if (message.plannedActions && message.plannedActions.length > 0) {
-                planContent += `**Planned Actions:**\n`;
-                message.plannedActions.forEach((action, index) => {
-                  planContent += `${index + 1}. **${action.type}** - ${action.intent}\n`;
-                });
+              if (message.strategy) {
+                obsStratContent += `**Strategy:** ${message.strategy}`;
               }
               
               addMessage({
                 type: 'system',
-                content: planContent,
+                content: obsStratContent,
                 timestamp: Date.now(),
                 isMarkdown: true
               });
@@ -286,6 +338,27 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
                 isMarkdown: message.result.isMarkdown || hasMarkdownContent(responseContent), // Use flag from backend first
                 actions: message.result.actions
               });
+
+              // Simple refresh after API response
+              console.log("ChatInterface: task_complete received, requestCounterRefresh exists:", !!requestCounterRefreshRef.current);
+              if (requestCounterRefreshRef.current && typeof requestCounterRefreshRef.current === 'function') {
+                // Add small delay to ensure API response is fully processed
+                setTimeout(() => {
+                  if (requestCounterRefreshRef.current && typeof requestCounterRefreshRef.current === 'function') {
+                    console.log("ChatInterface: Refreshing after task_complete");
+                    requestCounterRefreshRef.current();
+                  } else {
+                    console.log("ChatInterface: requestCounterRefresh not available after delay");
+                  }
+                }, 200);
+              } else {
+                console.log("ChatInterface: requestCounterRefresh not available for task_complete");
+              }
+              
+              // Check if subscription popup should be shown after task completion
+              setTimeout(() => {
+                checkAndShowSubscriptionPopup();
+              }, 500);
               break;
               
             case 'task_error':
@@ -294,28 +367,76 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
               setTaskStatus({ status: 'error', message: message.error });
               addMessage({
                 type: 'error',
-                content: `❌ Error: ${message.error}`,
-                timestamp: Date.now()
+                content: `❌ **Task Error**\n\n${message.error}`,
+                timestamp: Date.now(),
+                isMarkdown: true
               });
+              
+              // Simple refresh after API response (even if it failed)
+              if (requestCounterRefreshRef.current && typeof requestCounterRefreshRef.current === 'function') {
+                // Add small delay to ensure API response is fully processed
+                setTimeout(() => {
+                  if (requestCounterRefreshRef.current && typeof requestCounterRefreshRef.current === 'function') {
+                    console.log("ChatInterface: Refreshing after task_error");
+                    requestCounterRefreshRef.current();
+                  }
+                }, 200);
+              }
+              // Check if subscription popup should be shown after task error
+              setTimeout(() => {
+                checkAndShowSubscriptionPopup();
+              }, 500);
               break;
 
             case 'task_cancelled':
               setIsExecuting(false);
               setIsTyping(false); // Hide typing indicator
               setTaskStatus({ status: 'cancelled', message: 'Task cancelled' });
+              
+              // Show cancellation message with progress
+              let cancelContent = '🛑 **Task Cancelled**\n\n';
+              if (message.progress) {
+                cancelContent += `**Progress Made:** ${message.progress}\n\n`;
+              }
+              cancelContent += 'The task has been cancelled as requested. You can start a new task anytime.';
+              
               addMessage({
                 type: 'system',
                 content: '🛑 Task cancelled by user',
                 timestamp: Date.now()
               });
+
+              addMessage({
+                type: 'assistant',
+                content: cancelContent,
+                timestamp: Date.now(),
+                isMarkdown: true
+              });
+              
+              // Simple refresh after API response
+              if (requestCounterRefreshRef.current && typeof requestCounterRefreshRef.current === 'function') {
+                // Add small delay to ensure API response is fully processed
+                setTimeout(() => {
+                  if (requestCounterRefreshRef.current && typeof requestCounterRefreshRef.current === 'function') {
+                    console.log("ChatInterface: Refreshing after task_cancelled");
+                    requestCounterRefreshRef.current();
+                  }
+                }, 200);
+              }
+              
+              // Check if subscription popup should be shown after task cancellation
+              setTimeout(() => {
+                checkAndShowSubscriptionPopup();
+              }, 500);
               break;
 
             case 'error':
               setIsTyping(false); // Hide typing indicator
               addMessage({
                 type: 'error',
-                content: `❌ ${message.error}`,
-                timestamp: Date.now()
+                content: `❌ **Error**\n\n${message.error}`,
+                timestamp: Date.now(),
+                isMarkdown: true
               });
               break;
               
@@ -401,15 +522,11 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
 
   const handleSendMessage = async (message) => {
 
-    // Check subscription status and trial expiration
-    const shouldShowSubscription = subscription && 
-                                  !subscription.usingPersonalAPI && 
-                                  !subscription.hasPersonalKeys && 
-                                  subscription.isTrialExpired() && 
-                                  subscription.remaining_requests <= 0;
-
-    if (shouldShowSubscription) {
-      setShowSubscriptionChoice(true);
+    // Check if subscription popup should be shown before sending message
+    await checkAndShowSubscriptionPopup(true);
+    
+    // If popup is shown, don't send the message
+    if (showSubscriptionChoice) {
       return; 
     }
 
@@ -564,11 +681,11 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
             margin: 0, 
             color: '#FFDCDCFF', 
             fontSize: '15px', 
-            fontWeight: '750',
+            fontWeight: '600',
             lineHeight: '20px', 
             textAlign: 'left'
           }}>
-            SOCIAL SHOPPING AGENT
+            Social Shopping Agent
           </h3>
           <div className="chat-status" style={{ 
             fontSize: '12px', 
@@ -582,12 +699,13 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
             {getConnectionIcon()}
             <span>{getConnectionStatusText()}</span>
             {/* {isExecuting && <span>• Working...</span>} */}
-            {/* {!subscription?.usingPersonalAPI && (
+            {!subscription?.usingPersonalAPI && (
               <RequestCounter 
                 subscriptionState={subscription} 
                 onUpgradeClick={() => setShowSubscriptionChoice(true)}
+                onRefresh={(func) => { requestCounterRefreshRef.current = func; }}
               />
-            )} */}
+            )}
           </div>
         </div>
         <div className="chat-header-buttons" style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
@@ -694,13 +812,18 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
         <SubscriptionChoice 
           onSubscribe={() => {
             setShowSubscriptionChoice(false);
+            setHasShownPopupThisSession(false); // Reset session state
             navigate('/subscription');
           }}
           onUseAPI={() => {
             setShowSubscriptionChoice(false);
+            setHasShownPopupThisSession(false); // Reset session state
             navigate('/settings');
           }}
-          onClose={() => setShowSubscriptionChoice(false)}
+          onClose={() => {
+            setShowSubscriptionChoice(false);
+            setHasShownPopupThisSession(false); // Reset session state
+          }}
           onRefreshSubscription={() => subscription.loadSubscriptionData()}
           user={user}
         />

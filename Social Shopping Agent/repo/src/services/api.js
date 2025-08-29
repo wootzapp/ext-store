@@ -315,7 +315,9 @@ class APIService {
 
   // User Management APIs
   async getCurrentUser() {
-    const response = await this.makeRequest('/user/');
+    console.log("API getCurrentUser - making request to /user/");
+    const response = await this.makeRequest(`/user/?_t=${Date.now()}`);
+    console.log("API getCurrentUser - response:", response);
     return response; // Return the full response with both user and organizations
   }
 
@@ -329,6 +331,72 @@ class APIService {
       method: 'POST',
       body: JSON.stringify(organizationData)
     });
+  }
+
+  // Pricing APIs
+  async getProductsByCurrency(currency) {
+    return await this.makeRequest('/pricing/currency', {
+      method: 'POST',
+      body: JSON.stringify({ currency })
+    });
+  }
+
+  // Payment APIs
+  async createCheckoutSession(priceId, organizationId) {
+    return await this.makeRequest('/payments/checkout', {
+      method: 'POST',
+      body: JSON.stringify({ priceId, organizationId })
+    });
+  }
+
+  // Quota APIs
+  async getUserQuota(orgId = null) {
+    const endpoint = orgId ? `/user/quota?orgId=${orgId}&_t=${Date.now()}` : `/user/quota?_t=${Date.now()}`;
+    console.log("API getUserQuota - making request to endpoint:", endpoint);
+    return await this.makeRequest(endpoint);
+  }
+
+  // Get quota for active organization specifically
+  async getActiveOrganizationQuota() {
+    try {
+      // First get user data to find the active organization
+      const userData = await this.getCurrentUser();
+      console.log("API getActiveOrganizationQuota - userData:", userData);
+      
+      const organizations = userData?.organizations || [];
+      console.log("API getActiveOrganizationQuota - organizations:", organizations);
+      
+      // Find the active organization - prioritize selectedOrganizationId from user data
+      let activeOrg = null;
+      const selectedOrgId = userData?.user?.selectedOrganizationId;
+      console.log("API getActiveOrganizationQuota - selectedOrgId from userData.user:", selectedOrgId);
+      
+      if (selectedOrgId) {
+        activeOrg = organizations.find(org => org.id === selectedOrgId);
+        console.log("API getActiveOrganizationQuota - found org by selectedOrganizationId:", activeOrg);
+      }
+      
+      // Fallback to isActive or first organization
+      if (!activeOrg) {
+        activeOrg = organizations.find(org => org.isActive) || organizations[0];
+        console.log("API getActiveOrganizationQuota - fallback activeOrg:", activeOrg);
+      }
+      
+      if (!activeOrg) {
+        throw new Error('No active organization found');
+      }
+      
+      console.log("API getActiveOrganizationQuota - using activeOrg.id:", activeOrg.id);
+      
+      // Get quota for the specific active organization
+      const quotaResponse = await this.getUserQuota(activeOrg.id);
+      console.log("API getActiveOrganizationQuota - quotaResponse:", quotaResponse);
+      
+      return quotaResponse;
+    } catch (error) {
+      console.error('Error getting active organization quota:', error);
+      throw error;
+    }
   }
 
   // Mobile Streaming APIs
@@ -399,7 +467,7 @@ class APIService {
       }
 
       // Use the user's selected organization or the first active one
-      const activeOrg = organizations.find(org => org.id === user.selectedOrganizationId) || 
+      const activeOrg = organizations.find(org => org.id === user?.selectedOrganizationId) || 
                        organizations.find(org => org.isActive) || 
                        organizations[0];
 

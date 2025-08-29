@@ -1,76 +1,128 @@
 /* global chrome */
-import React, { useState, useEffect } from "react";
-import { FaCrown, FaExclamationTriangle, FaCheckCircle } from "react-icons/fa";
+import React, { useState, useEffect, useRef } from "react";
+import { FaCrown, FaExclamationTriangle, FaCheckCircle, FaSync } from "react-icons/fa";
 import apiService from "../services/api";
 
-const RequestCounter = ({ subscriptionState, onUpgradeClick }) => {
+// Singleton to prevent multiple instances
+let requestCounterInstance = null;
+
+const RequestCounter = ({ subscriptionState, onUpgradeClick, onRefresh }) => {
   const [usageData, setUsageData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [lastRefreshTime, setLastRefreshTime] = useState(0);
+  const refreshTimeoutRef = useRef(null);
 
+  // Ensure only one instance
   useEffect(() => {
-    loadUsageData();
+    if (requestCounterInstance) {
+      console.log("RequestCounter: Multiple instances detected, cleaning up");
+      return () => {
+        if (refreshTimeoutRef.current) {
+          clearTimeout(refreshTimeoutRef.current);
+        }
+      };
+    }
+    requestCounterInstance = true;
+    
+    return () => {
+      requestCounterInstance = null;
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+    };
   }, []);
+
+  // Simple load function with debouncing
+  const loadUsageData = async (forceRefresh = false) => {
+    const now = Date.now();
+    
+    // Prevent multiple simultaneous calls unless forced
+    if (!forceRefresh && now - lastRefreshTime < 1000) {
+      console.log("RequestCounter: Skipping refresh, too soon");
+      return;
+    }
+
+    // Clear any pending timeout
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+    }
+
+    // Debounce the actual API call
+    refreshTimeoutRef.current = setTimeout(async () => {
+      try {
+        setLoading(true);
+        setError("");
+        setLastRefreshTime(Date.now());
+
+        console.log("RequestCounter - loading usage data (debounced)");
+        
+        // Clear any cached data to ensure fresh response
+        const quotaResponse = await apiService.getActiveOrganizationQuota();
+        
+        if (quotaResponse && quotaResponse.quotas) {
+          const chatQuota = quotaResponse.quotas.find(q => q.featureKey === 'chat');
+          
+          if (chatQuota) {
+            const usageDataObj = {
+              plan: quotaResponse.subscriptionStatus === 'active' ? 'Paid' : 'Free',
+              limit: chatQuota.limit,
+              used: chatQuota.currentUsage,
+              remaining: chatQuota.remaining,
+              usagePercentage: chatQuota.usagePercentage,
+              status: quotaResponse.subscriptionStatus,
+              isUnlimited: chatQuota.isUnlimited
+            };
+            
+            console.log("RequestCounter - setting new usage data:", usageDataObj);
+            setUsageData(usageDataObj);
+          } else {
+            setError("Chat quota not found");
+          }
+        } else {
+          setError("No quota data available");
+        }
+      } catch (error) {
+        console.error("Error loading usage data:", error);
+        setError("Failed to load usage information");
+      } finally {
+        setLoading(false);
+        refreshTimeoutRef.current = null;
+      }
+    }, forceRefresh ? 0 : 100); // No delay for forced refresh
+  };
+
+  // Load on mount
+  useEffect(() => {
+    loadUsageData(true); // Force initial load
+  }, []);
+
+  // Expose refresh function to parent
+  useEffect(() => {
+    console.log("RequestCounter: onRefresh prop changed:", !!onRefresh);
+    if (onRefresh) {
+      const refreshFunction = () => {
+        console.log("RequestCounter: Parent requested refresh");
+        loadUsageData(true); // Force refresh when parent calls
+      };
+      console.log("RequestCounter: Setting refresh function for parent");
+      onRefresh(refreshFunction);
+    }
+  }, [onRefresh]);
 
   // Hide request counter when using personal API key
   if (subscriptionState?.usingPersonalAPI) {
     return null;
   }
 
-  const loadUsageData = async () => {
-    try {
-      setLoading(true);
-
-      // Get user data to get organizations and usage info
-      const userData = await apiService.getCurrentUser();
-      const organizations = userData.organizations || [];
-      
-      // Find the user's selected organization or first active one
-      const activeOrg = organizations.find(org => org.id === userData.selectedOrganizationId) || 
-                       organizations.find(org => org.isActive) || 
-                       organizations[0];
-
-      if (activeOrg) {
-        // For now, we'll use a default quota based on subscription type
-        // In a real implementation, you'd get this from the API
-        const quotas = {
-          Free: { limit: 100, used: 0 },
-          Paid: { limit: 1000, used: 0 },
-          Trial: { limit: 1000, used: 0 },
-        };
-
-        const quota = quotas[activeOrg.subscriptionType] || quotas["Free"];
-        setUsageData({
-          plan: activeOrg.subscriptionType,
-          limit: quota.limit,
-          used: quota.used,
-          remaining: quota.limit - quota.used,
-          status: activeOrg.subscriptionStatus,
-        });
-      } else {
-        // Default to free plan
-        setUsageData({
-          plan: "Free",
-          limit: 100,
-          used: 0,
-          remaining: 100,
-          status: "active",
-        });
-      }
-    } catch (error) {
-      console.error("Error loading usage data:", error);
-      setError("Failed to load usage information");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const getIcon = () => {
     if (loading) return null;
 
     const percentage = usageData ? (usageData.used / usageData.limit) * 100 : 0;
 
-    if (percentage >= 90) {
+    if (usageData?.remaining <= 0) {
+      return <FaExclamationTriangle style={{ color: "#FF6B6B" }} />;
+    } else if (percentage >= 90) {
       return <FaExclamationTriangle style={{ color: "#FF6B6B" }} />;
     } else if (usageData?.plan === "Free") {
       return <FaCrown style={{ color: "#FFD93D" }} />;
@@ -80,19 +132,13 @@ const RequestCounter = ({ subscriptionState, onUpgradeClick }) => {
   };
 
   const handleClick = () => {
-    if (
-      usageData?.plan === "Free" ||
-      usageData?.remaining / usageData?.limit < 0.1
-    ) {
-      // Open dashboard in new tab using chrome.tabs.create
-      if (typeof chrome !== "undefined" && chrome.tabs) {
-        chrome.tabs.create({
-          url: "https://nextjs-app-410940835135.us-central1.run.app/dashboard",
-          active: true,
-        });
-      }
-    } else {
+    // Check if quota is exhausted and show subscription choice popup
+    if (usageData?.remaining <= 0) {
       onUpgradeClick?.();
+    } else {
+      // Refresh quota data when clicked
+      console.log("RequestCounter: User clicked, refreshing");
+      loadUsageData(true); // Force refresh on click
     }
   };
 
@@ -100,22 +146,27 @@ const RequestCounter = ({ subscriptionState, onUpgradeClick }) => {
     if (loading) return "Loading usage information...";
     if (error) return "Error loading usage data";
 
+    if (usageData?.remaining <= 0) {
+      return "No requests remaining. Click to refresh or upgrade.";
+    }
+
     const percentage = usageData ? (usageData.used / usageData.limit) * 100 : 0;
 
     if (percentage >= 90) {
       return `Warning: ${Math.round(
         percentage
-      )}% of requests used. Consider upgrading.`;
+      )}% of requests used. Click to refresh or upgrade.`;
     } else if (usageData?.plan === "Free") {
-      return `Free plan: ${usageData.remaining} requests remaining. Upgrade for more!`;
+      return `Free plan: ${usageData.remaining} requests remaining. Click to refresh or upgrade.`;
     } else {
-      return `${usageData?.plan} plan: ${usageData?.remaining} requests remaining`;
+      return `${usageData?.plan} plan: ${usageData?.remaining} requests remaining. Click to refresh.`;
     }
   };
 
   if (loading) {
     return (
       <div
+        onClick={() => loadUsageData(true)}
         style={{
           display: "flex",
           alignItems: "center",
@@ -126,15 +177,17 @@ const RequestCounter = ({ subscriptionState, onUpgradeClick }) => {
           cursor: "pointer",
           transition: "all 0.3s ease",
         }}
+        title="Click to refresh usage data"
       >
-        <div
-          className="profile-loader"
+        <FaSync
           style={{
-            transform: "scale(0.5)",
+            color: "#ffe9e9",
+            animation: "spin 1s linear infinite",
+            fontSize: "12px",
           }}
         />
         <span style={{ fontSize: "12px", color: "rgba(255, 220, 220, 0.7)" }}>
-          Loading...
+          Refreshing...
         </span>
       </div>
     );
@@ -143,6 +196,7 @@ const RequestCounter = ({ subscriptionState, onUpgradeClick }) => {
   if (error) {
     return (
       <div
+        onClick={() => loadUsageData(true)}
         style={{
           display: "flex",
           alignItems: "center",
@@ -153,15 +207,17 @@ const RequestCounter = ({ subscriptionState, onUpgradeClick }) => {
           cursor: "pointer",
           transition: "all 0.3s ease",
         }}
+        title="Click to refresh usage data"
       >
-        <FaExclamationTriangle style={{ color: "#FF6B6B", fontSize: "12px" }} />
-        <span style={{ fontSize: "12px", color: "#FF6B6B" }}>Error</span>
+        <FaSync style={{ color: "#FF6B6B", fontSize: "12px" }} />
+        <span style={{ fontSize: "12px", color: "#FF6B6B" }}>Refresh Usage</span>
       </div>
     );
   }
 
   const percentage = usageData ? (usageData.used / usageData.limit) * 100 : 0;
-  const isLow = percentage >= 90;
+  const isExhausted = usageData?.remaining <= 0;
+  const isLow = percentage >= 90 || isExhausted;
   const isFree = usageData?.plan === "Free";
 
   return (
@@ -174,7 +230,9 @@ const RequestCounter = ({ subscriptionState, onUpgradeClick }) => {
         alignItems: "center",
         gap: "4px",
         padding: "4px 8px",
-        backgroundColor: isLow
+        backgroundColor: isExhausted
+          ? "rgba(220, 53, 69, 0.2)"
+          : isLow
           ? "rgba(220, 53, 69, 0.1)"
           : isFree
           ? "rgba(255, 217, 61, 0.1)"
@@ -182,7 +240,9 @@ const RequestCounter = ({ subscriptionState, onUpgradeClick }) => {
         borderRadius: "6px",
         cursor: "pointer",
         transition: "all 0.3s ease",
-        border: isLow
+        border: isExhausted
+          ? "1px solid rgba(220, 53, 69, 0.5)"
+          : isLow
           ? "1px solid rgba(220, 53, 69, 0.3)"
           : isFree
           ? "1px solid rgba(255, 217, 61, 0.3)"
@@ -201,15 +261,20 @@ const RequestCounter = ({ subscriptionState, onUpgradeClick }) => {
       <span
         style={{
           fontSize: "11px",
-          color: isLow
+          color: isExhausted
+            ? "#FF6B6B"
+            : isLow
             ? "#FF6B6B"
             : isFree
             ? "#FFD93D"
             : "rgba(255, 220, 220, 0.8)",
-          fontWeight: isLow || isFree ? "600" : "400",
+          fontWeight: isExhausted || isLow || isFree ? "600" : "400",
         }}
       >
-        {usageData?.remaining || 0} requests
+        {isExhausted 
+          ? "0 requests left"
+          : `${usageData?.used || 0}/${usageData?.limit || 100} used`
+        }
       </span>
     </div>
   );

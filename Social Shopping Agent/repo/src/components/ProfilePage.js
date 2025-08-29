@@ -1,10 +1,10 @@
 /* global chrome */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FaUser,
   FaArrowLeft,
-  FaEnvelope,
+  // FaEnvelope,
   FaCrown,
   FaCalendarAlt,
   FaChartBar,
@@ -26,6 +26,7 @@ import {
   FaCreditCard,
   FaCalendarCheck,
   FaShieldAlt,
+  FaSync,
 } from "react-icons/fa";
 import apiService from "../services/api";
 
@@ -37,14 +38,32 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showAllOrganizations, setShowAllOrganizations] = useState(false);
+  const [quotaData, setQuotaData] = useState(null);
+  const [quotaLoading, setQuotaLoading] = useState(true);
+  const [lastProfileUpdate, setLastProfileUpdate] = useState(0);
+  const PROFILE_CACHE_DURATION = 30000; // 30 seconds
 
   useEffect(() => {
     loadUserDetails();
   }, []);
 
+  useEffect(() => {
+    if (organizations.length > 0) {
+      loadQuotaData();
+    }
+  }, [organizations.length]); // Only depend on length, not the array itself
+
   const loadUserDetails = async () => {
     try {
       setLoading(true);
+
+      // Check if we need to refresh based on cache duration
+      const now = Date.now();
+      if (now - lastProfileUpdate < PROFILE_CACHE_DURATION && userDetails && organizations.length > 0) {
+        console.log("Using cached profile data");
+        setLoading(false);
+        return;
+      }
 
       // First, check if we have user data in chrome.storage.local
       let storedUserData = null;
@@ -77,6 +96,7 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
         console.log("Using stored organizations:", storedOrganizations);
         setUserDetails(storedUserData);
         setOrganizations(storedOrganizations);
+        setLastProfileUpdate(now);
         setLoading(false);
         return;
       } else if (storedUserData) {
@@ -110,6 +130,7 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
 
       setUserDetails(user);
       setOrganizations(organizations);
+      setLastProfileUpdate(now);
 
       // Store the fetched data for future use
       if (userData) {
@@ -137,23 +158,130 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
     }
   };
 
+  // Add rate limiting for quota data loading
+  const quotaLoadTimeoutRef = useRef(null);
+  const quotaLoadRunningRef = useRef(false);
+  
+  const loadQuotaData = async () => {
+    // Prevent multiple simultaneous calls
+    if (quotaLoadRunningRef.current) {
+      return;
+    }
+    
+    // Clear any pending timeout
+    if (quotaLoadTimeoutRef.current) {
+      clearTimeout(quotaLoadTimeoutRef.current);
+    }
+    
+    quotaLoadTimeoutRef.current = setTimeout(async () => {
+      // Double-check if already running
+      if (quotaLoadRunningRef.current) {
+        return;
+      }
+      
+      quotaLoadRunningRef.current = true;
+      
+      try {
+        setQuotaLoading(true);
+
+        // Use the new method to get quota for active organization
+        console.log("ProfilePage - calling getActiveOrganizationQuota");
+        const quotaResponse = await apiService.getActiveOrganizationQuota();
+        
+        console.log("ProfilePage - quota response:", quotaResponse);
+        
+        if (quotaResponse && quotaResponse.quotas) {
+          // Find the chat quota
+          const chatQuota = quotaResponse.quotas.find(q => q.featureKey === 'chat') || {
+            featureKey: 'chat',
+            featureName: 'Chat',
+            currentUsage: 0,
+            limit: 100,
+            remaining: 100,
+            usagePercentage: 0,
+            isUnlimited: false
+          };
+
+          console.log("ProfilePage chat quota:", chatQuota);
+
+          const quotaDataObj = {
+            plan: quotaResponse.subscriptionStatus === 'active' ? 'Paid' : 'Free',
+            limit: chatQuota.limit,
+            used: chatQuota.currentUsage,
+            remaining: chatQuota.remaining,
+            usagePercentage: chatQuota.usagePercentage,
+            status: quotaResponse.subscriptionStatus,
+            isUnlimited: chatQuota.isUnlimited
+          };
+          
+          console.log("ProfilePage setting quota data:", quotaDataObj);
+          setQuotaData(quotaDataObj);
+        } else {
+          // Fallback to default quota
+          const fallbackQuota = {
+            plan: "Free",
+            limit: 100,
+            used: 0,
+            remaining: 100,
+            status: "active",
+            isUnlimited: false
+          };
+          
+          console.log("ProfilePage using fallback quota:", fallbackQuota);
+          setQuotaData(fallbackQuota);
+        }
+      } catch (error) {
+        console.error("Error loading quota data:", error);
+        // Set default quota data on error
+        setQuotaData({
+          plan: "Free",
+          limit: 100,
+          used: 0,
+          remaining: 100,
+          status: "active",
+          isUnlimited: false
+        });
+      } finally {
+        setQuotaLoading(false);
+        quotaLoadRunningRef.current = false;
+        quotaLoadTimeoutRef.current = null;
+      }
+    }, 500); // Increased debounce to 500ms
+  };
+
   // Refresh subscription data when component gains focus (returning from settings)
   useEffect(() => {
     const handleFocus = () => {
-      if (subscription.loadSubscriptionData) {
-        subscription.loadSubscriptionData();
+      // Add debouncing to prevent excessive calls
+      if (subscription.loadSubscriptionData && !subscription.loading) {
+        setTimeout(() => {
+          subscription.loadSubscriptionData();
+        }, 100);
+      }
+      // Also refresh quota data with debouncing
+      if (organizations.length > 0) {
+        loadQuotaData();
       }
     };
 
-    window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
-  }, [subscription]);
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [subscription, organizations.length]);
 
   // Monitor subscription changes for toggle button updates
   useEffect(() => {
     // This effect will run whenever subscription data changes
     // The toggle button state will automatically update based on subscription.hasPersonalKeys
   }, [subscription.hasPersonalKeys, subscription.userPreferPersonalAPI]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (quotaLoadTimeoutRef.current) {
+        clearTimeout(quotaLoadTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Refresh subscription data when component mounts or when returning from settings
   useEffect(() => {
@@ -166,20 +294,20 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
     navigate("/chat");
   };
 
-  const forceRefreshData = async () => {
-    console.log("Force refreshing user data...");
-    try {
-      // Clear stored data
-      await new Promise((resolve) => {
-        chrome.storage.local.remove(["userAuth", "authData"], resolve);
-      });
+  // const forceRefreshData = async () => {
+  //   console.log("Force refreshing user data...");
+  //   try {
+  //     // Clear stored data
+  //     await new Promise((resolve) => {
+  //       chrome.storage.local.remove(["userAuth", "authData"], resolve);
+  //     });
 
-      // Reload data
-      await loadUserDetails();
-    } catch (error) {
-      console.error("Error force refreshing data:", error);
-    }
-  };
+  //     // Reload data
+  //     await loadUserDetails();
+  //   } catch (error) {
+  //     console.error("Error force refreshing data:", error);
+  //   }
+  // };
 
   const handleTogglePersonalAPI = async () => {
     if (isToggling) return;
@@ -249,24 +377,45 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
       };
     }
 
-    if (subscription.status === "trial") {
-      return {
-        text: "Free Trial",
-        color: "#ffad1f",
-        icon: <FaStar />,
-      };
-    }
-
-    if (subscription.status === "active") {
-      return {
-        text: "Premium Subscription",
-        color: "#17bf63",
-        icon: <FaCrown />,
-      };
+    // Get subscription status from selected organization
+    const selectedOrgId = userDetails?.selectedOrganizationId;
+    const selectedOrganization = selectedOrgId 
+      ? organizations.find(org => org.id === selectedOrgId)
+      : organizations.find(org => org.isActive) || organizations[0];
+    
+    if (selectedOrganization) {
+      const { subscriptionStatus, subscriptionType, subExpiry } = selectedOrganization;
+      
+      if (subscriptionStatus === "active") {
+        return {
+          text: subscriptionType === "Paid" ? "Premium Subscription" : "Free Plan",
+          color: "#17bf63",
+          icon: <FaCrown />,
+          subExpiry: subExpiry
+        };
+      }
+      
+      if (subscriptionStatus === "trialing") {
+        return {
+          text: "Free Trial",
+          color: "#ffad1f",
+          icon: <FaStar />,
+          subExpiry: subExpiry
+        };
+      }
+      
+      if (subscriptionStatus === "inactive") {
+        return {
+          text: "Subscription Expired",
+          color: "#e0245e",
+          icon: <FaClock />,
+          subExpiry: subExpiry
+        };
+      }
     }
 
     return {
-      text: "Trial Expired",
+      text: "No Active Subscription",
       color: "#e0245e",
       icon: <FaClock />,
     };
@@ -549,15 +698,15 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
                 color: "white",
                 marginRight: "16px",
                 overflow: "hidden",
-                backgroundImage: userDetails?.image
-                  ? `url(${userDetails.image})`
+                backgroundImage: userDetails?.avatarUrl
+                  ? `url(${userDetails.avatarUrl})`
                   : "none",
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 flexShrink: 0,
               }}
             >
-              {!userDetails?.image &&
+              {!userDetails?.avatarUrl &&
                 (userDetails?.name?.charAt(0) || user?.name?.charAt(0) || "U")}
             </div>
             <div className="profile-user-details" style={{ flex: 1 }}>
@@ -595,17 +744,25 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
 
           {loading ? (
             <div style={{ textAlign: "center", padding: "20px" }}>
-              <div
-                className="profile-loader"
-                style={{
-                  margin: "0 auto",
-                }}
-              />
-              <p
-                style={{ color: "rgba(255, 220, 220, 0.7)", marginTop: "8px" }}
-              >
-                Loading user details...
-              </p>
+              <div style={{ 
+                display: "flex", 
+                flexDirection: "column", 
+                alignItems: "center", 
+                gap: "12px" 
+              }}>
+                <div style={{ transform: "scale(0.7)" }}>
+                  <div className="profile-loader" />
+                </div>
+                <p
+                  style={{ 
+                    color: "rgba(255, 220, 220, 0.7)", 
+                    margin: "0",
+                    fontSize: "13px"
+                  }}
+                >
+                  Loading user details...
+                </p>
+              </div>
             </div>
           ) : error ? (
             <div
@@ -698,8 +855,373 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
           )}
         </div>
 
-        {/* API Key Toggle Section */}
+        {/* Subscription Status */}
         <div style={sectionStyle}>
+          <h4
+            style={{
+              color: "#FFDCDCFF",
+              fontSize: "16px",
+              fontWeight: "600",
+              margin: "0 0 16px 0",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <FaCrown />
+            Subscription Status
+          </h4>
+
+          <div
+            style={{
+              ...cardStyle,
+              animation: "slideInUp 0.6s ease-out 0.8s both",
+            }}
+          >
+            {/* Only show status display if NOT on Free Plan */}
+            {status.text !== "Free Plan" && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  marginBottom: "16px",
+                }}
+              >
+                <div style={{ color: status.color, fontSize: "20px", flexShrink: 0 }}>
+                  {status.icon}
+                </div>
+                <div style={{ flex: 1, paddingRight: "6px" }}>
+                  <div
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: "600",
+                      color: "#FFDCDCFF",
+                      marginBottom: "2px",
+                    }}
+                  >
+                    {status.text}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "rgba(255, 220, 220, 0.8)",
+                    }}
+                  >
+                    {subscription.usingPersonalAPI
+                      ? "Unlimited usage with your API key"
+                      : status.text === "Premium Subscription"
+                      ? "Monthly/yearly billing with higher quotas"
+                      : status.text === "Free Trial"
+                      ? `30-day trial period - Expires ${formatDate(status.subExpiry)}`
+                      : status.subExpiry
+                      ? `Expires ${formatDate(status.subExpiry)}`
+                      : "No expiry date available"}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Subscription Warning for Free Trial and Free Plan */}
+            {(status.text === "Free Trial" || status.text === "Free Plan") && (
+              <div
+                style={{
+                  marginBottom: "16px",
+                  padding: "12px",
+                  borderRadius: "8px",
+                  backgroundColor: "rgba(255, 173, 31, 0.1)",
+                  border: "1px solid rgba(255, 173, 31, 0.3)",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "12px",
+                }}
+              >
+                <div
+                  style={{
+                    color: "#ffad1f",
+                    fontSize: "16px",
+                    marginTop: "2px",
+                    flexShrink: 0,
+                  }}
+                >
+                  ⚠️
+                </div>
+                <div style={{ flex: 1, paddingRight: "6px" }}>
+                  <div
+                    style={{ 
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      color: "#ffad1f",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    {status.text === "Free Trial" ? "Trial Period" : "Free Plan"}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "rgba(255, 220, 220, 0.8)",
+                      lineHeight: "1.4",
+                    }}
+                  >
+                    {status.text === "Free Trial" 
+                      ? `You are on a free trial. Expires ${formatDate(status.subExpiry)}. Upgrade to continue after trial ends.`
+                      : "You are on the Free plan with limited quotas. Upgrade to a paid plan for higher quotas."
+                    }
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!subscription.usingPersonalAPI && (
+              <>
+                <button
+                  onClick={() => {
+                    navigate('/subscription');
+                  }}
+                  style={{
+                    ...buttonStyle,
+                    backgroundColor:
+                      status.text === "No Active Subscription" || status.text === "Subscription Expired"
+                        ? "#e0245e"
+                        : "#3b82f6",
+                    color: "white",
+                    marginBottom: "12px",
+                  }}
+                >
+                  <FaChartBar />
+                  {status.text === "No Active Subscription" || status.text === "Subscription Expired"
+                    ? "Upgrade Plan"
+                    : "View Plans"}
+                </button>
+                
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    marginBottom: "12px",
+                  }}
+                >
+                  <div
+                    style={{
+                      flex: 1,
+                      height: "1px",
+                      backgroundColor: "rgba(255, 220, 220, 0.2)",
+                    }}
+                  />
+                  <span
+                    style={{
+                      padding: "0 10px",
+                      fontSize: "12px",
+                      color: "rgba(255, 220, 220, 0.6)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    or
+                  </span>
+                  <div
+                    style={{
+                      flex: 1,
+                      height: "1px",
+                      backgroundColor: "rgba(255, 220, 220, 0.2)",
+                    }}
+                  />
+                </div>
+                
+                <button
+                  onClick={() => {
+                    // Scroll to the API Configuration section
+                    const apiSection = document.querySelector('[data-section="api-config"]');
+                    if (apiSection) {
+                      apiSection.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start' 
+                      });
+                    }
+                  }}
+                  style={{
+                    ...buttonStyle,
+                    backgroundColor: "rgba(255, 220, 220, 0.1)",
+                    border: "1px solid rgba(255, 220, 220, 0.3)",
+                    color: "#FFDCDCFF",
+                  }}
+                >
+                  <FaKey />
+                  Use Your Own API Key
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Usage Stats */}
+        <div style={sectionStyle}>
+          <h4
+            style={{
+              color: "#FFDCDCFF",
+              fontSize: "16px",
+              fontWeight: "600",
+              margin: "0 0 16px 0",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <FaChartBar />
+              Usage Statistics
+            </div>
+            {!subscription.usingPersonalAPI && (
+              <button
+                onClick={loadQuotaData}
+                disabled={quotaLoading}
+                style={{
+                  padding: "4px 8px",
+                  backgroundColor: "rgba(255, 220, 220, 0.1)",
+                  border: "1px solid rgba(255, 220, 220, 0.3)",
+                  borderRadius: "6px",
+                  cursor: quotaLoading ? "not-allowed" : "pointer",
+                  fontSize: "12px",
+                  color: "#FFDCDCFF",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  opacity: quotaLoading ? 0.6 : 1,
+                }}
+                title="Sync usage data"
+              >
+                <FaSync style={{ 
+                  animation: quotaLoading ? "spin 1s linear infinite" : "none",
+                  fontSize: "10px"
+                }} />
+                Sync
+              </button>
+            )}
+          </h4>
+
+          <div style={cardStyle}>
+            {subscription.usingPersonalAPI ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "10px",
+                  color: "#17bf63",
+                }}
+              >
+                <FaInfinity style={{ fontSize: "28px", marginBottom: "6px" }} />
+                <div style={{ fontSize: "16px", fontWeight: "600" }}>
+                  Unlimited Usage
+                </div>
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: "rgba(255, 220, 220, 0.8)",
+                  }}
+                >
+                  Using your personal API key
+                </div>
+              </div>
+            ) : quotaLoading ? (
+              <div style={{ textAlign: "center", padding: "20px" }}>
+                <div style={{ 
+                  display: "flex", 
+                  flexDirection: "column", 
+                  alignItems: "center", 
+                  gap: "12px" 
+                }}>
+                  <div style={{ transform: "scale(0.7)" }}>
+                    <div className="profile-loader" />
+                  </div>
+                  <p
+                    style={{ 
+                      color: "rgba(255, 220, 220, 0.7)", 
+                      margin: "0",
+                      fontSize: "13px"
+                    }}
+                  >
+                    Loading usage data...
+                  </p>
+                </div>
+              </div>
+            ) : quotaData ? (
+              <div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "8px",
+                  }}
+                >
+                  <span style={{ fontSize: "14px", color: "#FFDCDCFF" }}>
+                    Requests Used
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      color:
+                        quotaData.remaining <= 0
+                          ? "#e0245e"
+                          : "#FFDCDCFF",
+                    }}
+                  >
+                    {quotaData.used} /{" "}
+                    {quotaData.isUnlimited ? "∞" : quotaData.limit}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    width: "100%",
+                    height: "8px",
+                    backgroundColor: "rgba(255, 220, 220, 0.2)",
+                    borderRadius: "4px",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${Math.min(
+                        quotaData.isUnlimited ? 0 : (quotaData.used / quotaData.limit) * 100,
+                        100
+                      )}%`,
+                      height: "100%",
+                      backgroundColor:
+                        quotaData.remaining <= 0
+                          ? "#e0245e"
+                          : quotaData.remaining <= 2
+                          ? "#ffad1f"
+                          : "#17bf63",
+                      transition: "width 0.3s ease",
+                    }}
+                  />
+                </div>
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: "rgba(255, 220, 220, 0.8)",
+                    marginTop: "8px",
+                    textAlign: "center",
+                  }}
+                >
+                  {quotaData.isUnlimited 
+                    ? "Unlimited requests available"
+                    : quotaData.remaining > 0 
+                    ? `${quotaData.remaining} requests remaining (${quotaData.usagePercentage || Math.round((quotaData.used / quotaData.limit) * 100)}% used)`
+                    : "No requests remaining - upgrade or use personal API"}
+                </div>
+              </div>
+            ) : (
+              <div style={{ textAlign: "center", padding: "20px", color: "rgba(255, 220, 220, 0.7)" }}>
+                Unable to load usage data
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* API Key Toggle Section */}
+        <div style={sectionStyle} data-section="api-config">
           <h4
             style={{
               color: "#FFDCDCFF",
@@ -729,7 +1251,7 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
                 gap: "12px",
               }}
             >
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, paddingLeft: "6px" }}>
                 <div
                   style={{
                     fontSize: "14px",
@@ -846,62 +1368,82 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
           >
             {organizations.length > 0 ? (
               <div>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: "16px",
-                  }}
-                >
-                  <div style={{ flex: 1 }}>
-                    <div
-                      style={{
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#FFDCDCFF",
-                        marginBottom: "4px",
-                      }}
-                    >
-                      Your Organizations
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "12px",
-                        color: "rgba(255, 220, 220, 0.8)",
-                        lineHeight: "1.4",
-                      }}
-                    >
-                      Manage your organization memberships and subscriptions
-                    </div>
+                <div style={{ marginBottom: "16px" }}>
+                  <div
+                    style={{
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      color: "#FFDCDCFF",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    Your Organizations
                   </div>
-                  {organizations.length > 1 && (
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "rgba(255, 220, 220, 0.8)",
+                      lineHeight: "1.4",
+                      marginBottom: "12px",
+                    }}
+                  >
+                    Manage your organization memberships and subscriptions
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    {organizations.length > 1 && (
+                      <button
+                        onClick={() =>
+                          setShowAllOrganizations(!showAllOrganizations)
+                        }
+                        style={{
+                          background: "rgba(255, 107, 107, 0.1)",
+                          border: "1px solid rgba(255, 107, 107, 0.3)",
+                          color: "#FF6B6B",
+                          cursor: "pointer",
+                          fontSize: "11px",
+                          fontWeight: "600",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          padding: "6px 12px",
+                          borderRadius: "6px",
+                          transition: "all 0.2s ease",
+                        }}
+                      >
+                        {showAllOrganizations ? "Show Less" : "View All"}
+                        {showAllOrganizations ? (
+                          <FaChevronUp />
+                        ) : (
+                          <FaChevronDown />
+                        )}
+                      </button>
+                    )}
                     <button
-                      onClick={() =>
-                        setShowAllOrganizations(!showAllOrganizations)
-                      }
+                      onClick={() => {
+                        chrome.tabs.create({
+                          url: "https://nextjs-app-410940835135.us-central1.run.app/dashboard",
+                          active: true,
+                        });
+                      }}
                       style={{
-                        background: "none",
-                        border: "none",
+                        background: "rgba(255, 220, 220, 0.1)",
+                        border: "1px solid rgba(255, 220, 220, 0.3)",
                         color: "#FFDCDCFF",
                         cursor: "pointer",
-                        fontSize: "12px",
+                        fontSize: "11px",
+                        fontWeight: "600",
                         display: "flex",
                         alignItems: "center",
-                        gap: "4px",
-                        padding: "4px 8px",
-                        borderRadius: "4px",
+                        gap: "6px",
+                        padding: "6px 12px",
+                        borderRadius: "6px",
                         transition: "all 0.2s ease",
                       }}
                     >
-                      {showAllOrganizations ? "Show Less" : "View All"}
-                      {showAllOrganizations ? (
-                        <FaChevronUp />
-                      ) : (
-                        <FaChevronDown />
-                      )}
+                      <FaBuilding />
+                      Manage
                     </button>
-                  )}
+                  </div>
                 </div>
 
                 <div
@@ -979,14 +1521,14 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
                                 borderRadius: "12px",
                                 fontSize: "10px",
                                 fontWeight: "600",
-                                backgroundColor: org.isActive
+                                backgroundColor: (userDetails?.selectedOrganizationId === org.id)
                                   ? "rgba(76, 175, 80, 0.2)"
                                   : "rgba(158, 158, 158, 0.2)",
-                                color: org.isActive ? "#4CAF50" : "#9E9E9E",
+                                color: (userDetails?.selectedOrganizationId === org.id) ? "#4CAF50" : "#9E9E9E",
                                 textTransform: "uppercase",
                               }}
                             >
-                              {org.isActive ? "Active" : "Inactive"}
+                              {(userDetails?.selectedOrganizationId === org.id) ? "Selected" : "Inactive"}
                             </span>
                           </div>
                         </div>
@@ -1218,200 +1760,28 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
           </div>
         </div>
 
-        {/* Subscription Status */}
-        <div style={sectionStyle}>
-          <h4
-            style={{
-              color: "#FFDCDCFF",
-              fontSize: "16px",
-              fontWeight: "600",
-              margin: "0 0 16px 0",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <FaCrown />
-            Subscription Status
-          </h4>
-
-          <div
-            style={{
-              ...cardStyle,
-              animation: "slideInUp 0.6s ease-out 0.8s both",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                marginBottom: "16px",
-              }}
-            >
-              <div style={{ color: status.color, fontSize: "20px" }}>
-                {status.icon}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div
-                  style={{
-                    fontSize: "16px",
-                    fontWeight: "600",
-                    color: "#FFDCDCFF",
-                    marginBottom: "2px",
-                  }}
-                >
-                  {status.text}
-                </div>
-                <div
-                  style={{
-                    fontSize: "12px",
-                    color: "rgba(255, 220, 220, 0.8)",
-                  }}
-                >
-                  {subscription.usingPersonalAPI
-                    ? "Unlimited usage with your API key"
-                    : subscription.plan_type === "free_trial"
-                    ? `Trial expires ${formatDate(subscription.trial_end)}`
-                    : subscription.current_period_end
-                    ? `Next billing ${formatDate(
-                        subscription.current_period_end
-                      )}`
-                    : "Active subscription"}
-                </div>
-              </div>
-            </div>
-
-            {!subscription.usingPersonalAPI && (
-              <button
-                onClick={() => navigate("/subscription")}
-                style={{
-                  ...buttonStyle,
-                  backgroundColor:
-                    subscription.remaining_requests <= 0
-                      ? "#e0245e"
-                      : "#3b82f6",
-                  color: "white",
-                }}
-              >
-                <FaChartBar />
-                {subscription.remaining_requests <= 0
-                  ? "Upgrade Plan"
-                  : "Manage Subscription"}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Usage Stats */}
+        {/* Manage Organizations Button */}
         {/* <div style={sectionStyle}>
-          <h4
+          <button
+            onClick={() => {
+              chrome.tabs.create({
+                url: "https://nextjs-app-410940835135.us-central1.run.app/dashboard",
+                active: true,
+              });
+            }}
             style={{
+              ...buttonStyle,
+              backgroundColor: "rgba(255, 220, 220, 0.1)",
+              border: "1px solid rgba(255, 220, 220, 0.3)",
               color: "#FFDCDCFF",
-              fontSize: "16px",
-              fontWeight: "600",
-              margin: "0 0 16px 0",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
+              animation: "slideInUp 0.6s ease-out 0.8s both",
+              padding: "10px 16px",
+              fontSize: "13px",
             }}
           >
-            <FaChartBar />
-            Usage Statistics
-          </h4>
-
-          <div style={cardStyle}>
-            {subscription.usingPersonalAPI ? (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "20px",
-                  color: "#17bf63",
-                }}
-              >
-                <FaInfinity style={{ fontSize: "32px", marginBottom: "8px" }} />
-                <div style={{ fontSize: "16px", fontWeight: "600" }}>
-                  Unlimited Usage
-                </div>
-                <div
-                  style={{
-                    fontSize: "12px",
-                    color: "rgba(255, 220, 220, 0.8)",
-                  }}
-                >
-                  Using your personal API key
-                </div>
-              </div>
-            ) : (
-              <div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "8px",
-                  }}
-                >
-                  <span style={{ fontSize: "14px", color: "#FFDCDCFF" }}>
-                    Requests Used
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "14px",
-                      fontWeight: "600",
-                      color:
-                        subscription.remaining_requests <= 0
-                          ? "#e0245e"
-                          : "#FFDCDCFF",
-                    }}
-                  >
-                    {subscription.requests_used} /{" "}
-                    {subscription.monthly_request_limit}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    width: "100%",
-                    height: "8px",
-                    backgroundColor: "rgba(255, 220, 220, 0.2)",
-                    borderRadius: "4px",
-                    overflow: "hidden",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: `${Math.min(
-                        (subscription.requests_used /
-                          subscription.monthly_request_limit) *
-                          100,
-                        100
-                      )}%`,
-                      height: "100%",
-                      backgroundColor:
-                        subscription.remaining_requests <= 0
-                          ? "#e0245e"
-                          : subscription.remaining_requests <= 2
-                          ? "#ffad1f"
-                          : "#17bf63",
-                      transition: "width 0.3s ease",
-                    }}
-                  />
-                </div>
-                <div
-                  style={{
-                    fontSize: "12px",
-                    color: "rgba(255, 220, 220, 0.8)",
-                    marginTop: "8px",
-                    textAlign: "center",
-                  }}
-                >
-                  {subscription.remaining_requests > 0 
-                    ? `${subscription.remaining_requests} requests remaining`
-                    : "Trial expired - upgrade or use personal API"}
-                </div>
-              </div>
-            )}
-          </div>
+            <FaBuilding />
+            Manage Organizations
+          </button>
         </div> */}
 
         {/* Logout Button */}
