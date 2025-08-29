@@ -4,7 +4,7 @@ import QuotaCard from '@/pages/popup/components/QuotaCard';
 
 const PRICING_URL = 'https://nextjs-app-410940835135.us-central1.run.app/pricing';
 
-export default function QuotaGateOverlay({ show, orgId, onOpenSettings, usingOwnKey = false, className = '' }) {
+export default function QuotaGateOverlay({ show, orgId, onOpenSettings, usingOwnKey = false, className = '', onOpenPlans }) {
   if (!show) return null;
 
   const openPlans = () => {
@@ -23,8 +23,8 @@ export default function QuotaGateOverlay({ show, orgId, onOpenSettings, usingOwn
         <QuotaCard
           orgId={orgId}
           pricingUrl={PRICING_URL}
-          usingOwnKey={usingOwnKey}                // ← show the pill if ever needed
-          onViewPlans={openPlans}
+          usingOwnKey={usingOwnKey}
+          onOpenPlans={onOpenPlans}
           onUseOwnKey={() => {
             try { localStorage.setItem('intent.scrollToOwnKeyOnce', '1'); } catch {}
             onOpenSettings?.();

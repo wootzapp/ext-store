@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import HomeHub from '@/pages/popup/views/HomeHub';
 import Research from '@/pages/popup/views/Research';
+import Plans from '@/pages/popup/views/Plans';
 import Analysis from '@/pages/popup/views/Analysis';
 import FactCheck from '@/pages/popup/views/FactCheck';
 import Settings from '@/pages/popup/views/Settings';
@@ -117,6 +118,8 @@ const LandingPage = React.memo(({ onGetStarted }) => (
 ));
 
 const Popup = () => {
+  const [showPlans, setShowPlans] = useState(false);
+  const [preselectedOrgId, setPreselectedOrgId] = useState(null); 
   const [showLanding, setShowLanding] = useState(true);
   const [showHome, setShowHome] = useState(false);      // NEW hub screen
   const [showResearch, setShowResearch] = useState(false);
@@ -620,32 +623,40 @@ Please provide a detailed and helpful answer based on the content and context of
     }
   }, [intendedRoute]);
 
+  const openPlans = useCallback((orgId) => {
+    setPreselectedOrgId(orgId ?? null);
+    setCurrentRoute('/plans');
+  }, []);
+
   useEffect(() => {
     switch (currentRoute) {
       case '/home':
-        setShowLanding(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(false); setShowResearch(false); setShowHome(true);
+        setShowLanding(false); setShowPlans(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(false); setShowResearch(false); setShowHome(true);
+        break;
+      case '/plans':
+        setShowLanding(false); setShowHome(false); setShowResearch(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(false); setShowPlans(true);
         break;
       case '/research':
-        setShowLanding(false); setShowHome(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(false); setShowResearch(true);
+        setShowLanding(false); setShowPlans(false); setShowHome(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(false); setShowResearch(true);
         break;
       case '/analysis':
-        setShowLanding(false); setShowHome(false); setShowResearch(false); setShowFactChecker(false); setShowSettings(false); setShowAnalysis(true);
+        setShowLanding(false); setShowPlans(false); setShowHome(false); setShowResearch(false); setShowFactChecker(false); setShowSettings(false); setShowAnalysis(true);
         handleAnalysePage();
         break;
       case '/fact-checker':
-        setShowLanding(false); setShowHome(false); setShowResearch(false); setShowAnalysis(false); setShowSettings(false); setShowFactChecker(true);
+        setShowLanding(false); setShowPlans(false); setShowHome(false); setShowResearch(false); setShowAnalysis(false); setShowSettings(false); setShowFactChecker(true);
         handleFactChecker();
         break;
       case '/settings':
-        setShowLanding(false); setShowHome(false); setShowResearch(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(true);
+        setShowLanding(false); setShowPlans(false); setShowHome(false); setShowResearch(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(true);
         break;
       case '/landing':
-        setShowResearch(false); setShowHome(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(false); setShowLanding(true);
+        setShowResearch(false); setShowPlans(false); setShowHome(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(false); setShowLanding(true);
         break;
       case null:
         return;
       default:
-        setShowResearch(false); setShowHome(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(false); setShowLanding(true);
+        setShowResearch(false); setShowPlans(false); setShowHome(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(false); setShowLanding(true);
         break;
     }
   }, [currentRoute, handleAnalysePage, handleFactChecker]);
@@ -666,6 +677,14 @@ Please provide a detailed and helpful answer based on the content and context of
           }}
           onOpenAnalysis={handleAnalysePage}
           onOpenFactChecker={handleFactChecker}
+          onOpenPlans={openPlans}
+        />
+      ) : showPlans ? (
+        <Plans
+          key="plans"
+          preselectedOrgId={preselectedOrgId}
+          defaultCurrency="inr"
+          onBack={() => setCurrentRoute('/home')}
         />
       ) : showAnalysis ? (
           <Analysis
@@ -679,6 +698,7 @@ Please provide a detailed and helpful answer based on the content and context of
             onAskQuestion={handleAskQuestion}
             onClearHistory={handleClearAnalysisHistory}
             onOpenSettings={handleSettingsClick}
+            onOpenPlans={openPlans}
           />
         ) : showFactChecker ? (
           <FactCheck
@@ -691,9 +711,10 @@ Please provide a detailed and helpful answer based on the content and context of
             onRetry={handleRetryFactCheck}
             onClearHistory={handleClearFactCheckHistory}
             onOpenSettings={handleSettingsClick}
+            onOpenPlans={openPlans}
           />
         ) : showSettings ? (
-          <Settings key="settings" onBack={handleBackFromSettings} onSetupComplete={handleSettingsComplete} />
+          <Settings key="settings" onBack={handleBackFromSettings} onSetupComplete={handleSettingsComplete} onOpenPlans={openPlans} />
         ) : showResearch ? (
           <div className="relative w-full h-full overflow-hidden min-w-0">
             <Research
@@ -714,6 +735,7 @@ Please provide a detailed and helpful answer based on the content and context of
               onFactChecker={handleFactChecker}
               onOpenSettings={handleSettingsClick}
               inputRef={inputRef}
+              onOpenPlans={openPlans}
             />
           </div>
         ) : (

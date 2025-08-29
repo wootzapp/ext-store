@@ -112,6 +112,7 @@ const Research = React.memo(function Research({
   onFactChecker,   // (kept for your wiring)
   researchDepth = 'comprehensive',
   inputMessage = '',
+  onOpenPlans,
   inputRef: externalInputRef,
 }) {
   const [topic, setTopic] = useState(inputMessage);
@@ -326,7 +327,7 @@ const Research = React.memo(function Research({
       </div>
 
       {/* Quota gate overlay */}
-      <QuotaGateOverlay show={isGated} orgId={quota.orgId} onOpenSettings={onOpenSettings} usingOwnKey={useOwnKey} />
+      <QuotaGateOverlay show={isGated} orgId={quota.orgId} onOpenSettings={onOpenSettings} usingOwnKey={useOwnKey} onOpenPlans={onOpenPlans} />
     </motion.div>
   );
 });

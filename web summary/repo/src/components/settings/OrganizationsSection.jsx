@@ -6,7 +6,7 @@ export default function OrganizationsSection({
   loading,
   error,
   user,
-  organizations,
+  organizations = [],
   onManageClick,
 }) {
   const [showAll, setShowAll] = React.useState(false);
@@ -43,7 +43,7 @@ export default function OrganizationsSection({
 
   if (loading) {
     return (
-      <div className="max-w-full">
+      <div className="w-full min-w-0">
         <h2 className="text-lg font-medium text-gray-800 mb-4">Organizations</h2>
         <div className="p-4 rounded-xl border border-gray-200 bg-white">
           <div className="animate-pulse space-y-2">
@@ -58,7 +58,7 @@ export default function OrganizationsSection({
 
   if (error) {
     return (
-      <div className="max-w-full">
+      <div className="w-full min-w-0">
         <h2 className="text-lg font-medium text-gray-800 mb-4">Organizations</h2>
         <div className="p-4 rounded-xl border border-gray-200 bg-white">
           <p className="text-sm text-red-600">{error}</p>
@@ -79,17 +79,17 @@ export default function OrganizationsSection({
       : organizations) || [];
 
   return (
-    <div className="max-w-full">
+    <div className="w-full min-w-0">
       <h2 className="text-lg font-medium text-gray-800 mb-4">Organizations</h2>
 
       {/* Current organization card */}
-      <div className="p-4 rounded-xl border border-gray-200 bg-white">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
+      <div className="p-4 rounded-xl border border-gray-200 bg-white w-full min-w-0">
+        <div className="flex items-start justify-between gap-3 min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="text-sm text-gray-500">Current organization</div>
             {currentOrg ? (
               <>
-                <div className="font-semibold text-gray-900 truncate">
+                <div className="font-semibold text-gray-900 truncate" title={currentOrg.name}>
                   {currentOrg.name || `Organization`}
                 </div>
                 {currentOrg.joinedAt && (
@@ -122,21 +122,20 @@ export default function OrganizationsSection({
 
         {/* Plan details — ONLY user-relevant fields */}
         {currentOrg && (
-          <div className="mt-1">
+          <div className="mt-1 min-w-0">
             <div className="text-sm text-gray-500 mb-2">Plan</div>
-            <div className="grid gap-2 sm:grid-cols-2 text-sm">
-              <div className="text-gray-700">
+            <div className="grid gap-2 sm:grid-cols-2 text-sm min-w-0">
+              <div className="text-gray-700 min-w-0">
                 <span className="text-gray-500">Status:</span>{' '}
                 <StatusPill
                   isActive={!!currentOrg.isActive}
                   status={currentOrg.subscriptionStatus}
                 />
               </div>
-              <div className="text-gray-700">
+              <div className="text-gray-700 min-w-0">
                 <span className="text-gray-500">Type:</span>{' '}
                 {currentOrg.subscriptionType || '—'}
               </div>
-              {/* Removed: Product ID, Stripe Price ID, Active, Expiry */}
             </div>
           </div>
         )}
@@ -152,7 +151,7 @@ export default function OrganizationsSection({
           </button>
         </div>
 
-        {/* Other organizations (sanitized same way) */}
+        {/* Other organizations */}
         <AnimatePresence initial={false}>
           {showAll && (
             <motion.div
@@ -160,16 +159,22 @@ export default function OrganizationsSection({
               animate={{ opacity: 1, height: 'auto', y: 0 }}
               exit={{ opacity: 0, height: 0, y: -4 }}
               transition={{ duration: 0.18 }}
-              className="mt-4 grid gap-3"
+              className="mt-4 grid gap-3 w-full min-w-0"
             >
               {otherOrgs.length === 0 ? (
                 <div className="text-sm text-gray-600">No other organizations.</div>
               ) : (
                 otherOrgs.map((org) => (
-                  <div key={org.id} className="rounded-lg border border-gray-200 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="font-medium text-gray-900 truncate">
+                  <div
+                    key={org.id}
+                    className="rounded-lg border border-gray-200 p-4 w-full min-w-0 bg-white"
+                  >
+                    <div className="flex items-start justify-between gap-3 min-w-0">
+                      <div className="min-w-0 flex-1">
+                        <div
+                          className="font-medium text-gray-900 truncate"
+                          title={org.name}
+                        >
                           {org.name || `Organization`}
                         </div>
                         {org.joinedAt && (
@@ -192,21 +197,20 @@ export default function OrganizationsSection({
                       </div>
                     </div>
 
-                    <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="mt-3 pt-3 border-t border-gray-200 min-w-0">
                       <div className="text-sm text-gray-500 mb-2">Plan</div>
-                      <div className="grid gap-2 sm:grid-cols-2 text-sm">
-                        <div className="text-gray-700">
+                      <div className="grid gap-2 sm:grid-cols-2 text-sm min-w-0">
+                        <div className="text-gray-700 min-w-0">
                           <span className="text-gray-500">Status:</span>{' '}
                           <StatusPill
                             isActive={!!org.isActive}
                             status={org.subscriptionStatus}
                           />
                         </div>
-                        <div className="text-gray-700">
+                        <div className="text-gray-700 min-w-0">
                           <span className="text-gray-500">Type:</span>{' '}
                           {org.subscriptionType || '—'}
                         </div>
-                        {/* Removed: Product ID, Stripe Price ID, Active, Expiry */}
                       </div>
                     </div>
                   </div>

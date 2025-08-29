@@ -30,7 +30,13 @@ function DebugQuotaCard(props) {
   return <QuotaCard {...props} />;
 }
 
-export default function HomeHub({ onOpenSettings, onOpenResearch, onOpenAnalysis, onOpenFactChecker }) {
+export default function HomeHub({
+  onOpenSettings,
+  onOpenResearch,
+  onOpenAnalysis,
+  onOpenFactChecker,
+  onOpenPlans,
+}) {
   const { authUser, prefs, loadPrefs } = useAuthAndPrefs();
 
   // hydrate prefs so prefs.useOwnKey is available here (outside Settings)
@@ -101,23 +107,20 @@ export default function HomeHub({ onOpenSettings, onOpenResearch, onOpenAnalysis
     log('Debug handle available at window.__homeHubDebug');
   }, [loading, error, user, organizations, selectedOrg, selectedOrgId, avatar, authUser, prefs, useOwnKey, prefsReady, quota, isGated]);
 
-  const openPlans = () => {
-    log('Open Plans clicked');
-    try {
-      if (chrome?.tabs?.open) chrome.tabs.open(PRICING_URL);
-      else if (chrome?.tabs?.create) chrome.tabs.create({ url: PRICING_URL });
-      else window.open(PRICING_URL, '_blank', 'noopener,noreferrer');
-    } catch {
-      window.open(PRICING_URL, '_blank', 'noopener,noreferrer');
-    }
-  };
-
   // Also log what we’re about to render for the quota area
   useEffect(() => {
     if (loading) log('Quota section: loading (showing skeleton)');
     else if (error) log('Quota section: error →', error);
     else log('Quota section: ready, will mount QuotaCard with orgId=', selectedOrgId, 'usingOwnKey=', useOwnKey);
   }, [loading, error, selectedOrgId, useOwnKey]);
+
+  // Utility: 2-line clamp without Tailwind plugin
+  const clamp2 = {
+    display: '-webkit-box',
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical',
+    overflow: 'hidden',
+  };
 
   return (
     <motion.div
@@ -161,7 +164,7 @@ export default function HomeHub({ onOpenSettings, onOpenResearch, onOpenAnalysis
             orgId={selectedOrgId}
             pricingUrl={PRICING_URL}
             className="mb-4"
-            onViewPlans={openPlans}
+            onOpenPlans={() => onOpenPlans?.(selectedOrgId ?? null)}
             onUseOwnKey={() => {
               log('Use your own key clicked');
               try { localStorage.setItem('intent.scrollToOwnKeyOnce', '1'); } catch {}
@@ -175,9 +178,24 @@ export default function HomeHub({ onOpenSettings, onOpenResearch, onOpenAnalysis
         {/* Features */}
         <div className="grid grid-cols-1 gap-3">
           {[
-            { title: 'AI Research', subtitle: 'Deep-dive research with sources & takeaways', onClick: () => { log('Open Research clicked'); onOpenResearch?.(); } },
-            { title: 'Page Analysis', subtitle: 'Summarize and extract key insights', onClick: () => { log('Open Analysis clicked'); onOpenAnalysis?.(); } },
-            { title: 'Fact Checker', subtitle: 'Verify claims with citations', onClick: () => { log('Open Fact Checker clicked'); onOpenFactChecker?.(); } },
+            {
+              title: 'AI Research',
+              subtitle:
+                'Ask complex questions and get a crisp brief with citations, key takeaways, and next-steps you can act on immediately.',
+              onClick: () => { log('Open Research clicked'); onOpenResearch?.(); }
+            },
+            {
+              title: 'Page Analysis',
+              subtitle:
+                'Drop in any page and pull out summary, entities, numbers, and action items—no fluff, just the signals that matter.',
+              onClick: () => { log('Open Analysis clicked'); onOpenAnalysis?.(); }
+            },
+            {
+              title: 'Fact Checker',
+              subtitle:
+                'Test claims against trusted sources and see clear verdicts with links, so you know what’s solid and what isn’t.',
+              onClick: () => { log('Open Fact Checker clicked'); onOpenFactChecker?.(); }
+            },
           ].map(({ title, subtitle, onClick }) => (
             <button
               key={title}
@@ -185,9 +203,17 @@ export default function HomeHub({ onOpenSettings, onOpenResearch, onOpenAnalysis
               onClick={onClick}
               className="group w-full text-left rounded-xl p-4 bg-white/95 border border-gray-200 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all hover:bg-gradient-to-r hover:from-red-500 hover:to-orange-500 focus:outline-none focus:ring-2 focus:ring-red-400"
             >
-              <p className="text-xs text-gray-500 group-hover:text-white/90">Feature</p>
+              {/* Title first (no 'Feature' label) */}
               <p className="text-lg font-semibold text-gray-900 group-hover:text-white">{title}</p>
-              <p className="text-xs text-gray-600 mt-1 group-hover:text-white/90">{subtitle}</p>
+
+              {/* ~1.5 line description (2-line clamp) */}
+              <p
+                className="text-xs text-gray-600 mt-1 group-hover:text-white/90 leading-5"
+                style={clamp2}
+                title={subtitle}
+              >
+                {subtitle}
+              </p>
             </button>
           ))}
         </div>

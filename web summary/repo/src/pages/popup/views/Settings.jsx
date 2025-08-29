@@ -13,7 +13,7 @@ import OrganizationsSection from '@/components/settings/OrganizationsSection';
 import StorageUtils, { SUPPORTED_MODELS, SEARCH_ENGINES } from '@/storage';
 import auth from '@/services/auth';
 
-const PRICING_URL = 'https://nextjs-app-410940835135.us-central1.run.app/pricing';
+const PRICING_URL = 'https://nextjs-app-410940835135.us-central1.run.app/dashboard';
 
 // Helper: derive current org + validity
 function useSubscriptionInfo(userFromApi, organizations) {
@@ -67,7 +67,7 @@ function snapshotsEqual(a, b) {
   );
 }
 
-export default function Settings({ onBack }) {
+export default function Settings({ onBack, onOpenPlans }) {
   const {
     authUser, isAuthed, authLoading, authError, setAuthError,
     prefs, setPrefs, selectedSearchEngine, setSelectedSearchEngine,
@@ -194,6 +194,27 @@ export default function Settings({ onBack }) {
       window.open(PRICING_URL, '_blank', 'noopener,noreferrer');
     }
   };
+
+  // near the other callbacks in Settings.jsx
+  const openPlansHere = useCallback(() => {
+    const orgId =
+      subInfo?.org?.id ??
+      subInfo?.org?.organizationId ??
+      null;
+
+    if (onOpenPlans) onOpenPlans(orgId);
+    else {
+      // fallback: external URL
+      try {
+        if (chrome?.tabs?.open) chrome.tabs.open(PRICING_URL);
+        else if (chrome?.tabs?.create) chrome.tabs.create({ url: PRICING_URL });
+        else window.open(PRICING_URL, '_blank', 'noopener,noreferrer');
+      } catch {
+        window.open(PRICING_URL, '_blank', 'noopener,noreferrer');
+      }
+    }
+  }, [onOpenPlans, subInfo]);
+
 
   // SAVE uses local draft exclusively
   const handleSave = useCallback(async () => {
@@ -459,7 +480,7 @@ export default function Settings({ onBack }) {
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button
-                      onClick={openManageSubscription}
+                      onClick={openPlansHere}
                       className="px-3 py-2 rounded-md text-sm font-medium bg-white border border-amber-300 text-amber-900 hover:bg-amber-100"
                     >
                       View plans

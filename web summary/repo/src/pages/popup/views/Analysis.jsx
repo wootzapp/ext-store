@@ -97,7 +97,7 @@ function TypewriterMarkdown({ text, isStreaming, intervalMs = 28, mode = 'word',
   );
 }
 
-const Analysis = ({ currentPageUrl, onBack, onClearHistory, onOpenSettings }) => {
+const Analysis = ({ currentPageUrl, onBack, onClearHistory, onOpenSettings, onOpenPlans }) => {
   const { isStreaming, preview, full, error, start, stop, reset } = useChatStream();
 
   const { prefs, loadPrefs } = useAuthAndPrefs();
@@ -206,7 +206,7 @@ const Analysis = ({ currentPageUrl, onBack, onClearHistory, onOpenSettings }) =>
       </div>
 
       {/* Quota gate overlay */}
-      <QuotaGateOverlay show={isGated} orgId={quota.orgId} onOpenSettings={onOpenSettings} usingOwnKey={useOwnKey} />
+      <QuotaGateOverlay show={isGated} orgId={quota.orgId} onOpenSettings={onOpenSettings} usingOwnKey={useOwnKey} onOpenPlans={onOpenPlans} />
     </motion.div>
   );
 };
