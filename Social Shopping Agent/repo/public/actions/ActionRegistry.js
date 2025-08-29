@@ -244,115 +244,115 @@ export class ActionRegistry {
     });
 
     // Find and Click by heuristics (text/purpose/category) with smart shopping logic
-    this.actions.set('find_click', {
-      description: 'Find an interactive element by text/purpose/category and click it - enhanced for shopping/social sites',
-      schema: {
-        text: 'string - Substring to match in textContent/text (case-insensitive)',
-        purpose: 'string - Optional purpose to prefer (e.g., submit, add-to-cart, product-link)',
-        category: 'string - Optional category to prefer (action, form, navigation)',
-        intent: 'string - Why clicking this target',
-        context: 'string - Shopping context like "carbonara ingredients" or "electronics under $50"'
-      },
-      handler: async (input) => {
-        const score = (el) => {
-          if (!el?.isVisible || !el?.isInteractive) return -1;
-          let s = 0;
-          const txt = (el.text || el.textContent || '').toLowerCase();
-          const ariaLabel = (el.attributes?.['aria-label'] || '').toLowerCase();
-          const className = (el.attributes?.class || '').toLowerCase();
-          const id = (el.attributes?.id || '').toLowerCase();
+    // this.actions.set('find_click', {
+    //   description: 'Find an interactive element by text/purpose/category and click it - enhanced for shopping/social sites',
+    //   schema: {
+    //     text: 'string - Substring to match in textContent/text (case-insensitive)',
+    //     purpose: 'string - Optional purpose to prefer (e.g., submit, add-to-cart, product-link)',
+    //     category: 'string - Optional category to prefer (action, form, navigation)',
+    //     intent: 'string - Why clicking this target',
+    //     context: 'string - Shopping context like "carbonara ingredients" or "electronics under $50"'
+    //   },
+    //   handler: async (input) => {
+    //     const score = (el) => {
+    //       if (!el?.isVisible || !el?.isInteractive) return -1;
+    //       let s = 0;
+    //       const txt = (el.text || el.textContent || '').toLowerCase();
+    //       const ariaLabel = (el.attributes?.['aria-label'] || '').toLowerCase();
+    //       const className = (el.attributes?.class || '').toLowerCase();
+    //       const id = (el.attributes?.id || '').toLowerCase();
           
-          // Enhanced text matching
-          if (input.text) {
-            const searchText = String(input.text).toLowerCase();
-            if (txt.includes(searchText)) s += 15; // Higher score for exact text match
-            if (ariaLabel.includes(searchText)) s += 12;
-            if (className.includes(searchText.replace(/\s+/g, '-'))) s += 8; // CSS class format
-            if (id.includes(searchText.replace(/\s+/g, '-'))) s += 10; // ID format
+    //       // Enhanced text matching
+    //       if (input.text) {
+    //         const searchText = String(input.text).toLowerCase();
+    //         if (txt.includes(searchText)) s += 15; // Higher score for exact text match
+    //         if (ariaLabel.includes(searchText)) s += 12;
+    //         if (className.includes(searchText.replace(/\s+/g, '-'))) s += 8; // CSS class format
+    //         if (id.includes(searchText.replace(/\s+/g, '-'))) s += 10; // ID format
             
-            // Partial word matching for better flexibility
-            const searchWords = searchText.split(' ');
-            const matchingWords = searchWords.filter(word => 
-              txt.includes(word) || ariaLabel.includes(word)
-            );
-            if (matchingWords.length > 0) {
-              s += (matchingWords.length / searchWords.length) * 8;
-            }
-          }
+    //         // Partial word matching for better flexibility
+    //         const searchWords = searchText.split(' ');
+    //         const matchingWords = searchWords.filter(word => 
+    //           txt.includes(word) || ariaLabel.includes(word)
+    //         );
+    //         if (matchingWords.length > 0) {
+    //           s += (matchingWords.length / searchWords.length) * 8;
+    //         }
+    //       }
           
-          // Purpose and category matching with higher weights
-          if (input.purpose && (el.purpose || '').toLowerCase() === String(input.purpose).toLowerCase()) s += 8;
-          if (input.category && (el.category || '').toLowerCase() === String(input.category).toLowerCase()) s += 6;
+    //       // Purpose and category matching with higher weights
+    //       if (input.purpose && (el.purpose || '').toLowerCase() === String(input.purpose).toLowerCase()) s += 8;
+    //       if (input.category && (el.category || '').toLowerCase() === String(input.category).toLowerCase()) s += 6;
           
-          // Element type preferences for actions
-          if (el.tagName === 'BUTTON') s += 3;
-          if (el.tagName === 'A' && el.attributes?.href) s += 2;
-          if (el.tagName === 'INPUT' && el.attributes?.type === 'submit') s += 4;
+    //       // Element type preferences for actions
+    //       if (el.tagName === 'BUTTON') s += 3;
+    //       if (el.tagName === 'A' && el.attributes?.href) s += 2;
+    //       if (el.tagName === 'INPUT' && el.attributes?.type === 'submit') s += 4;
           
-          // Size bonus (larger elements are often more important)
-          const area = (el.bounds?.width || 0) * (el.bounds?.height || 0);
-          s += Math.min(3, Math.log10(1 + area/1000));
+    //       // Size bonus (larger elements are often more important)
+    //       const area = (el.bounds?.width || 0) * (el.bounds?.height || 0);
+    //       s += Math.min(3, Math.log10(1 + area/1000));
           
-          return s;
-        };
-        return new Promise((resolve) => {
-          chrome.wootz.getPageState({ debugMode: false, includeHidden: true }, (res) => {
-            if (!res?.success) {
-              resolve({ success: false, error: 'getPageState failed', includeInMemory: true });
-              return;
-            }
-            const els = (res.pageState?.elements || []).map((el, i) => ({ index: el.index ?? i, selector: el.selector, textContent: el.textContent, text: el.text, isVisible: el.isVisible !== false, isInteractive: el.isInteractive !== false, purpose: el.purpose, category: el.category, bounds: el.bounds }));
-            const candidates = els.map(el => ({ el, s: score(el) })).filter(x => x.s >= 0).sort((a,b) => b.s-a.s);
-            const best = candidates[0]?.el;
-            if (!best) {
-              resolve({ success: false, error: 'No matching element found', includeInMemory: true });
-              return;
-            }
-            const params = best.selector ? { selector: best.selector } : { index: best.index };
-            chrome.wootz.performAction('click', params, (r) => {
-              resolve({ success: r.success, extractedContent: r.success ? `Clicked by find_click: ${input.intent || input.text || ''}` : `find_click failed: ${r.error}`, includeInMemory: true, error: r.error });
-            });
-          });
-        });
-      }
-    });
+    //       return s;
+    //     };
+    //     return new Promise((resolve) => {
+    //       chrome.wootz.getPageState({ debugMode: false, includeHidden: true }, (res) => {
+    //         if (!res?.success) {
+    //           resolve({ success: false, error: 'getPageState failed', includeInMemory: true });
+    //           return;
+    //         }
+    //         const els = (res.pageState?.elements || []).map((el, i) => ({ index: el.index ?? i, selector: el.selector, textContent: el.textContent, text: el.text, isVisible: el.isVisible !== false, isInteractive: el.isInteractive !== false, purpose: el.purpose, category: el.category, bounds: el.bounds }));
+    //         const candidates = els.map(el => ({ el, s: score(el) })).filter(x => x.s >= 0).sort((a,b) => b.s-a.s);
+    //         const best = candidates[0]?.el;
+    //         if (!best) {
+    //           resolve({ success: false, error: 'No matching element found', includeInMemory: true });
+    //           return;
+    //         }
+    //         const params = best.selector ? { selector: best.selector } : { index: best.index };
+    //         chrome.wootz.performAction('click', params, (r) => {
+    //           resolve({ success: r.success, extractedContent: r.success ? `Clicked by find_click: ${input.intent || input.text || ''}` : `find_click failed: ${r.error}`, includeInMemory: true, error: r.error });
+    //         });
+    //       });
+    //     });
+    //   }
+    // });
 
     // Find and Type (match input by placeholder/name/aria-label)
-    this.actions.set('find_type', {
-      description: 'Find an input/textarea by placeholder/name/label and type text',
-      schema: {
-        query: 'string - Placeholder/name/label text to match',
-        text: 'string - Text to type',
-        intent: 'string - Why typing into this field'
-      },
-      handler: async (input) => {
-        const q = String(input.query || '').toLowerCase();
-        const score = (el) => {
-          if (!el?.isVisible || !el?.isInteractive) return -1;
-          const tag = (el.tagName || '').toLowerCase();
-          if (!(tag === 'input' || tag === 'textarea')) return -1;
-          let s = 1;
-          const attrs = el.attributes || {};
-          const hay = [el.text || '', el.textContent || '', attrs.placeholder || '', attrs.name || '', attrs['aria-label'] || ''].join(' ').toLowerCase();
-          if (q && hay.includes(q)) s += 5;
-          if ((attrs.type || '').toLowerCase() === 'search') s += 1;
-          return s;
-        };
-        return new Promise((resolve) => {
-          chrome.wootz.getPageState({ debugMode: false, includeHidden: true }, (res) => {
-            if (!res?.success) { resolve({ success:false, error:'getPageState failed', includeInMemory:true }); return; }
-            const els = (res.pageState?.elements || []).map((el, i) => ({ ...el, index: el.index ?? i }));
-            const candidates = els.map(el => ({ el, s: score(el) })).filter(x => x.s >= 0).sort((a,b)=>b.s-a.s);
-            const best = candidates[0]?.el;
-            if (!best) { resolve({ success:false, error:'No matching input found', includeInMemory:true }); return; }
-            const params = best.selector ? { selector: best.selector, text: input.text } : { index: best.index, text: input.text };
-            chrome.wootz.performAction('fill', params, (r) => {
-              resolve({ success: r.success, extractedContent: r.success ? `Typed by find_type: ${input.intent || input.text || ''}` : `find_type failed: ${r.error}`, includeInMemory: true, error: r.error });
-            });
-          });
-        });
-      }
-    });
+    // this.actions.set('find_type', {
+    //   description: 'Find an input/textarea by placeholder/name/label and type text',
+    //   schema: {
+    //     query: 'string - Placeholder/name/label text to match',
+    //     text: 'string - Text to type',
+    //     intent: 'string - Why typing into this field'
+    //   },
+    //   handler: async (input) => {
+    //     const q = String(input.query || '').toLowerCase();
+    //     const score = (el) => {
+    //       if (!el?.isVisible || !el?.isInteractive) return -1;
+    //       const tag = (el.tagName || '').toLowerCase();
+    //       if (!(tag === 'input' || tag === 'textarea')) return -1;
+    //       let s = 1;
+    //       const attrs = el.attributes || {};
+    //       const hay = [el.text || '', el.textContent || '', attrs.placeholder || '', attrs.name || '', attrs['aria-label'] || ''].join(' ').toLowerCase();
+    //       if (q && hay.includes(q)) s += 5;
+    //       if ((attrs.type || '').toLowerCase() === 'search') s += 1;
+    //       return s;
+    //     };
+    //     return new Promise((resolve) => {
+    //       chrome.wootz.getPageState({ debugMode: false, includeHidden: true }, (res) => {
+    //         if (!res?.success) { resolve({ success:false, error:'getPageState failed', includeInMemory:true }); return; }
+    //         const els = (res.pageState?.elements || []).map((el, i) => ({ ...el, index: el.index ?? i }));
+    //         const candidates = els.map(el => ({ el, s: score(el) })).filter(x => x.s >= 0).sort((a,b)=>b.s-a.s);
+    //         const best = candidates[0]?.el;
+    //         if (!best) { resolve({ success:false, error:'No matching input found', includeInMemory:true }); return; }
+    //         const params = best.selector ? { selector: best.selector, text: input.text } : { index: best.index, text: input.text };
+    //         chrome.wootz.performAction('fill', params, (r) => {
+    //           resolve({ success: r.success, extractedContent: r.success ? `Typed by find_type: ${input.intent || input.text || ''}` : `find_type failed: ${r.error}`, includeInMemory: true, error: r.error });
+    //         });
+    //       });
+    //     });
+    //   }
+    // });
 
     // Go back in history (tab back) via minimal content-script bridge
     this.actions.set('go_back', {
@@ -377,24 +377,24 @@ export class ActionRegistry {
     });
 
     // Wait until text appears (basic condition wait)
-    this.actions.set('wait_for_text', {
-      description: 'Wait until an element containing specific text appears (timeout ms)',
-      schema: { text: 'string - Substring to wait for', timeout: 'number - milliseconds (default 4000)' },
-      handler: async (input) => {
-        const text = String(input.text || '').toLowerCase();
-        const timeout = Number(input.timeout || 4000);
-        const start = Date.now();
-        while (Date.now() - start < timeout) {
-          const state = await new Promise(resolve => chrome.wootz.getPageState({ debugMode:false, includeHidden:true }, resolve));
-          const els = (state?.pageState?.elements || []);
-          if (els.some(e => ((e.text || e.textContent || '').toLowerCase().includes(text)) && e.isVisible)) {
-            return { success: true, extractedContent:`wait_for_text found: ${input.text}`, includeInMemory:true };
-          }
-          await new Promise(r => setTimeout(r, 300));
-        }
-        return { success:false, error:'Timeout waiting for text', includeInMemory:true };
-      }
-    });
+    // this.actions.set('wait_for_text', {
+    //   description: 'Wait until an element containing specific text appears (timeout ms)',
+    //   schema: { text: 'string - Substring to wait for', timeout: 'number - milliseconds (default 4000)' },
+    //   handler: async (input) => {
+    //     const text = String(input.text || '').toLowerCase();
+    //     const timeout = Number(input.timeout || 4000);
+    //     const start = Date.now();
+    //     while (Date.now() - start < timeout) {
+    //       const state = await new Promise(resolve => chrome.wootz.getPageState({ debugMode:false, includeHidden:true }, resolve));
+    //       const els = (state?.pageState?.elements || []);
+    //       if (els.some(e => ((e.text || e.textContent || '').toLowerCase().includes(text)) && e.isVisible)) {
+    //         return { success: true, extractedContent:`wait_for_text found: ${input.text}`, includeInMemory:true };
+    //       }
+    //       await new Promise(r => setTimeout(r, 300));
+    //     }
+    //     return { success:false, error:'Timeout waiting for text', includeInMemory:true };
+    //   }
+    // });
   }
 
   async executeAction(actionName, input) {

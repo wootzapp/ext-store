@@ -83,7 +83,7 @@ ${recentActions}
 ${failedActionsNav ? `# **RECENT FAILURES**\n${failedActionsNav}` : ''}
 
 # **AVAILABLE ACTIONS**
-navigate(url), click(index|selector), type(index|selector,text), find_click(text,purpose,category,context), find_type(query,text), scroll(direction,amount), wait(duration), wait_for_text(text,timeout), go_back()
+navigate(url), click(index|selector), type(index|selector,text), scroll(direction,amount), wait(duration), go_back()
 
 # **OUTPUT FORMAT - MUST BE COMPLETE**
 **CRITICAL**: Return COMPLETE JSON response - NO TRUNCATION OR TRIMMING ALLOWED
@@ -99,10 +99,7 @@ navigate(url), click(index|selector), type(index|selector,text), find_click(text
   }
 }
 
-**RULES**: Prefer exact index/selector when known. Heuristic actions are allowed:
-- find_click may omit index/selector and accept {text|purpose|category}
-- find_type may omit index/selector and accept {query,text}
-- wait_for_text requires {text} (and optional timeout)
+**RULES**: Prefer exact index/selector when known:
 - go_back takes no required parameters
 Skip index/selector for navigate/wait/scroll.
 **ENSURE ALL FIELDS ARE POPULATED - NO INCOMPLETE RESPONSES ALLOWED**`;
@@ -539,29 +536,31 @@ Skip index/selector for navigate/wait/scroll.
       }
     }
     
-    // If exact click/type failed, try heuristic actions
+    // If exact click/type failed, try alternative approach
     if (lastAction && lastAction.content?.includes('failed')) {
       if (lastAction.action === 'click') {
+        // Try scrolling to find new elements
         return {
-          thinking: 'Previous click failed, trying find_click with text matching',
+          thinking: 'Previous click failed, trying scroll to find new elements',
           action: {
-            name: 'find_click',
+            name: 'scroll',
             parameters: {
-              text: 'search', // or appropriate text
-              intent: 'Find and click element using text matching'
+              direction: 'down',
+              amount: 300,
+              intent: 'Scroll down to find new interactive elements after click failure'
             }
           }
         };
       }
       if (lastAction.action === 'type') {
+        // Try waiting for page to load
         return {
-          thinking: 'Previous type failed, trying find_type with query matching',
+          thinking: 'Previous type failed, trying wait for page to load',
           action: {
-            name: 'find_type',
+            name: 'wait',
             parameters: {
-              query: 'search', // or appropriate query
-              text: 'search term',
-              intent: 'Find and type in input field using query matching'
+              duration: 3000,
+              intent: 'Wait for page to load after type failure'
             }
           }
         };

@@ -74,24 +74,24 @@ export class MultiLLMService {
       try {
         console.log('📸 Capturing screenshot using chrome.wootz.captureScreenshot()...');
         
-        // First highlight elements with debug mode
-        console.log('🔍 Highlighting elements with debug mode...');
-        await new Promise((resolve) => {
-          chrome.wootz.getPageState({
-            debugMode: true,
-            includeHidden: true
-          }, (result) => {
-            if (result.success) {
-              console.log('✅ Elements highlighted successfully');
-            } else {
-              console.log('⚠️ Element highlighting failed:', result.error);
-            }
-            resolve();
-          });
-        });
+        // // First highlight elements with debug mode
+        // console.log('🔍 Highlighting elements with debug mode...');
+        // await new Promise((resolve) => {
+        //   chrome.wootz.getPageState({
+        //     debugMode: true,
+        //     includeHidden: true
+        //   }, (result) => {
+        //     if (result.success) {
+        //       console.log('✅ Elements highlighted successfully');
+        //     } else {
+        //       console.log('⚠️ Element highlighting failed:', result.error);
+        //     }
+        //     resolve();
+        //   });
+        // });
         
-        // Wait a moment for highlighting to complete
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // // Wait a moment for highlighting to complete
+        // await new Promise(resolve => setTimeout(resolve, 500));
         
         // Capture screenshot using the API: chrome.wootz.captureScreenshot()
         const screenshotResult = await chrome.wootz.captureScreenshot();
@@ -505,7 +505,7 @@ export class MultiLLMService {
         }
 
         // Use the user's selected organization or the first active one
-        const activeOrg = organizations.find(org => org.id === user.selectedOrganizationId) || 
+        const activeOrg = organizations.find(org => org.id === user?.selectedOrganizationId) || 
                          organizations.find(org => org.isActive) || 
                          organizations[0];
 

@@ -169,27 +169,50 @@ class MultiAgentExecutor {
           break;
         }
 
-        if (initialPlan && initialPlan.direct_url && this.currentStep === 1) {
-          console.log(`🎯 Using direct URL: ${initialPlan.direct_url}`);
-          // Use direct_url for navigation as first step
-          this.actionQueue = [{
-            name: 'navigate',
-            parameters: {
-              url: initialPlan.direct_url,
-              intent: 'Navigate directly to search results page'
+        if (initialPlan && this.currentStep === 1) {
+          // Handle navigation if needed
+          if (initialPlan.direct_url && initialPlan.navigation_needed !== false) {
+            console.log(`🎯 Not on the correct page, using direct URL: ${initialPlan.direct_url}`);
+            this.actionQueue = [{
+              name: 'navigate',
+              parameters: {
+                url: initialPlan.direct_url,
+                intent: 'Navigate directly to target page'
+              }
+            }];
+          } else if (initialPlan.navigation_needed === false) {
+            console.log(`🎯 Already on correct page, proceeding with immediate actions`);
+            // Set up action queue based on initial plan parameters
+            if (initialPlan.next_action) {
+              const action = {
+                name: initialPlan.next_action,
+                parameters: {
+                  index: initialPlan.index,
+                  selector: initialPlan.selector,
+                  text: initialPlan.text,
+                  direction: initialPlan.direction,
+                  amount: initialPlan.amount,
+                  duration: initialPlan.duration,
+                  intent: 'Execute immediate action on current page'
+                }
+              };
+              this.actionQueue = [action];
             }
-          }];
+          }
+
+          // Set current batch plan
           this.currentBatchPlan = initialPlan;
           
-          if (initialPlan && initialPlan.observation) {
-            connectionManager.broadcast({
-              type: 'status_update',
-              message: `🧠 Observation: ${initialPlan.observation}\n📋 Strategy: ${initialPlan.strategy}`,
-              details: initialPlan.reasoning || ''
-            });
+          // Broadcast status update if observation exists
+          if (initialPlan.observation) {
+            // Show observation and strategy to user
+          connectionManager.broadcast({
+            type: 'observation_strategy',
+            step: this.currentStep,
+            observation: initialPlan.observation,
+            strategy: initialPlan.strategy
+          });
           }
-          
-          // continue; // Execute this batch immediately
         }
 
         // 1. Execute batch actions if available
@@ -206,13 +229,13 @@ class MultiAgentExecutor {
             message: `📋 Batch completed: ${batchResults.executedActions.length} actions executed`
           });
           
-          const shouldRunValidation = (
-            this.currentBatchPlan?.shouldValidate || // Planner-requested only
-            (this.currentStep >= 10 && this.currentStep % 10 === 0) || // Reduced frequency
-            (this.executionHistory.filter(h => h.success).length >= 10 && 
-            this.executionHistory.slice(-3).every(h => h.success)) // After multiple successes
-          ) && batchResults.anySuccess;
-
+          // const shouldRunValidation = (
+          //   this.currentBatchPlan?.shouldValidate || // Planner-requested only
+          //   (this.currentStep >= 10 && this.currentStep % 10 === 0) || // Reduced frequency
+          //   (this.executionHistory.filter(h => h.success).length >= 10 && 
+          //   this.executionHistory.slice(-3).every(h => h.success)) // After multiple successes
+          // ) && batchResults.anySuccess;
+          const shouldRunValidation = this.currentBatchPlan?.shouldValidate && batchResults.anySuccess;
           
           if (shouldRunValidation) {
             console.log('🔍 Running progressive validation as requested by planner...');
@@ -304,6 +327,35 @@ class MultiAgentExecutor {
             const currentState = await this.getCurrentState();
             const enhancedContext = this.buildEnhancedContextWithHistory();
             
+            // Add previous plan results to context for continuity with enhanced details
+            if (this.currentBatchPlan) {
+              const completedActions = batchResults.executedActions.map(a => ({
+                action: a.action,
+                success: a.success,
+                intent: a.intent,
+                result: a.result,
+                error: a.error || null
+              }));
+              
+              const successfulActions = completedActions.filter(a => a.success);
+              const failedActions = completedActions.filter(a => !a.success);
+              
+              enhancedContext.previousPlan = {
+                observation: this.currentBatchPlan.observation,
+                strategy: this.currentBatchPlan.strategy,
+                next_action: this.currentBatchPlan.next_action,
+                reasoning: this.currentBatchPlan.reasoning,
+                completed_actions: completedActions,
+                summary: {
+                  total_actions: completedActions.length,
+                  successful_actions: successfulActions.length,
+                  failed_actions: failedActions.length,
+                  last_action: completedActions.length > 0 ? completedActions[completedActions.length - 1] : null,
+                  page_changed: batchResults.pageChanged || false
+                }
+              };
+            }
+            
             // Add validation results to context for planner
             if (this.lastValidationResult) {
               enhancedContext.lastValidation = {
@@ -320,22 +372,32 @@ class MultiAgentExecutor {
             
             // Broadcast planner's observation and strategy
             if (plan && plan.observation) {
+              // Show observation and strategy to user
               connectionManager.broadcast({
-                type: 'status_update',
-                message: `🧠 Observation: ${plan.observation}\n📋 Strategy: ${plan.strategy}`,
-                details: plan.reasoning || ''
+                type: 'observation_strategy',
+                step: this.currentStep,
+                observation: plan.observation,
+                strategy: plan.strategy
               });
             }
             
-            // If planner says done AND there are no batch actions to execute, complete the task
-            if (plan.done && (!this.actionQueue || this.actionQueue.length === 0)) {
+            // If planner says done, complete the task immediately
+            if (plan.done) {
+              console.log('🎯 Task marked as complete by planner');
               taskCompleted = true;
               finalResult = {
                 success: true,
-                response: `✅ ${plan.completion_criteria || plan.reasoning}`,
+                response: `✅ ${plan.completion_criteria || plan.reasoning || 'Task completed successfully'}`,
                 steps: this.currentStep,
                 isMarkdown: true // Enable markdown formatting
               };
+              
+              // Broadcast completion message
+              connectionManager.broadcast({
+                type: 'status_update',
+                message: `🎯 Task Completed: ${plan.completion_criteria || plan.reasoning || 'Task completed successfully'}`,
+                details: `Completed in ${this.currentStep} steps`
+              });
               break;
             }
             
@@ -394,21 +456,32 @@ class MultiAgentExecutor {
         }
 
         if (plan && plan.observation) {
+          // Show observation and strategy to user
           connectionManager.broadcast({
-            type: 'status_update',
-            message: `🧠 Observation: ${plan.observation}\n📋 Strategy: ${plan.strategy}`,
-            details: plan.reasoning || ''
+            type: 'observation_strategy',
+            step: this.currentStep,
+            observation: plan.observation,
+            strategy: plan.strategy
           });
         }
 
-        // 5. Check if AI says task is complete
-        if (plan.isCompleted || plan.done) {
+        // If planner says done AND there are no batch actions to execute, complete the task
+        if (plan.done && (!this.actionQueue || this.actionQueue.length === 0)) {
+          console.log('🎯 Task marked as complete by planner');
           taskCompleted = true;
           finalResult = {
             success: true,
-            response: `✅ ${plan.completion_criteria || plan.reasoning}`,
-            steps: this.currentStep
+            response: `✅ ${plan.completion_criteria || plan.reasoning || 'Task completed successfully'}`,
+            steps: this.currentStep,
+            isMarkdown: true
           };
+          
+          // Broadcast completion message
+          connectionManager.broadcast({
+            type: 'status_update',
+            message: `🎯 Task Completed: ${plan.completion_criteria || plan.reasoning || 'Task completed successfully'}`,
+            details: `Completed in ${this.currentStep} steps`
+          });
           break;
         }
 
@@ -417,15 +490,12 @@ class MultiAgentExecutor {
           this.actionQueue = this.validateAndPreprocessBatchActions(plan.batch_actions);
           this.currentBatchPlan = plan;
           
-          // Show plan to user as single step
+          // Show observation and strategy to user
           connectionManager.broadcast({
-            type: 'plan_display',
+            type: 'observation_strategy',
             step: this.currentStep,
-            strategy: plan.strategy,
-            plannedActions: plan.batch_actions.map(a => ({
-              type: a.action_type,
-              intent: a.parameters?.intent || `${a.action_type} action`
-            }))
+            observation: plan.observation,
+            strategy: plan.strategy
           });
         } else {
           console.log('⚠️ No valid batch actions received from planner');
@@ -554,7 +624,7 @@ class MultiAgentExecutor {
       anySuccess: false,
       criticalFailure: false
     };
-    let ineffectiveCount = 0;
+    // let ineffectiveCount = 0;
     
     console.log(`🚀 Executing ${this.actionQueue.length} actions in batch`);
     
@@ -575,12 +645,35 @@ class MultiAgentExecutor {
         const urlBefore = beforeState?.pageInfo?.url || 'unknown';
         const targetKey = action.parameters?.selector ?? (Number.isFinite(action.parameters?.index) ? `idx:${action.parameters.index}` : 'none');
         const actKey = `${urlBefore}::${action.name}::${targetKey}`;
-        if (this.recentActionKeys.has(actKey)) {
-          console.log('🔄 Skipping repeated action on same target and URL:', actKey);
-          results.executedActions.push({ action: action.name, success: false, intent: action.parameters?.intent || action.name, error: 'loop-prevented' });
-          continue;
-        }
-
+        
+        // Improved loop prevention: only skip if the same action failed multiple times recently
+        // const recentFailures = this.executionHistory
+        //   .slice(-5)
+        //   .filter(h => !h.success && h.action === action.name && h.navigation === action.parameters?.intent);
+        
+        // if (recentFailures.length >= 3) {
+        //   console.log('🔄 Skipping action due to multiple recent failures:', actKey);
+        //   results.executedActions.push({ 
+        //     action: action.name, 
+        //     success: false, 
+        //     intent: action.parameters?.intent || action.name, 
+        //     error: 'multiple-failures-prevented' 
+        //   });
+        //   continue;
+        // }
+        
+        // // Only skip exact duplicate actions on same URL (less aggressive)
+        // if (this.recentActionKeys.has(actKey) && action.name !== 'wait' && action.name !== 'scroll') {
+        //   console.log('🔄 Skipping exact duplicate action:', actKey);
+        //   results.executedActions.push({ 
+        //     action: action.name, 
+        //     success: false, 
+        //     intent: action.parameters?.intent || action.name, 
+        //     error: 'duplicate-action-prevented' 
+        //   });
+        //   continue;
+        // }
+        
         const actionResult = await this.executeAction(action, connectionManager);
         
         if (!actionResult) {
@@ -604,11 +697,11 @@ class MultiAgentExecutor {
           results.anySuccess = true;
         }
         
-        // Add to memory and history
+        // Add to memory and history with enhanced context
         this.memoryManager.addMessage({
           role: 'step_executor',
           action: action.name,
-          content: `Step ${this.currentStep}: Executed ${action.name} - ${actionResult.success ? 'SUCCESS' : 'FAILED'}`,
+          content: `Step ${this.currentStep}: Executed ${action.name} - ${actionResult.success ? 'SUCCESS' : 'FAILED'} (Intent: ${action.parameters?.intent || 'No intent specified'})`,
           step: this.currentStep,
           timestamp: new Date().toISOString()
         });
@@ -616,10 +709,12 @@ class MultiAgentExecutor {
         this.executionHistory.push({
           step: this.currentStep,
           plan: `Batch action: ${action.name}`,
-          navigation: action.parameters?.intent,
+          navigation: action.parameters?.intent || 'No intent specified',
           results: [actionResult],
           success: actionResult.success,
-          action: action.name
+          action: action.name,
+          intent: action.parameters?.intent || 'No intent specified',
+          parameters: action.parameters
         });
         
         if (action.name === 'click' && action.parameters?.index !== undefined) {
@@ -688,30 +783,30 @@ class MultiAgentExecutor {
         if (pageChanged) {
           console.log('🔄 Page state changed - triggering replanning');
           this.actionQueue = [];
-          ineffectiveCount = 0;
+          // ineffectiveCount = 0;
           break;
         }
         
         // semantic effectiveness check
-        const effective = this.verifyAfterAction(action, beforeState, currentState, actionResult);
-        if (!effective) {
-          ineffectiveCount += 1;
-          console.log(`⚠️ Action deemed ineffective (count=${ineffectiveCount})`);
-          if (ineffectiveCount >= 3) {
-            console.log('🔄 Three ineffective actions - triggering replanning');
-            this.actionQueue = [];
-            break;
-          }
-        } else {
-          ineffectiveCount = 0;
-        }
+        // const effective = this.verifyAfterAction(action, beforeState, currentState, actionResult);
+        // if (!effective) {
+        //   ineffectiveCount += 1;
+        //   console.log(`⚠️ Action deemed ineffective (count=${ineffectiveCount})`);
+        //   if (ineffectiveCount >= 3) {
+        //     console.log('🔄 Three ineffective actions - triggering replanning');
+        //     this.actionQueue = [];
+        //     break;
+        //   }
+        // } else {
+        //   ineffectiveCount = 0;
+        // }
 
-        if (ineffectiveCount >= 2) {
-          console.log('🔄 Multiple ineffective actions - triggering replanning');
-          this.actionQueue = [];
-          ineffectiveCount = 0;
-          break;
-        }
+        // if (ineffectiveCount >= 2) {
+        //   console.log('🔄 Multiple ineffective actions - triggering replanning');
+        //   this.actionQueue = [];
+        //   ineffectiveCount = 0;
+        //   break;
+        // }
         
         // If batch only contains navigation/wait, force replan after execution
         if (this.actionQueue.every(a => ['navigate', 'wait'].includes(a.name))) {
@@ -998,7 +1093,7 @@ class MultiAgentExecutor {
     }
   }
 
-  // Process elements directly without any filtering since API already sends filtered data
+  // Process elements directly and filter out HTML tag (0th index element)
   processElementsDirectly(elements) {
     if (!elements || !Array.isArray(elements)) {
       console.log('🔍 Elements not array or null:', elements);
@@ -1008,8 +1103,20 @@ class MultiAgentExecutor {
     
     console.log(`🔍 Processing ${elements.length} elements directly from Wootz API`);
     
-    // Process ALL elements directly - no filtering needed since API already sends the right format
-    const processed = elements.map((el, arrayIndex) => {
+    // Filter out HTML tag (0th index element) and process remaining elements
+    const filteredElements = elements.filter((el, arrayIndex) => {
+      // Skip the 0th index element if it's an HTML tag
+      if (arrayIndex === 0 && (el.tagName?.toLowerCase() === 'html' || el.index === 0)) {
+        console.log('🔍 Filtering out HTML tag (0th index element)');
+        return false;
+      }
+      return true;
+    });
+    
+    console.log(`🔍 After filtering HTML tag: ${filteredElements.length} elements remaining`);
+    
+    // Process filtered elements
+    const processed = filteredElements.map((el, arrayIndex) => {
       // console.log(`🔍 Processing element ${arrayIndex}:`, el);
       
       return {
@@ -1220,7 +1327,8 @@ class MultiAgentExecutor {
         }
       }
       
-      const result = await this.actionRegistry.executeAction(action.name, action.parameters);
+      // Pass connectionManager to ActionRegistry for better communication
+      const result = await this.actionRegistry.executeAction(action.name, action.parameters, connectionManager);
       
       // Track failed elements for future avoidance
       if (!result.success && action.parameters?.index) {
@@ -1399,13 +1507,6 @@ class MultiAgentExecutor {
     const availableSelectors = (currentState.interactiveElements || []).map(el => el.selector);
 
     return batchActions.map(action => {
-      if (['find_click', 'find_type'].includes(action.action_type)) {
-        return {
-          name: action.action_type,
-          parameters: action.parameters
-        };
-      }
-      
       // Only validate exact indices for basic actions
       if (action.action_type === 'click' || action.action_type === 'type' || action.action_type === 'fill') {
         if (action.parameters.index !== undefined && availableIndices.includes(action.parameters.index)) {
@@ -1714,10 +1815,21 @@ class BackgroundScriptAgent {
             taskStatus: null
           });
           
+          // Get progress information for cancellation message
+          let progressInfo = '';
+          if (this.currentStep > 0) {
+            progressInfo = `Completed ${this.currentStep} steps`;
+            if (this.executionHistory && this.executionHistory.length > 0) {
+              const successfulSteps = this.executionHistory.filter(h => h.success).length;
+              progressInfo += ` (${successfulSteps} successful)`;
+            }
+          }
+          
           this.connectionManager.broadcast({
             type: 'task_cancelled',
             message: 'Task cancelled by user',
-            cancelled: cancelled
+            cancelled: cancelled,
+            progress: progressInfo || 'No progress made'
           });
           
           console.log(`✅ Task ${activeTaskId} cancelled: ${cancelled}`);
@@ -1807,6 +1919,11 @@ class BackgroundScriptAgent {
       }
 
       const currentState = await this.multiAgentExecutor.getCurrentState();
+      try {
+        await this.multiAgentExecutor.clearElementHighlighting();
+      } catch (error) {
+        console.error('Failed to clear element highlighting:', error);
+      }
       
       console.log('🧠 Making single intelligent routing call with detailed page state...');
       const intelligentResult = await this.taskRouter.analyzeAndRoute(task, currentState);
@@ -1846,15 +1963,35 @@ class BackgroundScriptAgent {
         
         const initialPlan = {
           observation: intelligentResult.response.observation,
-          done: intelligentResult.response.done || false,
           strategy: intelligentResult.response.strategy,
+          done: intelligentResult.response.done || false,
           next_action: intelligentResult.response.next_action,
-          reasoning: intelligentResult.response.reasoning,
-          completion_criteria: intelligentResult.response.completion_criteria,
           direct_url: intelligentResult.response.direct_url,
-          requires_auth: intelligentResult.response.requires_auth || false,
-          workflow_type: intelligentResult.response.workflow_type
+          index: intelligentResult.response.index || null,
+          selector: intelligentResult.response.selector || null,
+          text: intelligentResult.response.text || "",
+          direction: intelligentResult.response.direction || "",
+          amount: intelligentResult.response.amount || 0,
+          duration: intelligentResult.response.duration || 0,
+          requires_auth: intelligentResult.response.requires_auth,
+          navigation_needed: intelligentResult.response.navigation_needed
         };
+        
+        console.log('🎯 Initial plan created:', {
+          observation: initialPlan.observation,
+          strategy: initialPlan.strategy,
+          done: initialPlan.done,
+          next_action: initialPlan.next_action,
+          direct_url: initialPlan.direct_url,
+          index: initialPlan.index,
+          selector: initialPlan.selector,
+          text: initialPlan.text,
+          direction: initialPlan.direction,
+          amount: initialPlan.amount,
+          duration: initialPlan.duration,
+          requires_auth: initialPlan.requires_auth,
+          navigation_needed: initialPlan.navigation_needed,
+        });
 
         await this.backgroundTaskManager.startTask(
           taskId, 
