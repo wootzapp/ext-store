@@ -10,10 +10,21 @@
     "setup": "node scripts/dev-setup.js"
   },
   "dependencies": {
+    "ably": "^2.11.0",
+    "copy-to-clipboard": "^3.3.3",
     "framer-motion": "^12.23.10",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.26.1"
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "^6.26.1",
+    "react-syntax-highlighter": "^15.6.1",
+    "rehype-autolink-headings": "^7.1.0",
+    "rehype-external-links": "^3.0.0",
+    "rehype-raw": "^7.0.0",
+    "rehype-sanitize": "^6.0.0",
+    "rehype-slug": "^6.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-linkify-regex": "^1.2.1"
   },
   "devDependencies": {
     "@babel/core": "^7.23.0",
