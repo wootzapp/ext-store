@@ -381,9 +381,9 @@ class MultiAgentExecutor {
               });
             }
             
-            // If planner says done, complete the task immediately
-            if (plan.done) {
-              console.log('🎯 Task marked as complete by planner');
+            // If planner says done and there are no batch actions to execute, complete the task immediately
+            if (plan.done && (!plan.batch_actions || plan.batch_actions.length === 0)) {
+              console.log('🎯 Task marked as complete by planner (no batch actions)');
               taskCompleted = true;
               finalResult = {
                 success: true,
@@ -466,8 +466,8 @@ class MultiAgentExecutor {
         }
 
         // If planner says done AND there are no batch actions to execute, complete the task
-        if (plan.done && (!this.actionQueue || this.actionQueue.length === 0)) {
-          console.log('🎯 Task marked as complete by planner');
+        if (plan.done && (!plan.batch_actions || plan.batch_actions.length === 0)) {
+          console.log('🎯 Task marked as complete by planner (no batch actions)');
           taskCompleted = true;
           finalResult = {
             success: true,
