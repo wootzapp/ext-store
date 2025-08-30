@@ -1,5 +1,5 @@
 /* global chrome */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import apiService from '../services/api';
 
 export const useSubscription = (user) => {
@@ -24,71 +24,98 @@ export const useSubscription = (user) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const loadSubscriptionData = async () => {
-    try {
-      setSubscriptionState(prev => ({ ...prev, loading: true }));
-
-      // Always check subscription status from API first
-      const subscription = await apiService.getUserSubscription();
-      
-      // Handle both subscription API and usage API response formats
-      let monthly_limit = subscription.monthly_request_limit;
-      let requests_used = subscription.requests_used;
-      
-      // If the subscription doesn't have usage data, get it from usage endpoint
-      if (typeof requests_used === 'undefined') {
-        try {
-          const usage = await apiService.getUsageStats();
-          monthly_limit = usage.monthly_limit || monthly_limit;
-          requests_used = usage.requests_used || 0;
-        } catch (usageError) {
-          console.warn('Could not fetch usage stats:', usageError);
-          requests_used = 0;
-        }
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (subscriptionLoadTimeoutRef.current) {
+        clearTimeout(subscriptionLoadTimeoutRef.current);
       }
-      
-      const remaining = Math.max(0, monthly_limit - requests_used);
-      
-      // Check if using personal API keys
-      const hasPersonalKeys = await checkPersonalAPIKeys();
-      
-      // Get user's toggle preference
-      const userPreference = await getUserAPIPreference();
-      
-      // Logic: Use personal API based on user preference, availability, and trial status
-      const shouldUsePersonalAPI = determineAPIUsage(remaining, hasPersonalKeys, userPreference);
-      
-      setSubscriptionState({
-        status: subscription.status,
-        plan_type: subscription.plan_type,
-        monthly_request_limit: monthly_limit,
-        requests_used: requests_used,
-        remaining_requests: remaining,
-        trial_end: subscription.trial_end,
-        current_period_end: subscription.current_period_end,
-        usingPersonalAPI: shouldUsePersonalAPI,
-        hasPersonalKeys: hasPersonalKeys,
-        userPreferPersonalAPI: userPreference,
-        loading: false,
-        error: null
-      });
+    };
+  }, []);
 
-    } catch (error) {
-      console.error('Error loading subscription data:', error);
-      
-      // If API fails, check if we have personal keys as fallback
-      const hasPersonalKeys = await checkPersonalAPIKeys();
-      const userPreference = await getUserAPIPreference();
-      
-      setSubscriptionState(prev => ({
-        ...prev,
-        usingPersonalAPI: hasPersonalKeys && userPreference,
-        hasPersonalKeys: hasPersonalKeys,
-        userPreferPersonalAPI: userPreference,
-        loading: false,
-        error: error.message
-      }));
+  // Add rate limiting for subscription data loading
+  const subscriptionLoadTimeoutRef = useRef(null);
+  
+  const loadSubscriptionData = async () => {
+    // Prevent multiple simultaneous calls
+    if (subscriptionLoadTimeoutRef.current) {
+      clearTimeout(subscriptionLoadTimeoutRef.current);
     }
+    
+    subscriptionLoadTimeoutRef.current = setTimeout(async () => {
+      try {
+        setSubscriptionState(prev => ({ ...prev, loading: true }));
+
+        // Always check subscription status from API first
+        const subscription = await apiService.getUserSubscription();
+        
+        // Get quota data for the active organization
+        let monthly_limit = subscription.monthly_request_limit;
+        let requests_used = subscription.requests_used;
+        
+        // If the subscription doesn't have usage data, get it from active organization quota
+        if (typeof requests_used === 'undefined') {
+          try {
+            console.log("useSubscription - calling getActiveOrganizationQuota");
+            const quotaData = await apiService.getActiveOrganizationQuota();
+            console.log("useSubscription - quota data:", quotaData);
+            // Extract quota data from the response
+            const quota = quotaData.quotas?.find(q => q.featureKey === 'chat');
+            if (quota) {
+              monthly_limit = quota.limit || monthly_limit;
+              requests_used = quota.currentUsage || 0;
+            }
+          } catch (quotaError) {
+            console.warn('Could not fetch active organization quota:', quotaError);
+            requests_used = 0;
+          }
+        }
+        
+        const remaining = Math.max(0, monthly_limit - requests_used);
+        
+        // Check if using personal API keys
+        const hasPersonalKeys = await checkPersonalAPIKeys();
+        
+        // Get user's toggle preference
+        const userPreference = await getUserAPIPreference();
+        
+        // Logic: Use personal API based on user preference, availability, and trial status
+        const shouldUsePersonalAPI = determineAPIUsage(remaining, hasPersonalKeys, userPreference);
+        
+        setSubscriptionState({
+          status: subscription.status,
+          plan_type: subscription.plan_type,
+          monthly_request_limit: monthly_limit,
+          requests_used: requests_used,
+          remaining_requests: remaining,
+          trial_end: subscription.trial_end,
+          current_period_end: subscription.current_period_end,
+          usingPersonalAPI: shouldUsePersonalAPI,
+          hasPersonalKeys: hasPersonalKeys,
+          userPreferPersonalAPI: userPreference,
+          loading: false,
+          error: null
+        });
+
+      } catch (error) {
+        console.error('Error loading subscription data:', error);
+        
+        // If API fails, check if we have personal keys as fallback
+        const hasPersonalKeys = await checkPersonalAPIKeys();
+        const userPreference = await getUserAPIPreference();
+        
+        setSubscriptionState(prev => ({
+          ...prev,
+          usingPersonalAPI: hasPersonalKeys && userPreference,
+          hasPersonalKeys: hasPersonalKeys,
+          userPreferPersonalAPI: userPreference,
+          loading: false,
+          error: error.message
+        }));
+      } finally {
+        subscriptionLoadTimeoutRef.current = null;
+      }
+    }, 500); // 500ms debounce
   };
 
   const determineAPIUsage = (remaining, hasPersonalKeys, userPreference) => {
@@ -161,20 +188,26 @@ export const useSubscription = (user) => {
 
   const refreshUsage = async () => {
     try {
-      const usage = await apiService.getUsageStats();
-      const remaining = Math.max(0, usage.monthly_limit - usage.requests_used);
-      
-      const hasPersonalKeys = await checkPersonalAPIKeys();
-      const userPreference = await getUserAPIPreference();
-      const shouldUsePersonalAPI = determineAPIUsage(remaining, hasPersonalKeys, userPreference);
-      
-      setSubscriptionState(prev => ({
-        ...prev,
-        monthly_request_limit: usage.monthly_limit,
-        requests_used: usage.requests_used,
-        remaining_requests: remaining,
-        usingPersonalAPI: shouldUsePersonalAPI
-      }));
+      console.log("useSubscription refreshUsage - calling getActiveOrganizationQuota");
+      const quotaData = await apiService.getActiveOrganizationQuota();
+      console.log("useSubscription refreshUsage - quota data:", quotaData);
+      // Extract quota data from the response
+      const quota = quotaData.quotas?.find(q => q.featureKey === 'chat');
+      if (quota) {
+        const remaining = Math.max(0, quota.limit - quota.currentUsage);
+        
+        const hasPersonalKeys = await checkPersonalAPIKeys();
+        const userPreference = await getUserAPIPreference();
+        const shouldUsePersonalAPI = determineAPIUsage(remaining, hasPersonalKeys, userPreference);
+        
+        setSubscriptionState(prev => ({
+          ...prev,
+          monthly_request_limit: quota.limit,
+          requests_used: quota.currentUsage,
+          remaining_requests: remaining,
+          usingPersonalAPI: shouldUsePersonalAPI
+        }));
+      }
     } catch (error) {
       console.error('Error refreshing usage:', error);
     }

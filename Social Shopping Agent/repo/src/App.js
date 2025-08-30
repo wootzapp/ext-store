@@ -3,10 +3,10 @@ import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth';
 import { useSubscription } from './hooks/useSubscription';
 import ChatInterface from './components/ChatInterface';
-// import AuthPage from './components/AuthPage';
-// import SubscriptionPage from './components/SubscriptionPage';
+import AuthPage from './components/AuthPage';
+import SubscriptionPage from './components/SubscriptionPage';
 import SettingsModal from './components/SettingsModal';
-// import ProfilePage from './components/ProfilePage';
+import ProfilePage from './components/ProfilePage';
 // import IntegrationHub from './components/IntegrationHub';
 // import LabubuRoute from './components/LabubuRoute';
 import './App.css';
@@ -34,13 +34,7 @@ function AppContent() {
         backgroundColor: '#002550FF',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
       }}>
-        <div style={{
-          width: '40px',
-          height: '40px',
-          border: '4px solid rgba(255, 220, 220, 0.3)',
-          borderTop: '4px solid #FFDCDCFF',
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite',
+        <div className="spinner-loader" style={{
           marginBottom: '20px'
         }} />
         <div style={{ 
@@ -48,29 +42,10 @@ function AppContent() {
           color: '#FFDCDCFF',
           textAlign: 'center'
         }}>
-          <span id="loading-text"> </span>
+          <div className="text-loader" style={{ fontSize: '16px' }}></div>
         </div>
         
-        <style>
-          {`
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-            
-            @keyframes dots {
-              0% { content: 'Loading'; }
-              33% { content: 'Loading.'; }
-              66% { content: 'Loading..'; }
-              100% { content: 'Loading...'; }
-            }
-            
-            #loading-text::after {
-              content: '';
-              animation: dots 1.5s infinite;
-            }
-          `}
-        </style>
+
       </div>
     );
   }
@@ -98,7 +73,7 @@ function AppContent() {
         element={<LabubuRoute />} 
       /> */}
       
-      {/* <Route 
+      <Route 
         path="/auth" 
         element={
           isLoggedIn ? (
@@ -107,24 +82,24 @@ function AppContent() {
             <AuthPage onLogin={handleLogin} />
           )
         } 
-      /> */}
+      />
       
       <Route 
         path="/chat" 
         element={
-          // !isLoggedIn ? (
-          //   <Navigate to="/auth" replace />
-          // ) : (
+          !isLoggedIn ? (
+            <Navigate to="/auth" replace />
+          ) : (
             <ChatInterface 
               user={user}
               subscription={subscription}
               onLogout={logout}
             />
-          // )
+          )
         } 
       />
       
-      {/* <Route 
+      <Route 
         path="/subscription" 
         element={
           !isLoggedIn ? (
@@ -141,20 +116,20 @@ function AppContent() {
             />
           )
         } 
-      /> */}
+      />
       
       <Route 
         path="/settings" 
         element={
-          // !isLoggedIn ? (
-          //   <Navigate to="/auth" replace />
-          // ) : (
+          !isLoggedIn ? (
+            <Navigate to="/auth" replace />
+          ) : (
             <SettingsModal />
-          // )
+          )
         } 
       />
 
-      {/* <Route 
+      <Route 
         path="/profile" 
         element={
           !isLoggedIn ? (
@@ -167,16 +142,16 @@ function AppContent() {
             />
           )
         } 
-      /> */}
+      />
       
       <Route 
         path="/history" 
         element={
-          // !isLoggedIn ? (
-          //   <Navigate to="/auth" replace />
-          // ) : (
+          !isLoggedIn ? (
+            <Navigate to="/auth" replace />
+          ) : (
             <ChatHistoryPage />
-          // )
+          )
         } 
       />
     </Routes>
