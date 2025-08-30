@@ -8,7 +8,7 @@ import {
   FaCrown,
   FaShieldAlt,
   FaExclamationTriangle,
-  FaSync,
+  // FaSync,
 } from "react-icons/fa";
 import apiService from "../services/api";
 import "../styles/SubscriptionPageAnimations.css";

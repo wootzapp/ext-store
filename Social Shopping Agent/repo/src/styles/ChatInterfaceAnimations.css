@@ -117,6 +117,9 @@
 
 .message-assistant {
   animation: slideInLeft 0.2s ease-out;
+  background-color: #f7f9fa !important;
+  border: 1px solid #e1e8ed !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
 }
 
 .message-system {
@@ -136,6 +139,31 @@
 .message-bubble:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* Ensure assistant messages always have proper background */
+.message-item.message-assistant,
+div.message-item.message-assistant {
+  background-color: #f7f9fa !important;
+  border: 1px solid #e1e8ed !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+}
+
+/* Ensure typing indicator is always transparent - more specific selectors */
+.typing-indicator,
+div.typing-indicator,
+.typing-indicator[class*="typing-indicator"] {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Override any conflicting styles for typing indicator */
+.typing-indicator.message-item,
+.typing-indicator.message-assistant {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 /* Template Commands Animation - Fast */
@@ -276,6 +304,9 @@
 /* Typing Indicator Animation */
 .typing-indicator {
   animation: fadeIn 0.3s ease-out;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .typing-dots {

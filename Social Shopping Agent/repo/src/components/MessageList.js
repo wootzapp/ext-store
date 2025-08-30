@@ -52,7 +52,33 @@ const MessageList = ({ messages, onTemplateClick, isTyping }) => {
       
       prevMessageCountRef.current = messages.length;
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, isInitialLoad]);
+
+  const getTypingIndicatorStyle = () => {
+    return {
+      margin: '4px 8px',
+      padding: '8px 12px',
+      borderRadius: '14px',
+      maxWidth: '82%',
+      wordWrap: 'break-word',
+      fontSize: '13px',
+      fontWeight: '600',
+      lineHeight: '1.3',
+      transition: 'all 0.3s ease',
+      opacity: 1,
+      transform: 'translateY(0)',
+      backgroundColor: 'transparent !important',
+      color: '#14171a',
+      alignSelf: 'flex-start',
+      border: 'none !important',
+      textAlign: 'left',
+      boxShadow: 'none !important',
+      animation: 'slideInFromLeft 0.3s ease-out',
+      position: 'relative',
+      zIndex: 1
+    };
+  };
 
   const getMessageStyle = (type, messageId) => {
     const isNewMessage = !animatedMessages.has(messageId);
@@ -204,8 +230,8 @@ const MessageList = ({ messages, onTemplateClick, isTyping }) => {
       id: 'shopping_task',
       emoji: '🛒',
       title: 'Shopping Task',
-      description: 'Find the Labubu Doll on Amazon and add to cart the first one',
-      command: 'Find the Labubu Doll on Amazon and add to cart the first one'
+      description: 'Find the Labubu Doll on Amazon India and add to cart the first one',
+      command: 'Find the Labubu Doll on Amazon India and add to cart the first one'
     }
   ];
 
@@ -607,6 +633,20 @@ const MessageList = ({ messages, onTemplateClick, isTyping }) => {
           .message-item[style*="slideInFromLeft"] {
             animation-fill-mode: both;
           }
+          
+          /* Ensure assistant messages always have proper background */
+          .message-item.message-assistant {
+            background-color: #f7f9fa !important;
+            border: 1px solid #e1e8ed !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+          }
+          
+          /* Ensure typing indicator is always transparent */
+          .typing-indicator {
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+          }
         `}
       </style>
 
@@ -719,16 +759,8 @@ const MessageList = ({ messages, onTemplateClick, isTyping }) => {
       {/* Typing Indicator */}
       {isTyping && (
         <div 
-          className="message-item message-assistant typing-indicator" 
-          style={{
-            ...getMessageStyle('assistant', 'typing'),
-            animation: 'slideInFromLeft 0.3s ease-out',
-            backgroundColor: 'transparent',
-            border: 'none',
-            boxShadow: 'none',
-            position: 'relative',
-            zIndex: 1
-          }}
+          className="typing-indicator" 
+          style={getTypingIndicatorStyle()}
         >
           <div style={{ textAlign: 'left', width: '100%' }}>
             <div className="typing-dots">

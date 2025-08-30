@@ -6,7 +6,7 @@ import apiService from "../services/api";
 // Singleton to prevent multiple instances
 let requestCounterInstance = null;
 
-const RequestCounter = ({ subscriptionState, onUpgradeClick, onRefresh }) => {
+const RequestCounter = ({ subscriptionState, onUpgradeClick, onRefresh, onUsageDataChange }) => {
   const [usageData, setUsageData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -109,6 +109,13 @@ const RequestCounter = ({ subscriptionState, onUpgradeClick, onRefresh }) => {
       onRefresh(refreshFunction);
     }
   }, [onRefresh]);
+
+  // Pass usage data to parent when it changes
+  useEffect(() => {
+    if (onUsageDataChange && usageData) {
+      onUsageDataChange(usageData);
+    }
+  }, [usageData, onUsageDataChange]);
 
   // Hide request counter when using personal API key
   if (subscriptionState?.usingPersonalAPI) {
@@ -230,6 +237,7 @@ const RequestCounter = ({ subscriptionState, onUpgradeClick, onRefresh }) => {
         alignItems: "center",
         gap: "4px",
         padding: "4px 8px",
+        marginLeft: "4px",
         backgroundColor: isExhausted
           ? "rgba(220, 53, 69, 0.2)"
           : isLow

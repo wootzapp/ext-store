@@ -45,6 +45,7 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
 
   useEffect(() => {
     loadUserDetails();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -59,6 +60,7 @@ const ProfilePage = ({ user, subscription, onLogout }) => {
 
       // Check if we need to refresh based on cache duration
       const now = Date.now();
+      // eslint-disable-next-line no-use-before-define
       if (now - lastProfileUpdate < PROFILE_CACHE_DURATION && userDetails && organizations.length > 0) {
         console.log("Using cached profile data");
         setLoading(false);

@@ -696,11 +696,11 @@ const AuthPage = ({ onLogin }) => {
           <div style={{ fontSize: '12px', color: '#FFDCDCFF', textAlign: 'center' }}>
             <p style={{ margin: '0 0 8px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
               <FaStar style={{ fontSize: '14px' }} />
-              <strong>New users get 100 free requests to start.</strong>
+              <strong>New users get 100 free requests per month to start.</strong>
             </p>
             <p style={{ margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
               <FaLock style={{ fontSize: '12px' }} />
-              Enterprise-grade security and encryption
+              Enterprise-grade security and encryption.
             </p>
           </div>
         </div>
