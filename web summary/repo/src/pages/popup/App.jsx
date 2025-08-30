@@ -9,6 +9,7 @@ import FactCheck from '@/pages/popup/views/FactCheck';
 import Settings from '@/pages/popup/views/Settings';
 import aiService from '@/services/ai';
 import StorageUtils from '@/storage';
+import auth from '@/services/auth'; // ✅ NEW: server-verified auth gate
 
 const LandingPage = React.memo(({ onGetStarted }) => (
   <motion.div
@@ -121,7 +122,7 @@ const Popup = () => {
   const [showPlans, setShowPlans] = useState(false);
   const [preselectedOrgId, setPreselectedOrgId] = useState(null); 
   const [showLanding, setShowLanding] = useState(true);
-  const [showHome, setShowHome] = useState(false);      // NEW hub screen
+  const [showHome, setShowHome] = useState(false);
   const [showResearch, setShowResearch] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showFactChecker, setShowFactChecker] = useState(false);
@@ -149,6 +150,18 @@ const Popup = () => {
   const [currentRoute, setCurrentRoute] = useState(null);
 
   const inputRef = useRef(null);
+
+  // ✅ Central gate: verify with backend; if not authed, route to Settings and block
+  const ensureAuthedOrRedirect = useCallback(async (target = '/home') => {
+    try {
+      const { isAuthenticated } = await auth.checkAuthentication();
+      if (isAuthenticated) return true;
+    } catch {}
+    try { await StorageUtils.clearAuthSession?.(); } catch {}
+    setIntendedRoute({ route: target, feature: target?.replace('/', '') });
+    setCurrentRoute('/settings');
+    return false;
+  }, []);
 
   // -------- helpers for startup logic --------
   const safeGetUseOwnKey = useCallback(async () => {
@@ -228,10 +241,10 @@ const Popup = () => {
     }
     switch (message.route) {
       case '/home':
-        setCurrentRoute('/home');
+        if (await ensureAuthedOrRedirect('/home')) setCurrentRoute('/home');
         break;
       case '/research':
-        setCurrentRoute('/research');
+        if (await ensureAuthedOrRedirect('/research')) setCurrentRoute('/research');
         break;
       case '/analysis':
         handleAnalysePage();
@@ -309,8 +322,8 @@ const Popup = () => {
         if (!storage.hasSeenLanding) {
           setCurrentRoute('/landing');
         } else {
-          // NEW: also check auth
-          const isAuthed = await StorageUtils.isUserAuthenticated();
+          // ✅ NEW: do a server check (cookies may be wiped)
+          const { isAuthenticated: isAuthed } = await auth.checkAuthentication();
           if (!isAuthed) {
             setCurrentRoute('/settings');
             return;
@@ -354,12 +367,10 @@ const Popup = () => {
     const checkSetupStatus = async () => {
       setIsCheckingSetup(true);
       try {
-        const isAuthed = await StorageUtils.isUserAuthenticated();
+        // ✅ Server truth for auth status
+        const { isAuthenticated: isAuthed } = await auth.checkAuthentication();
         const { useOwnKey, hasConfig } = await getCustomKeySetupState();
 
-        // Setup is "complete" if:
-        // - user is authenticated AND
-        // - (not using own key OR using own key with config)
         const completed = isAuthed && (!useOwnKey || hasConfig);
         setSetupCompleted(completed);
 
@@ -508,7 +519,10 @@ const Popup = () => {
     }
   }, [intendedRoute, handleAnalysePage, handleFactChecker]);
 
+  // ✅ Gate inside feature navigations too (in case cookies died mid-session)
   const handleAnalysePage = useCallback(async () => {
+    const ok = await ensureAuthedOrRedirect('/analysis');
+    if (!ok) return;
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       setCurrentPageUrl(tab?.url || '');
@@ -518,7 +532,7 @@ const Popup = () => {
       setCurrentPageUrl('');
       setCurrentRoute('/analysis');
     }
-  }, []);
+  }, [ensureAuthedOrRedirect]);
 
   const handleBackFromAnalysis = useCallback(() => {
     setCurrentRoute('/home');
@@ -532,6 +546,8 @@ const Popup = () => {
   }, [handleAnalysePage]);
 
   const handleFactChecker = useCallback(async () => {
+    const ok = await ensureAuthedOrRedirect('/fact-checker');
+    if (!ok) return;
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       setCurrentPageUrl(tab?.url || '');
@@ -541,7 +557,7 @@ const Popup = () => {
       setCurrentPageUrl('');
       setCurrentRoute('/fact-checker');
     }
-  }, []);
+  }, [ensureAuthedOrRedirect]);
 
   const handleBackFromFactChecker = useCallback(() => {
     setCurrentRoute('/home');
@@ -628,6 +644,15 @@ Please provide a detailed and helpful answer based on the content and context of
     setCurrentRoute('/plans');
   }, []);
 
+  // ✅ Wrapper so HomeHub buttons are also gated
+  const handleOpenResearch = useCallback(async () => {
+    const ok = await ensureAuthedOrRedirect('/research');
+    if (!ok) return;
+    setShowHome(false);
+    setShowResearch(true);
+    setCurrentRoute('/research');
+  }, [ensureAuthedOrRedirect]);
+
   useEffect(() => {
     switch (currentRoute) {
       case '/home':
@@ -670,11 +695,7 @@ Please provide a detailed and helpful answer based on the content and context of
         <HomeHub
           key="home"
           onOpenSettings={handleSettingsClick}
-          onOpenResearch={() => {
-            setShowHome(false);
-            setShowResearch(true);
-            setCurrentRoute('/research');
-          }}
+          onOpenResearch={handleOpenResearch}   
           onOpenAnalysis={handleAnalysePage}
           onOpenFactChecker={handleFactChecker}
           onOpenPlans={openPlans}
@@ -768,7 +789,7 @@ Please provide a detailed and helpful answer based on the content and context of
                     <div className="flex items-center gap-3 mt-3">
                       <button
                         onClick={navigateToSettings}
-                        className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors duration-200"
+                        className="bg-white/20 hover:bg白/30 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors duration-200"
                       >
                         Fix Settings
                       </button>

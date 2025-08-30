@@ -1,5 +1,4 @@
 import StorageUtils from '@/storage';
-
 import { BACKEND_BASE_URL, AUTH_URL, withCreds } from '@/config/backend';
 
 class AuthService {
@@ -24,6 +23,7 @@ class AuthService {
         return { isAuthenticated: true, user };
       }
     } catch {}
+    try { await StorageUtils.clearAuthSession?.(); } catch {}
     return { isAuthenticated: false, user: null };
   }
 
