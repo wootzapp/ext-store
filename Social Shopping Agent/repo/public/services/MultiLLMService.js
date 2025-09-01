@@ -25,40 +25,84 @@ export class MultiLLMService {
         });
       });
 
-      // If no cached user data found at all, throw error (don't make API call)
+      // If no cached user data found at all, make API call to fetch fresh data
       if (!cachedUserData || !cachedUserData.user) {
-        throw new Error('Cached user data not found. Please refresh your session.');
+        console.log('⚠️ No cached user data found, making API call to /user/...');
+        try {
+          const userResponse = await fetch(`${API_BASE_URL}/user/`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            credentials: 'include'
+          });
+
+          if (!userResponse.ok) {
+            throw new Error(`Failed to get user data: ${userResponse.status}`);
+          }
+
+          const userData = await userResponse.json();
+          
+          // Cache the complete data for future use
+          await new Promise((resolve) => {
+            chrome.storage.local.set({
+              userAuth: {
+                user: userData.user,
+                organizations: userData.organizations || []
+              },
+              authData: {
+                user: userData.user,
+                timestamp: Date.now()
+              }
+            }, resolve);
+          });
+          
+          console.log('✅ Fresh user data fetched and cached');
+          return {
+            user: userData.user,
+            organizations: userData.organizations || []
+          };
+        } catch (error) {
+          console.error('❌ Failed to fetch user data from API:', error);
+          throw new Error(`Failed to fetch user data: ${error.message}`);
+        }
       }
 
       // Check if we have complete cached data (user + organizations)
       let organizations = cachedUserData.organizations;
       if (!organizations) {
         console.log('⚠️ Organizations not cached, making API call to /user/...');
-        const userResponse = await fetch(`${API_BASE_URL}/user/`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          credentials: 'include'
-        });
+        try {
+          const userResponse = await fetch(`${API_BASE_URL}/user/`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            credentials: 'include'
+          });
 
-        if (!userResponse.ok) {
-          throw new Error(`Failed to get user data: ${userResponse.status}`);
+          if (!userResponse.ok) {
+            throw new Error(`Failed to get user data: ${userResponse.status}`);
+          }
+
+          const userData = await userResponse.json();
+          organizations = userData.organizations || [];
+          
+          // Cache the complete data for future use to prevent future API calls
+          await new Promise((resolve) => {
+            chrome.storage.local.set({
+              userAuth: {
+                user: cachedUserData.user,
+                organizations: organizations
+              }
+            }, resolve);
+          });
+          console.log('✅ Cached complete user data for future requests');
+        } catch (error) {
+          console.error('❌ Failed to fetch organizations from API:', error);
+          // Return partial data if organizations fetch fails
+          organizations = [];
         }
-
-        const userData = await userResponse.json();
-        organizations = userData.organizations || [];
-        
-        // Cache the complete data for future use to prevent future API calls
-        await new Promise((resolve) => {
-          chrome.storage.local.set({
-            userAuth: {
-              user: cachedUserData.user,
-              organizations: organizations
-            }
-          }, resolve);
-        });
-        console.log('✅ Cached complete user data for future requests');
       } else {
         console.log('✅ Using cached user data (no API call needed)');
       }

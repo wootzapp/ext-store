@@ -1974,7 +1974,8 @@ class BackgroundScriptAgent {
           amount: intelligentResult.response.amount || 0,
           duration: intelligentResult.response.duration || 0,
           requires_auth: intelligentResult.response.requires_auth,
-          navigation_needed: intelligentResult.response.navigation_needed
+          navigation_needed: intelligentResult.response.navigation_needed,
+          analysis_result: intelligentResult.response.analysis_result || null
         };
         
         console.log('🎯 Initial plan created:', {
@@ -1991,7 +1992,40 @@ class BackgroundScriptAgent {
           duration: initialPlan.duration,
           requires_auth: initialPlan.requires_auth,
           navigation_needed: initialPlan.navigation_needed,
+          analysis_result: initialPlan.analysis_result
         });
+
+        // Check if this is an analytical task that's already complete
+        if (initialPlan.done && (initialPlan.next_action === 'complete' || !initialPlan.next_action)) {
+          console.log('🔍 Analytical task completed at router level');
+          
+          const finalResult = {
+            success: true,
+            response: initialPlan.analysis_result || initialPlan.observation,
+            reason: initialPlan.strategy,
+            steps: 1,
+            confidence: intelligentResult.confidence,
+            isMarkdown: true
+          };
+          
+          this.connectionManager.broadcast({
+            type: 'task_complete',
+            result: finalResult,
+            taskId: taskId
+          });
+          
+          this.activeTasks.delete(taskId);
+          this.connectionManager.setActiveTask(null);
+          
+          // Clear execution state from storage
+          await chrome.storage.local.set({
+            isExecuting: false,
+            activeTaskId: null,
+            taskStartTime: null
+          });
+          
+          return;
+        }
 
         await this.backgroundTaskManager.startTask(
           taskId, 
