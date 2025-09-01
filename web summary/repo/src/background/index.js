@@ -28,12 +28,14 @@ function setupAlarm() {
 
 if (typeof chrome.wootz !== 'undefined' && chrome.wootz.onDropdownButtonClicked) {
   chrome.wootz.onDropdownButtonClicked.addListener(async (eventData) => {
-    const isSetupComplete = await StorageUtils.isSetupCompleted();
-    
+    const storage = await chrome.storage.local.get(['hasSeenLanding']);
+
     let targetRoute;
     const needsAI = ['AI Research', 'Page Analysis', 'Fact Checker'].includes(eventData.selectedFeature);
     
-    if (needsAI && !isSetupComplete) {
+    if (!storage.hasSeenLanding) {
+      targetRoute = '/landing';
+    } else if (!needsAI) {
       targetRoute = '/settings';
     } else {
       targetRoute = eventData.selectedFeature === 'AI Research' ? '/research' : 
@@ -44,11 +46,6 @@ if (typeof chrome.wootz !== 'undefined' && chrome.wootz.onDropdownButtonClicked)
       type: 'navigateToRoute',
       route: targetRoute,
       feature: eventData.selectedFeature,
-      setupRequired: needsAI && !isSetupComplete,
-      originalRoute: needsAI && !isSetupComplete ? 
-        (eventData.selectedFeature === 'AI Research' ? '/research' : 
-         eventData.selectedFeature === 'Page Analysis' ? '/analysis' :
-         eventData.selectedFeature === 'Fact Checker' ? '/fact-checker' : '/research') : undefined,
       timestamp: new Date().toISOString()
     };
     

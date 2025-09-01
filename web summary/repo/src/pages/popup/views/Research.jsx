@@ -56,6 +56,13 @@ function TypewriterMarkdown({
   useEffect(() => { targetRef.current = text; }, [text]);
   useEffect(() => { onProgressRef.current = onProgress; }, [onProgress]);
 
+  useEffect(() => {
+    if (!isStreaming) {
+      // Immediately render all received content and remove the cursor
+      setTyped(targetRef.current || '');
+    }
+  }, [isStreaming]);  
+
   const lastLenRef = useRef(0);
   useEffect(() => {
     if (text.length < lastLenRef.current) setTyped('');

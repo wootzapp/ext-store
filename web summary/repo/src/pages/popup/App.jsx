@@ -230,15 +230,7 @@ const Popup = () => {
   }, []);
 
   const processRouteMessage = async (message) => {
-    if (message.setupRequired) {
-      setIntendedRoute({
-        route: message.originalRoute || message.route,
-        feature: message.feature,
-        originalMessage: message
-      });
-      setCurrentRoute('/settings'); // fixed to use '/settings'
-      return;
-    }
+    
     switch (message.route) {
       case '/home':
         if (await ensureAuthedOrRedirect('/home')) setCurrentRoute('/home');
