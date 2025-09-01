@@ -195,6 +195,23 @@
       "updated_at": "2025-04-26T15:00:00Z"
     },
     {
+      "id": "gcdpgfldjbgbiidhcgilaafapfkbicid",
+      "name": "Labubu automator",
+      "description": "An extension to automate labubu tasks.",
+      "version": "1.0.0",
+      "author": "Wootzapp Team",
+      "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Labubu/Labubu_automator.crx",
+      "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Labubu/repo/assets/icon.png",
+      "github_url": "https://github.com/wootzapp/ext-store/tree/main/Labubu/repo",
+      "tags": [
+        "popmart",
+        "automation",
+        "add to cart"
+      ],
+      "created_at": "2025-07-18T15:00:00Z",
+      "updated_at": "2025-07-18T15:00:00Z"
+    },
+    {
       "id": "gfciojmkoheeffnkgpfdjdkfiffnohmb",
       "name": "Data Hive",
       "campaign": "data-hive",
