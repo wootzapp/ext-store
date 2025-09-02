@@ -5,7 +5,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const progressFill = document.getElementById("progressFill");
 
   const OKTA_URL =
-    "https://integrator-2373294.okta.com/home/integrator-2373294_wootzapp_1/0oatpx2h4ye8vjezl697/alntpxch84VdDzIUW697";
+    "https://integrator-2373294.okta.com/oauth2/default/v1/authorize?client_id=0oauw6v3bflEoiRu8697&response_type=code&scope=openid+profile+email&redirect_uri=https%3A%2F%2Fstrong-longma-70a01d.netlify.app%2F.netlify%2Ffunctions%2Fsamlreceiver&state=321e6752-2902-4ccc-ab4b-b928d171b2ce&code_challenge=Z82ay8lFZANzWgtXku_Vv0sf7HlAFJ1hPWktqXggh8I&code_challenge_method=S256";
 
   function updateStep(stepNumber, completed = false) {
     const step = document.getElementById(`step${stepNumber}`);
@@ -44,8 +44,7 @@ document.addEventListener("DOMContentLoaded", function () {
         <span class="status-icon">${icon}</span>
         <span>${message}</span>
       </div>
-      <div class="progress-bar" id="progressBar" style="display: ${
-        showProgress ? "block" : "none"
+      <div class="progress-bar" id="progressBar" style="display: ${showProgress ? "block" : "none"
       };">
         <div class="progress-fill" id="progressFill"></div>
       </div>
@@ -100,7 +99,7 @@ document.addEventListener("DOMContentLoaded", function () {
     updateStatus("Connecting to authentication server...", "loading", true);
 
     // Clear any existing SAML response and auth state to start fresh
-    chrome.storage.local.remove(['pendingSamlResponse', 'authResult'], function() {
+    chrome.storage.local.remove(['pendingSamlResponse', 'authResult'], function () {
       console.log("Cleared existing SAML response and auth state");
     });
 

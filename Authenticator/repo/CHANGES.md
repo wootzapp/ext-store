@@ -1,5 +1,5 @@
 # Okta SAML Authenticator - Changes Made
-
+### IMPORTANT DO NOT CHANGE THE NAME , IF YOU DO UPDATE THE EXTENSION ID IN THE extensions.json
 ## Summary
 Updated the Okta SAML Authenticator extension to improve responsiveness and enhance the user interface while maintaining all existing functionality.
 
