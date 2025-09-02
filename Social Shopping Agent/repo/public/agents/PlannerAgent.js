@@ -4,9 +4,9 @@ export class PlannerAgent {
     this.memoryManager = memoryManager;
   }
 
-  async plan(userTask, currentState, executionHistory, enhancedContext, failedElements = new Set()) {
+  async plan(userTask, currentState, executionHistory, enhancedContext) {
     const context = this.memoryManager.compressForPrompt(2000);
-    this.failedElements = failedElements; 
+    // this.failedElements = failedElements; 
     
     // Include previous plan context for continuity with enhanced details
     let previousPlanContext = '';
@@ -89,7 +89,7 @@ Based on the previous execution, continue with the next logical step. If the las
     //   .map(h => `Step ${h.step}: ${h.action} - ${h.navigation || ''} (${h.results?.[0]?.result?.error || 'unknown error'})`)
     //   .join('\n');
     
-    const failedIndicesForLLM = Array.from(this.failedElements || new Set()).join(', ');
+    // const failedIndicesForLLM = Array.from(this.failedElements || new Set()).join(', ');
     const elements = this.formatCompleteElements(currentState.interactiveElements?.slice(0, 100) || []);
     
     // console.log('[PlannerAgent] userTask:', userTask, 
@@ -103,6 +103,10 @@ Based on the previous execution, continue with the next logical step. If the las
     //             'failedIndices:', failedIndicesForLLM,
     //             'enhancedContext', enhancedContext,
     //             'Formatted elements', elements);
+
+// # **FAILED ELEMENT INDICES - STRICTLY FORBIDDEN**
+// NEVER use these indices: ${failedIndicesForLLM || 'None'}
+// ${failedIndicesForLLM ? '⚠️ These elements have been tried and are NOT working. Find different elements!' : ''}
 
     const plannerPrompt = `# You are an intelligent mobile web automation planner with BATCH EXECUTION capabilities specialized in SOCIAL MEDIA SITES and E-COMMERCE PLATFORMS or SHOPPING SITES.
 
@@ -130,9 +134,8 @@ Create strategic BATCH PLANS with 2-7 sequential actions that can execute WITHOU
 
 ${previousPlanContext}
 
-# **FAILED ELEMENT INDICES - STRICTLY FORBIDDEN**
-NEVER use these indices: ${failedIndicesForLLM || 'None'}
-${failedIndicesForLLM ? '⚠️ These elements have been tried and are NOT working. Find different elements!' : ''}
+# **ELEMENT SELECTION GUIDANCE**
+Choose elements that are most appropriate for the current task. Prefer elements with clear, descriptive text or purpose.
 
 # **CURRENT PAGE STATE**
 - URL: ${currentState.pageInfo?.url || 'unknown'}
@@ -200,10 +203,11 @@ ${progressAnalysis}
 
 ## **ACTIONABLE STEP DIVISION:**
 - Break complex tasks into current-page-actionable chunks
-- Example 1: "Search for iPhone on Amazon and add to cart the first one"
-  1. Navigate to Amazon s?k=iphone (if not there) (try to generate the most closest url to the platform which is more closest to the user message or task.)
-  2. Click the first item in the search results (make sure your are clicking on the item element not the other elements like 1st index element)
-  3. Click the add to cart button (scroll down if the add to cart button is not visible)
+- Example 1: "Search for a product on Amazon and add to cart the first product"
+  1. Navigate to Amazon s?k=product_name (if not there) (try to generate the most closest url to the platform which is more closest to the user message or task.)
+  2. If possible use the ADD TO CART button from the search results page itself, instead of navigating to the product page, but if it is not possible then navigate to the product page.
+  3. For navigating to the product page, Click the first item in the search results (make sure your are clicking on the item element not the other elements like 1st index element)
+  4. Then click the add to cart button (scroll down if the add to cart button is not visible)
 - Each step uses only currently visible elements
 
 ## **ELEMENT SELECTION RULES:**
@@ -668,10 +672,10 @@ ${progressAnalysis}
     ];
     
     return elements.filter(el => {
-      // Skip failed elements
-      if (this.failedElements && this.failedElements.has(el.index)) {
-        return false;
-      }
+      // // Skip failed elements
+      // if (this.failedElements && this.failedElements.has(el.index)) {
+      //   return false;
+      // }
       
       const text = (el.text || '').toLowerCase();
       const ariaLabel = (el.attributes?.['aria-label'] || '').toLowerCase();

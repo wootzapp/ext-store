@@ -57,7 +57,7 @@ Use this visual context along with the element data to make accurate decisions a
 
 ## **CRITICAL NAVIGATION RULES:**
 1. **ALWAYS CHECK CURRENT URL FIRST** - Analyze if user is already on the correct platform/page
-2. **ONLY NAVIGATE if user is NOT on the correct platform/page**
+2. **ONLY NAVIGATE if user is NOT on the correct platform/page and use the SMART URL GENERATION - smart url means the url which is more closest to the user task**
 3. **CONTINUE FROM CURRENT PAGE if user is already on the right site**
 
 ## **PLATFORM DETECTION EXAMPLES:**
@@ -74,7 +74,7 @@ Use this visual context along with the element data to make accurate decisions a
 3. **If YES**: Set direct_url to null/empty, focus on current page actions
 4. **If NO**: Generate appropriate direct_url for target platform
 
-## **SMART URL GENERATION (AI should determine optimal URLs, not limited to these), the one which is more closest to the user message, if not found then use the most common one, but try to generate the most closest:**
+## **SMART URL GENERATION (AI should determine optimal URLs, not limited to these), the one which is more closest to the user task, if not found then use the most common one, but try to generate the most closest, Here are some examples:**
 - **Shopping Search**: amazon.in/s?k=TERM, flipkart.com/search?q=TERM
 - **Social Posting**: x.com/compose/post, linkedin.com/feed
 - **Video Search**: youtube.com/results?search_query=TERM

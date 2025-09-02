@@ -362,14 +362,60 @@ export class ActionRegistry {
         try {
           const tab = await this.browserContext.getCurrentActiveTab();
           if (!tab?.id) return { success:false, error:'No active tab', includeInMemory:true };
-          const res = await new Promise((resolve) => {
-            chrome.tabs.sendMessage(tab.id, { type: '__agent_history_back' }, (resp) => resolve(resp));
-          });
-          if (res?.ok) {
-            await this.browserContext.waitForReady(tab.id);
-            return { success:true, extractedContent:'Went back one step', includeInMemory:true };
+          
+          // Try content script message first
+          let contentScriptError = null;
+          try {
+            const res = await new Promise((resolve) => {
+              chrome.tabs.sendMessage(tab.id, { type: '__agent_history_back' }, (resp) => {
+                if (chrome.runtime.lastError) {
+                  resolve({ ok: false, error: chrome.runtime.lastError.message });
+                } else {
+                  resolve(resp);
+                }
+              });
+            });
+            
+            if (res?.ok) {
+              await this.browserContext.waitForReady(tab.id);
+              return { success:true, extractedContent:'Went back one step', includeInMemory:true };
+            }
+          } catch (error) {
+            contentScriptError = error;
+            console.log('Content script go_back failed, trying alternative method:', error.message);
           }
-          return { success:false, error: res?.error || 'history back failed', includeInMemory:true };
+          
+          // Fallback: Use chrome.tabs.goBack if content script fails
+          try {
+            // Check if we can go back by getting tab info first
+            const tabInfo = await chrome.tabs.get(tab.id);
+            
+            // If this is the first page in history, we can't go back
+            if (tabInfo.pendingUrl || tabInfo.url === 'about:blank') {
+              return { 
+                success: false, 
+                error: 'Cannot go back: This is the first page in tab history. Use navigate action instead.',
+                extractedContent: 'Go back failed: No previous page in history',
+                includeInMemory: true 
+              };
+            }
+            
+            await chrome.tabs.goBack(tab.id);
+            await this.browserContext.waitForReady(tab.id);
+            return { success:true, extractedContent:'Went back one step (fallback method)', includeInMemory:true };
+          } catch (fallbackError) {
+            // Handle specific "no history" error
+            if (fallbackError.message.includes('Cannot find a next page in history')) {
+              return { 
+                success: false, 
+                error: 'Cannot go back: No previous page in browser history. This tab was opened directly to the current URL.',
+                extractedContent: 'Go back failed: No previous page in history',
+                includeInMemory: true 
+              };
+            }
+            
+            return { success:false, error: `Both methods failed: content script (${contentScriptError?.message || 'unknown'}), fallback (${fallbackError.message})`, includeInMemory:true };
+          }
         } catch (e) {
           return { success:false, error: e.message, extractedContent:`Back failed: ${e.message}`, includeInMemory:true };
         }

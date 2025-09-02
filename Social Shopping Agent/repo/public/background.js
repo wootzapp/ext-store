@@ -109,7 +109,7 @@ class MultiAgentExecutor {
     this.actionQueue = [];
     this.currentBatchPlan = null;
     
-    this.failedElements = new Set();
+    // this.failedElements = new Set();
     this.recentActionKeys = new Set();
     this.recentActionKeysMax = 120;
   }
@@ -120,7 +120,7 @@ class MultiAgentExecutor {
     this.executionHistory = [];
     this.actionQueue = [];
     this.currentBatchPlan = null;
-    this.failedElements = new Set();
+    // this.failedElements = new Set();
     this.lastPageState = null;
     this.lastValidationResult = null; 
 
@@ -368,7 +368,7 @@ class MultiAgentExecutor {
             }
             
             const plan = await this.planner.plan(userTask, currentState, this.executionHistory, 
-              enhancedContext, this.failedElements);
+              enhancedContext);
             
             // Broadcast planner's observation and strategy
             if (plan && plan.observation) {
@@ -421,7 +421,7 @@ class MultiAgentExecutor {
             } else {
               // If navigator can't recover, replan
               const plan = await this.planner.plan(userTask, currentState, this.executionHistory, 
-              this.buildEnhancedContextWithHistory(), this.failedElements);
+              this.buildEnhancedContextWithHistory());
               this.actionQueue = this.validateAndPreprocessBatchActions(plan.batch_actions || []);
               this.currentBatchPlan = plan;
             }
@@ -452,7 +452,7 @@ class MultiAgentExecutor {
             };
           }
           
-          plan = await this.planner.plan(userTask, currentState, this.executionHistory, enhancedContext, this.failedElements);
+          plan = await this.planner.plan(userTask, currentState, this.executionHistory, enhancedContext);
         }
 
         if (plan && plan.observation) {
@@ -717,15 +717,15 @@ class MultiAgentExecutor {
           parameters: action.parameters
         });
         
-        if (action.name === 'click' && action.parameters?.index !== undefined) {
-          const elementIndex = action.parameters.index;
+        // if (action.name === 'click' && action.parameters?.index !== undefined) {
+        //   const elementIndex = action.parameters.index;
           
-          // Mark element as failed if action failed
-          if (!actionResult.success) {
-            this.failedElements.add(elementIndex);
-            console.log(`🚫 Marking element ${elementIndex} as failed due to click failure`);
-          }
-        }
+        //   // Mark element as failed if action failed
+        //   if (!actionResult.success) {
+        //     this.failedElements.add(elementIndex);
+        //     console.log(`🚫 Marking element ${elementIndex} as failed due to click failure`);
+        //   }
+        // }
         
         // Check for page state change after each action
         let currentState = await this.getCurrentState();
@@ -782,9 +782,13 @@ class MultiAgentExecutor {
         
         if (pageChanged) {
           console.log('🔄 Page state changed - triggering replanning');
-          this.actionQueue = [];
-          // ineffectiveCount = 0;
-          break;
+          // Don't break immediately for go_back actions to allow remaining actions to complete
+          if (action.name === 'go_back') {
+            console.log('🔄 go_back action completed, continuing with remaining actions...');
+          } else {
+            this.actionQueue = [];
+            break;
+          }
         }
         
         // semantic effectiveness check
@@ -827,10 +831,10 @@ class MultiAgentExecutor {
       } catch (error) {
         console.error(`❌ Action execution error:`, error);
         
-        if (action.name === 'click' && action.parameters?.index !== undefined) {
-          this.failedElements.add(action.parameters.index);
-          console.log(`🚫 Marking element ${action.parameters.index} as failed due to execution error`);
-        }
+        // if (action.name === 'click' && action.parameters?.index !== undefined) {
+        //   this.failedElements.add(action.parameters.index);
+        //   console.log(`🚫 Marking element ${action.parameters.index} as failed due to execution error`);
+        // }
         
         results.executedActions.push({
           action: action.name,
@@ -1330,12 +1334,12 @@ class MultiAgentExecutor {
       // Pass connectionManager to ActionRegistry for better communication
       const result = await this.actionRegistry.executeAction(action.name, action.parameters, connectionManager);
       
-      // Track failed elements for future avoidance
-      if (!result.success && action.parameters?.index) {
-        this.failedElements.add(action.parameters.index);
-        console.log(`📝 Added index ${action.parameters.index} to failed elements set`);
-        console.log(`⚠️ Action failed: ${action.name} on index ${action.parameters.index} - ${result.error}`);
-      }
+      // // Track failed elements for future avoidance
+      // if (!result.success && action.parameters?.index) {
+      //   this.failedElements.add(action.parameters.index);
+      //   console.log(`📝 Added index ${action.parameters.index} to failed elements set`);
+      //   console.log(`⚠️ Action failed: ${action.name} on index ${action.parameters.index} - ${result.error}`);
+      // }
       
       return {
         action: action.name,
@@ -1504,17 +1508,21 @@ class MultiAgentExecutor {
   validateAndPreprocessBatchActions(batchActions) {
     const currentState = this.lastPageState || {};
     const availableIndices = (currentState.interactiveElements || []).map(el => el.index);
-    const availableSelectors = (currentState.interactiveElements || []).map(el => el.selector);
+    // const availableSelectors = (currentState.interactiveElements || []).map(el => el.selector);
 
     return batchActions.map(action => {
       // Only validate exact indices for basic actions
       if (action.action_type === 'click' || action.action_type === 'type' || action.action_type === 'fill') {
+        console.log('ProcessingBatchActions: action_type', action.action_type);
         if (action.parameters.index !== undefined && availableIndices.includes(action.parameters.index)) {
+          console.log('ProcessingBatchActions: action.parameters.index', action.parameters.index);
           return {
             name: action.action_type,
             parameters: action.parameters
           };
-        } else if (action.parameters.selector && availableSelectors.includes(action.parameters.selector)) {
+        } else if (action.parameters.selector) {
+          console.log('ProcessingBatchActions: action.parameters.selector', action.parameters.selector);
+          // Allow selector-based actions - chrome.wootz.performAction can resolve them
           delete action.parameters.index;
           return {
             name: action.action_type,

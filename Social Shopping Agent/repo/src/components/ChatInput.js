@@ -19,7 +19,17 @@ const ChatInput = ({
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 100) + 'px';
+      const scrollHeight = textareaRef.current.scrollHeight;
+      const maxHeight = 120; // Match the maxHeight in the style
+      const newHeight = Math.min(scrollHeight, maxHeight);
+      textareaRef.current.style.height = newHeight + 'px';
+      
+      // If content exceeds maxHeight, ensure scrollbar is visible
+      if (scrollHeight > maxHeight) {
+        textareaRef.current.style.overflowY = 'auto';
+      } else {
+        textareaRef.current.style.overflowY = 'hidden';
+      }
     }
   }, [currentValue]);
 
@@ -91,7 +101,7 @@ const ChatInput = ({
               backgroundColor: 'transparent',
               color: disabled ? '#657786' : '#14171a',
               boxSizing: 'border-box',
-              overflow: 'hidden'
+              overflow: 'auto'
             }}
             rows={1}
           />
