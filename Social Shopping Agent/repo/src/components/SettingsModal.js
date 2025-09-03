@@ -122,10 +122,8 @@ const SettingsModal = () => {
 
   // Consistent styling with other pages
   const containerStyle = {
-    width: '100vw',
-    height: '100vh',
-    maxWidth: '500px',
-    maxHeight: '600px',
+    width: '100%',
+    height: '100%',
     display: 'flex', 
     flexDirection: 'column',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',

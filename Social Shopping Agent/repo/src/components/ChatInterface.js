@@ -8,13 +8,14 @@ import { useChat } from '../hooks/useChat';
 import { useLocation } from 'react-router-dom';
 // import { useConfig } from '../hooks/useConfig';
 import { 
-  FaEdit, 
+  // FaEdit, 
   FaUser, 
   FaWifi,
   FaExclamationTriangle,
   FaHistory,
   // FaCog
 } from 'react-icons/fa';
+import { RiChatNewFill } from 'react-icons/ri';
 import RequestCounter from './RequestCounter';
 import SubscriptionChoice from './SubscriptionChoice';
 import { useNavigate } from 'react-router-dom';
@@ -634,10 +635,8 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
   // Add subscription choice modal as an overlay in the return statement
   return (
     <div className="chat-interface" style={{ 
-      width: '100vw',
-      height: '100vh',
-      maxWidth: '500px',
-      maxHeight: '600px',
+      width: '100%',
+      height: '100%',
       display: 'flex', 
       flexDirection: 'column',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -723,7 +722,7 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
             }}
             title="New Chat"
           >
-            <FaEdit />
+            <RiChatNewFill />
           </button>
           
           <button 
