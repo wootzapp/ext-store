@@ -20,625 +20,298 @@
     body { 
       min-width: 280px;
       min-height: 350px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      background: #f8fafc;
-      position: relative;
-      overflow: hidden;
-    }
-
-    /* Dynamic sizing for different popup window sizes */
-    @media (max-width: 350px) {
-      body {
-        min-width: 280px;
-        min-height: 320px;
-      }
-    }
-
-    @media (min-width: 351px) and (max-width: 450px) {
-      body {
-        min-width: 320px;
-        min-height: 380px;
-      }
-    }
-
-    @media (min-width: 451px) and (max-width: 600px) {
-      body {
-        min-width: 400px;
-        min-height: 450px;
-      }
-    }
-
-    @media (min-width: 601px) {
-      body {
-        min-width: 500px;
-        min-height: 500px;
-      }
-    }
-
-    /* Height-based responsive adjustments */
-    @media (max-height: 350px) {
-      body {
-        min-height: 300px;
-      }
-    }
-
-    @media (min-height: 600px) {
-      body {
-        min-height: 500px;
-      }
-    }
-    
-    .background-pattern {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: linear-gradient(135deg, #0052cc 0%, #2684ff 100%);
-      opacity: 0.05;
-      z-index: 0;
-    }
-    
-    .container {
-      position: relative;
-      z-index: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-start;
-      align-items: stretch;
-      height: 100%;
-      width: 100%;
-    }
-    
-    .header {
-      background: #0052cc;
-      color: white;
-      padding: 16px 20px;
-      text-align: center;
-      position: relative;
-      min-height: 80px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
-
-    /* Responsive header adjustments */
-    @media (max-width: 350px) {
-      .header {
-        padding: 12px 16px;
-        min-height: 70px;
-      }
-    }
-
-    @media (min-width: 451px) {
-      .header {
-        padding: 20px 24px;
-        min-height: 90px;
-      }
-    }
-
-    @media (max-height: 350px) {
-      .header {
-        padding: 10px 16px;
-        min-height: 60px;
-      }
-    }
-    
-    .header::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
-      pointer-events: none;
-    }
-    
-    .okta-logo {
-      width: 32px;
-      height: 32px;
-      background: #ffffff;
-      border-radius: 8px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(180deg, #f7f9fc 0%, #eef1f6 100%);
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 0 auto 10px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    }
-
-    /* Responsive logo adjustments */
-    @media (max-width: 350px) {
-      .okta-logo {
-        width: 28px;
-        height: 28px;
-        margin: 0 auto 8px;
-      }
-    }
-
-    @media (min-width: 451px) {
-      .okta-logo {
-        width: 36px;
-        height: 36px;
-        margin: 0 auto 12px;
-      }
-    }
-
-    @media (max-height: 350px) {
-      .okta-logo {
-        width: 24px;
-        height: 24px;
-        margin: 0 auto 6px;
-      }
+      padding: 16px;
+      color: #333;
     }
     
-    .okta-logo-text {
-      font-weight: 700;
-      font-size: 14px;
-      color: #0052cc;
-      letter-spacing: -0.3px;
+    .container {
+      width: 100%;
+      max-width: 380px;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+      overflow: hidden;
+      position: relative;
+      min-height: 320px;
     }
-
-    /* Responsive logo text */
-    @media (max-width: 350px) {
-      .okta-logo-text {
-        font-size: 12px;
-      }
-    }
-
-    @media (min-width: 451px) {
-      .okta-logo-text {
-        font-size: 16px;
-      }
-    }
-
-    @media (max-height: 350px) {
-      .okta-logo-text {
-        font-size: 10px;
-      }
+    
+    .header {
+      padding: 28px 20px 20px;
+      text-align: center;
+      border-bottom: 1px solid #f0f2f5;
+      position: relative;
     }
     
     .header-title {
-      font-size: 16px;
+      font-size: 22px;
       font-weight: 600;
-      margin: 0 0 4px 0;
-      color: white;
-    }
-
-    /* Responsive header title */
-    @media (max-width: 350px) {
-      .header-title {
-        font-size: 14px;
-        margin: 0 0 3px 0;
-      }
-    }
-
-    @media (min-width: 451px) {
-      .header-title {
-        font-size: 18px;
-        margin: 0 0 6px 0;
-      }
-    }
-
-    @media (max-height: 350px) {
-      .header-title {
-        font-size: 12px;
-        margin: 0 0 2px 0;
-      }
-    }
-    
-    .header-subtitle {
-      font-size: 11px;
-      color: rgba(255, 255, 255, 0.85);
-      font-weight: 400;
-    }
-
-    /* Responsive header subtitle */
-    @media (max-width: 350px) {
-      .header-subtitle {
-        font-size: 10px;
-      }
-    }
-
-    @media (min-width: 451px) {
-      .header-subtitle {
-        font-size: 12px;
-      }
-    }
-
-    @media (max-height: 350px) {
-      .header-subtitle {
-        font-size: 9px;
-      }
+      margin-bottom: 0;
+      color: #1f2937;
+      letter-spacing: -0.3px;
+      line-height: 1.3;
     }
     
     .content {
+      padding: 32px 20px 20px;
       flex: 1;
-      padding: 18px;
       display: flex;
       flex-direction: column;
       justify-content: center;
-      min-height: 0;
-    }
-
-    /* Responsive content adjustments */
-    @media (max-width: 350px) {
-      .content {
-        padding: 14px;
-      }
-    }
-
-    @media (min-width: 451px) {
-      .content {
-        padding: 24px;
-      }
-    }
-
-    @media (max-height: 350px) {
-      .content {
-        padding: 12px;
-      }
+      min-height: 140px;
     }
     
     .processing-card {
-      background: white;
-      border-radius: 10px;
-      padding: 20px 18px;
-      box-shadow: 0 4px 20px rgba(0, 82, 204, 0.12);
-      border: 1px solid rgba(0, 82, 204, 0.08);
       text-align: center;
-      min-height: 0;
-      flex-shrink: 0;
-    }
-
-    /* Responsive card adjustments */
-    @media (max-width: 350px) {
-      .processing-card {
-        padding: 16px 14px;
-        border-radius: 8px;
-      }
-    }
-
-    @media (min-width: 451px) {
-      .processing-card {
-        padding: 24px 22px;
-        border-radius: 12px;
-      }
-    }
-
-    @media (max-height: 350px) {
-      .processing-card {
-        padding: 14px 16px;
-        border-radius: 6px;
-      }
+      position: relative;
     }
     
     .status-indicator {
-      margin-bottom: 20px;
+      margin-bottom: 24px;
     }
-
-    /* Responsive status indicator */
-    @media (max-width: 350px) {
-      .status-indicator {
-        margin-bottom: 16px;
-      }
+    
+    .status-indicator .brand-logo {
+      width: 68px;
+      height: 68px;
+      border-radius: 12px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      margin: 8px auto 16px;
+      position: relative;
+      overflow: hidden;
     }
-
-    @media (min-width: 451px) {
-      .status-indicator {
-        margin-bottom: 24px;
-      }
-    }
-
-    @media (max-height: 350px) {
-      .status-indicator {
-        margin-bottom: 12px;
-      }
+    
+    .status-indicator .brand-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 12px;
     }
     
     .loading-spinner {
-      width: 40px;
-      height: 40px;
-      border: 3px solid #f4f5f7;
+      width: 44px;
+      height: 44px;
+      border: 3px solid #f3f4f6;
       border-radius: 50%;
-      border-top-color: #0052cc;
+      border-top-color: #dc2626;
       animation: spin 1s linear infinite;
-      margin: 0 auto 16px;
-    }
-
-    /* Responsive spinner */
-    @media (max-width: 350px) {
-      .loading-spinner {
-        width: 32px;
-        height: 32px;
-        border-width: 2px;
-        margin: 0 auto 12px;
-      }
-    }
-
-    @media (min-width: 451px) {
-      .loading-spinner {
-        width: 48px;
-        height: 48px;
-        border-width: 4px;
-        margin: 0 auto 20px;
-      }
-    }
-
-    @media (max-height: 350px) {
-      .loading-spinner {
-        width: 28px;
-        height: 28px;
-        border-width: 2px;
-        margin: 0 auto 10px;
-      }
+      margin: 0 auto 20px;
     }
     
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
     
-    .status-icon {
-      font-size: 40px;
-      margin-bottom: 16px;
-      animation: pulse 2s infinite;
-    }
-
-    /* Responsive status icon */
-    @media (max-width: 350px) {
-      .status-icon {
-        font-size: 32px;
-        margin-bottom: 12px;
-      }
-    }
-
-    @media (min-width: 451px) {
-      .status-icon {
-        font-size: 48px;
-        margin-bottom: 20px;
-      }
-    }
-
-    @media (max-height: 350px) {
-      .status-icon {
-        font-size: 28px;
-        margin-bottom: 10px;
-      }
-    }
-    
-    @keyframes pulse {
-      0% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.05); opacity: 0.8; }
-      100% { transform: scale(1); opacity: 1; }
-    }
-    
     #status {
-      font-size: 14px;
-      color: #5e6c84;
+      font-size: 16px;
+      color: #1f2937;
       line-height: 1.4;
       margin-bottom: 24px;
       font-weight: 500;
-    }
-
-    /* Responsive status text */
-    @media (max-width: 350px) {
-      #status {
-        font-size: 12px;
-        margin-bottom: 20px;
-        line-height: 1.3;
-      }
-    }
-
-    @media (min-width: 451px) {
-      #status {
-        font-size: 16px;
-        margin-bottom: 28px;
-        line-height: 1.5;
-      }
-    }
-
-    @media (max-height: 350px) {
-      #status {
-        font-size: 11px;
-        margin-bottom: 16px;
-        line-height: 1.3;
-      }
+      padding: 0 8px;
     }
     
     .success #status {
-      color: #006644;
+      color: #1f2937;
     }
     
     .error #status {
-      color: #bf2600;
+      color: #dc2626;
+      font-weight: 500;
+    }
+    
+    .footer {
+      padding: 16px 20px 20px;
+      text-align: center;
+      border-top: 1px solid #f0f2f5;
+      background: #fafbfc;
+    }
+    
+    .footer-text {
+      font-size: 14px;
+      color: #6b7280;
+      margin: 0;
+      font-weight: 500;
+      line-height: 1.3;
     }
     
     button {
       width: 100%;
-      padding: 12px 18px;
-      font-size: 14px;
-      font-weight: 600;
-      background: #0052cc;
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: 500;
+      background: #6b7280;
       color: white;
       border: none;
-      border-radius: 6px;
+      border-radius: 8px;
       cursor: pointer;
       transition: all 0.2s ease;
-      display: none;
+      display: none !important;
       font-family: inherit;
-      min-height: 44px;
-    }
-
-    /* Responsive button */
-    @media (max-width: 350px) {
-      button {
-        padding: 10px 16px;
-        font-size: 13px;
-        border-radius: 5px;
-        min-height: 40px;
-      }
-    }
-
-    @media (min-width: 451px) {
-      button {
-        padding: 14px 22px;
-        font-size: 15px;
-        border-radius: 8px;
-        min-height: 48px;
-      }
-    }
-
-    @media (max-height: 350px) {
-      button {
-        padding: 8px 14px;
-        font-size: 12px;
-        border-radius: 4px;
-        min-height: 36px;
-      }
+      min-height: 48px;
     }
     
     button:hover {
-      background: #0747a6;
+      background: #4b5563;
       transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(0, 82, 204, 0.3);
+      box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
     }
     
     button:active {
       transform: translateY(0);
     }
     
-    .footer {
-      padding: 8px 18px;
-      text-align: center;
-      border-top: 1px solid #f4f5f7;
-      background: #fafbfc;
-      flex-shrink: 0;
-    }
-
-    /* Responsive footer */
+    /* Responsive adjustments */
     @media (max-width: 350px) {
-      .footer {
-        padding: 6px 14px;
+      body {
+        padding: 12px;
       }
-    }
-
-    @media (min-width: 451px) {
-      .footer {
-        padding: 10px 22px;
+      
+      .container {
+        min-height: 300px;
       }
-    }
-
-    @media (max-height: 350px) {
+      
+      .header {
+        padding: 24px 16px 16px;
+      }
+      
+      .content {
+        padding: 28px 16px 16px;
+        min-height: 120px;
+      }
+      
       .footer {
-        padding: 4px 16px;
+        padding: 14px 16px 16px;
+      }
+      
+      .status-indicator .brand-logo {
+        width: 60px;
+        height: 60px;
+        margin: 6px auto 14px;
+      }
+      
+      .header-title {
+        font-size: 20px;
+        line-height: 1.2;
+      }
+      
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        margin: 0 auto 16px;
+      }
+      
+      #status {
+        font-size: 15px;
+        margin-bottom: 20px;
+      }
+      
+      .footer-text {
+        font-size: 13px;
+      }
+      
+      .status-indicator {
+        margin-bottom: 20px;
       }
     }
     
-    .footer-text {
-      font-size: 8px;
-      color: #97a0af;
-      margin: 0;
-    }
-
-    /* Responsive footer text */
-    @media (max-width: 350px) {
-      .footer-text {
-        font-size: 7px;
+    @media (max-height: 450px) {
+      body {
+        padding: 10px;
       }
-    }
-
-    @media (min-width: 451px) {
-      .footer-text {
-        font-size: 9px;
+      
+      .container {
+        min-height: 280px;
       }
-    }
-
-    @media (max-height: 350px) {
-      .footer-text {
-        font-size: 6px;
-      }
-    }
-
-    /* Additional responsive adjustments for very small screens */
-    @media (max-width: 280px) {
+      
       .header {
-        padding: 10px 12px;
-        min-height: 60px;
+        padding: 20px 16px 14px;
       }
-
+      
       .content {
-        padding: 12px;
-      }
-
-      .processing-card {
-        padding: 12px 10px;
-      }
-
-      .footer {
-        padding: 4px 12px;
-      }
-    }
-
-    /* Adjustments for very tall screens */
-    @media (min-height: 700px) {
-      .content {
-        padding: 30px;
-      }
-
-      .processing-card {
-        padding: 30px 26px;
-      }
-
-      .header {
+        padding: 24px 16px 14px;
         min-height: 100px;
       }
-    }
-
-    /* Landscape orientation adjustments */
-    @media (orientation: landscape) and (max-height: 400px) {
-      .header {
-        min-height: 50px;
-        padding: 8px 16px;
-      }
-
-      .content {
-        padding: 12px;
-      }
-
-      .processing-card {
-        padding: 12px 16px;
-      }
-
+      
       .footer {
-        padding: 4px 16px;
+        padding: 12px 16px 14px;
+      }
+      
+      .status-indicator .brand-logo {
+        width: 56px;
+        height: 56px;
+        margin: 4px auto 12px;
+      }
+      
+      .header-title {
+        font-size: 19px;
+        line-height: 1.2;
+      }
+      
+      #status {
+        font-size: 14px;
+        margin-bottom: 18px;
+      }
+      
+      .footer-text {
+        font-size: 12px;
+      }
+      
+      .status-indicator {
+        margin-bottom: 18px;
+      }
+      
+      .loading-spinner {
+        width: 36px;
+        height: 36px;
+        margin: 0 auto 14px;
+      }
+    }
+    
+    /* Better mobile portrait optimization */
+    @media (max-width: 320px) {
+      .header-title {
+        font-size: 18px;
+        line-height: 1.25;
+      }
+      
+      .content {
+        min-height: 110px;
+      }
+      
+      .status-indicator .brand-logo {
+        width: 56px;
+        height: 56px;
       }
     }
   </style>
 </head>
 <body>
-  <div class="background-pattern"></div>
-  
   <div class="container">
     <div class="header">
-      <div class="okta-logo">
-        <span class="okta-logo-text">OKTA</span>
-      </div>
-      <h1 class="header-title">Authentication Processing</h1>
-      <p class="header-subtitle">Finalizing Secure Login</p>
+      <h1 class="header-title">Login to Organization Successful</h1>
     </div>
     
     <div class="content">
       <div class="processing-card">
         <div class="status-indicator">
+          <div class="brand-logo">
+            <img src="Wootz.png" alt="Wootz Logo">
+          </div>
           <div class="loading-spinner"></div>
         </div>
-        <div id="status">Verifying credentials and establishing secure session...</div>
-        <button id="backBtn">Return to Authenticator</button>
+        <div id="status">Verifying your credentials...</div>
+        <button id="backBtn">Return to Sign In</button>
       </div>
     </div>
     
     <div class="footer">
-      <p class="footer-text">Secure authentication in progress • Enterprise-grade encryption</p>
+      <p class="footer-text">You can now start using the browser</p>
     </div>
   </div>
   

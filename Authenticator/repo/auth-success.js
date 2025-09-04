@@ -8,25 +8,28 @@ document.addEventListener('DOMContentLoaded', function () {
     const spinner = document.querySelector('.loading-spinner');
     const statusIndicator = document.querySelector('.status-indicator');
     const processingCard = document.querySelector('.processing-card');
+    const logo = statusIndicator.querySelector('.brand-logo');
 
     statusDiv.textContent = message;
 
     if (success === true) {
       processingCard.className = 'processing-card success';
       spinner.style.display = 'none';
+      
+      // Show the logo and hide the status text
+      logo.style.display = 'flex';
+      statusDiv.style.display = 'none';
 
-      // Replace spinner with success icon
-      statusIndicator.innerHTML = '<div class="status-icon">✅</div>';
-
-      backBtn.style.display = 'block';
+      // Never show the button
+      backBtn.style.display = 'none';
     } else if (success === false) {
       processingCard.className = 'processing-card error';
       spinner.style.display = 'none';
+      logo.style.display = 'none';
+      statusDiv.style.display = 'block';
 
-      // Replace spinner with error icon
-      statusIndicator.innerHTML = '<div class="status-icon">❌</div>';
-
-      backBtn.style.display = 'block';
+      // Never show the button
+      backBtn.style.display = 'none';
     }
   }
 
@@ -40,9 +43,9 @@ document.addEventListener('DOMContentLoaded', function () {
       console.log('Processing temp auth result from content script:', result.tempAuthResult);
 
       if (result.tempAuthResult.success) {
-        updateStatus('Authentication completed successfully! Your secure session is now active.', true);
+        updateStatus('', true);
       } else {
-        updateStatus(`Authentication process encountered an error: ${result.tempAuthResult.error || 'Unknown error'}. Please try again or contact support.`, false);
+        updateStatus(`Authentication failed: ${result.tempAuthResult.error || 'Please try again'}`, false);
       }
 
       // Clear the result after processing
@@ -50,7 +53,7 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log('Cleared tempAuthResult from storage');
       });
     } else {
-      updateStatus('Authentication session not found. Please return to the authenticator and try again.', false);
+      updateStatus('Authentication session not found. Please return and try again.', false);
     }
   });
 
@@ -58,9 +61,9 @@ document.addEventListener('DOMContentLoaded', function () {
   chrome.runtime.onMessage.addListener(function (message) {
     if (message.action === 'authResult') {
       if (message.success) {
-        updateStatus('Authentication completed successfully! Your secure session is now active.', true);
+        updateStatus('', true);
       } else {
-        updateStatus('Authentication process encountered an error. Please try again or contact support.', false);
+        updateStatus('Authentication failed. Please try again.', false);
       }
     }
   });

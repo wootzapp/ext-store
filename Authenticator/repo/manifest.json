@@ -1,13 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "SAML Authenticator & Sensitive Content Detector",
+  "name": "Enterprise",
   "version": "1.0.0",
   "description": "Handles Okta SAML authentication and detects sensitive content using AI",
   "icons": {
-    "16": "Okta.png",
-    "32": "Okta.png",
-    "48": "Okta.png",
-    "128": "Okta.png"
+    "16": "Enterprise.png",
+    "32": "Enterprise.png",
+    "48": "Enterprise.png",
+    "128": "Enterprise.png"
   },
   "permissions": [
     "activeTab",
@@ -17,15 +17,16 @@
   "host_permissions": [
     "https://integrator-2373294.okta.com/*",
     "https://*.okta.com/*",
-    "https://generativelanguage.googleapis.com/*"
+    "https://generativelanguage.googleapis.com/*",
+    "https://nextjs-app-410940835135.us-central1.run.app/*"
   ],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "Okta.png",
-      "32": "Okta.png",
-      "48": "Okta.png",
-      "128": "Okta.png"
+      "16": "Enterprise.png",
+      "32": "Enterprise.png",
+      "48": "Enterprise.png",
+      "128": "Enterprise.png"
     }
   },
   "background": {
