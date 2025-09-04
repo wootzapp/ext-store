@@ -1,5 +1,7 @@
 // src/hooks/useChatStream.js
 import { useCallback, useEffect, useRef, useState } from 'react';
+import useUserOrgs from '@/hooks/useUserOrgs';
+import userService, { pickOrganization } from '@/services/user';
 import { buildPrompt } from '@/services/ai/promptBuilder';
 import { startStreamingChat } from '@/services/chat/streamClient';
 import { createMarkdownBuffer } from '@/services/markdown/streamBuffer';
@@ -20,18 +22,36 @@ async function readPrefsSnapshot() {
   return { useOwnKey: flag, selectedModel, apiKey };
 }
 
-async function resolveOrgId() {
+// Fallback resolver (session → GET /api/user → pickOrganization)
+async function resolveOrgIdFallback() {
   try {
     const session = await StorageUtils.getAuthSession();
-    const orgId = Number(session?.user?.selectedOrganizationId);
-    if (Number.isFinite(orgId)) return orgId;
+    const fromSession = Number(session?.user?.selectedOrganizationId);
+    if (Number.isFinite(fromSession) && fromSession > 0) return fromSession;
+
+    const data = await userService.getCurrentUser({ force: true });
+    const picked = pickOrganization({
+      user: data?.user ?? null,
+      organizations: Array.isArray(data?.organizations) ? data.organizations : [],
+    });
+    const id = Number(picked?.id ?? picked?.organizationId);
+    if (Number.isFinite(id) && id > 0) {
+      // mirror back into session (best-effort)
+      try {
+        const prev = session?.user || {};
+        await StorageUtils.saveAuthUser({ ...prev, selectedOrganizationId: id });
+      } catch {}
+      return id;
+    }
   } catch (e) {
-    console.warn('[resolveOrgId] error reading session:', e);
+    console.warn('[resolveOrgIdFallback] failed:', e);
   }
-  throw new Error('Missing orgId. Sign in first.');
+  throw new Error('Missing or invalid orgId (> 0 required). Please sign in and select an organization.');
 }
 
 export function useChatStream() {
+  const { selectedOrgId: orgIdFromHook } = useUserOrgs();
+
   const [isStreaming, setIsStreaming] = useState(false);
   const [preview, setPreview] = useState('');
   const [full, setFull] = useState('');
@@ -93,7 +113,12 @@ export function useChatStream() {
       try {
         if (modeRef.current === 'backend') {
           const prompt = buildPrompt(kind, payload);
-          const orgId = await resolveOrgId();
+
+          let orgId = Number(orgIdFromHook);
+          if (!(Number.isFinite(orgId) && orgId > 0)) {
+            orgId = await resolveOrgIdFallback(); // throws if still invalid
+          }
+
           setMeta({ mode: 'backend', orgId, model: null });
 
           const handle = await startStreamingChat({
@@ -126,7 +151,13 @@ export function useChatStream() {
           return;
         }
 
-        setMeta({ mode: 'direct', provider: resolvedModel || 'auto' });
+        // Direct mode (own key). Include orgId in meta if available (display-only).
+        const maybeOrg = Number(orgIdFromHook);
+        setMeta({
+          mode: 'direct',
+          provider: resolvedModel || 'auto',
+          orgId: Number.isFinite(maybeOrg) ? maybeOrg : null,
+        });
 
         ai.stream({
           kind,
@@ -159,7 +190,7 @@ export function useChatStream() {
         setIsStreaming(false);
       }
     },
-    [reset]
+    [reset, orgIdFromHook]
   );
 
   useEffect(() => {
