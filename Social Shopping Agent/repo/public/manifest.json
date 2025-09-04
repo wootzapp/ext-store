@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Social Shopping Agent",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "AI-powered Social Shopping Agent",
   "permissions": [
     "storage",
@@ -12,7 +12,8 @@
     "debugger",
     "webNavigation",
     "wootz",
-    "notifications"
+    "notifications",
+    "cookies"
   ],
   "host_permissions": [
     "<all_urls>",
@@ -25,6 +26,13 @@
     "service_worker": "background.js",
     "type": "module"
   },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "action": {
     "default_popup": "index.html",
     "default_title": "Social Shopping Agent",

@@ -52,10 +52,21 @@ Page Title: ${currentState.pageInfo?.title || 'unknown'}
 Platform: ${currentState.pageInfo?.platform || 'unknown'}
 Page Type: ${currentState.pageContext?.pageType || 'unknown'}
 Elements: ${currentState.interactiveElements?.length || 0}
-Is Logged In: ${currentState.pageContext?.isLoggedIn || false}
 
-# **TOP ELEMENTS (Current Page Only, 40 elements)**
-${this.formatElementsForNavigation(currentState.interactiveElements?.slice(0, 40) || [])}
+# **TOP ELEMENTS (Current Page Only, 50 elements)**
+${this.formatElementsForNavigation(currentState.interactiveElements?.slice(0, 50) || [])}
+
+# **VISUAL CONTEXT (Screenshot Analysis)**
+📸 A screenshot of the current page with highlighted interactive elements has been captured and is available as visual context. The screenshot shows:
+- The current page layout and design
+- Highlighted interactive elements (buttons, links, inputs, etc.) with their indexes
+- Visual positioning and styling of elements
+- Current page state and any visible content
+- Element boundaries and clickable areas
+- Form fields, search boxes, and action buttons
+- Navigation elements and interactive components
+
+Use this visual context along with the element data to select the most appropriate action and target elements based on their visual appearance and positioning.
 
 # **SEQUENCE GUIDANCE**
 ${sequenceGuidance}
@@ -72,7 +83,7 @@ ${recentActions}
 ${failedActionsNav ? `# **RECENT FAILURES**\n${failedActionsNav}` : ''}
 
 # **AVAILABLE ACTIONS**
-navigate(url), click(index), type(index,text), scroll(direction,amount), wait(duration)
+navigate(url), click(index|selector), type(index|selector,text), scroll(direction,amount), wait(duration), go_back()
 
 # **OUTPUT FORMAT - MUST BE COMPLETE**
 **CRITICAL**: Return COMPLETE JSON response - NO TRUNCATION OR TRIMMING ALLOWED
@@ -88,7 +99,9 @@ navigate(url), click(index), type(index,text), scroll(direction,amount), wait(du
   }
 }
 
-**RULES**: Use exact element indices. Skip index/selector for navigate/wait/scroll.
+**RULES**: Prefer exact index/selector when known:
+- go_back takes no required parameters
+Skip index/selector for navigate/wait/scroll.
 **ENSURE ALL FIELDS ARE POPULATED - NO INCOMPLETE RESPONSES ALLOWED**`;
 
     try {
@@ -417,42 +430,14 @@ navigate(url), click(index), type(index,text), scroll(direction,amount), wait(du
       // Limit text content to prevent token explosion
       const textContent = (el.textContent || '').trim();
       const limitedTextContent = textContent.length > 80 ? textContent.substring(0, 80) + '...' : textContent;
-      
-      const text = (el.text || '').trim();
-      const limitedText = text.length > 80 ? text.substring(0, 80) + '...' : text;
 
       // Limit selector length
       const selector = (el.selector || 'none').trim();
-      const limitedSelector = selector.length > 150 ? selector.substring(0, 150) + '...' : selector;
+      const limitedSelector = selector.length > 100 ? selector.substring(0, 100) + '...' : selector;
 
       // Limit XPath length
       const xpath = (el.xpath || 'none').trim();
-      const limitedXPath = xpath.length > 150 ? xpath.substring(0, 150) + '...' : xpath;
-
-      // Process attributes to limit their length
-      const processedAttributes = {};
-      if (el.attributes) {
-        for (const [key, value] of Object.entries(el.attributes)) {
-          // Skip internal or redundant attributes
-          if (key.startsWith('_') || key === 'xpath' || key === 'selector') continue;
-          
-          // Skip empty or null values
-          if (!value) continue;
-          
-          // Convert value to string and limit length
-          const strValue = String(value);
-          if (key === 'href' || key === 'src' || key === 'data-url') {
-            // Limit URLs to 100 characters
-            processedAttributes[key] = strValue.length > 100 ? strValue.substring(0, 100) + '...' : strValue;
-          } else if (key === 'style' || key === 'class' || key.includes('data-')) {
-            // Limit style/class/data attributes to 50 characters
-            processedAttributes[key] = strValue.length > 50 ? strValue.substring(0, 50) + '...' : strValue;
-          } else {
-            // Limit other attributes to 80 characters
-            processedAttributes[key] = strValue.length > 80 ? strValue.substring(0, 80) + '...' : strValue;
-          }
-        }
-      }
+      const limitedXPath = xpath.length > 100 ? xpath.substring(0, 100) + '...' : xpath;
 
       // Process bounds to ensure they're concise
       const bounds = el.bounds || {};
@@ -464,16 +449,12 @@ navigate(url), click(index), type(index,text), scroll(direction,amount), wait(du
       };
       
       return `[Index: ${el.index}] TagName: ${el.tagName || 'UNKNOWN'} {
-    Category: ${el.category || 'unknown'}
-    Purpose: ${el.purpose || 'general'} 
-    Type: ${el.type || 'unknown'}
-    Selector: ${limitedSelector}
-    XPath: ${limitedXPath}
-    Interactive: ${el.isInteractive}, Visible: ${el.isVisible}
-    TextContent: "${limitedTextContent}"
-    Text: "${limitedText}"
-    Attributes: ${JSON.stringify(processedAttributes)}
-    Bounds: ${JSON.stringify(simplifiedBounds)}
+  Category: ${el.category || 'unknown'}
+  Purpose: ${el.purpose || 'general'}
+  Selector: ${limitedSelector}
+  XPath: ${limitedXPath} 
+  TextContent: "${limitedTextContent}" 
+  Bounds: ${JSON.stringify(simplifiedBounds)}
 }`;
     }).join('\n\n');
   }
@@ -552,6 +533,37 @@ navigate(url), click(index), type(index,text), scroll(direction,amount), wait(du
             }
           };
         }
+      }
+    }
+    
+    // If exact click/type failed, try alternative approach
+    if (lastAction && lastAction.content?.includes('failed')) {
+      if (lastAction.action === 'click') {
+        // Try scrolling to find new elements
+        return {
+          thinking: 'Previous click failed, trying scroll to find new elements',
+          action: {
+            name: 'scroll',
+            parameters: {
+              direction: 'down',
+              amount: 300,
+              intent: 'Scroll down to find new interactive elements after click failure'
+            }
+          }
+        };
+      }
+      if (lastAction.action === 'type') {
+        // Try waiting for page to load
+        return {
+          thinking: 'Previous type failed, trying wait for page to load',
+          action: {
+            name: 'wait',
+            parameters: {
+              duration: 3000,
+              intent: 'Wait for page to load after type failure'
+            }
+          }
+        };
       }
     }
     

@@ -6,23 +6,24 @@ import ChatInput from './ChatInput';
 import TaskStatus from './TaskStatus';
 import { useChat } from '../hooks/useChat';
 import { useLocation } from 'react-router-dom';
-import { useConfig } from '../hooks/useConfig';
+// import { useConfig } from '../hooks/useConfig';
 import { 
-  FaEdit, 
-  // FaUser, 
+  // FaEdit, 
+  FaUser, 
   FaWifi,
   FaExclamationTriangle,
   FaHistory,
-  FaCog
+  // FaCog
 } from 'react-icons/fa';
-// import RequestCounter from './RequestCounter';
-// import SubscriptionChoice from './SubscriptionChoice';
+import { RiChatNewFill } from 'react-icons/ri';
+import RequestCounter from './RequestCounter';
+import SubscriptionChoice from './SubscriptionChoice';
 import { useNavigate } from 'react-router-dom';
 
 const ChatInterface = ({ user, subscription, onLogout }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { config } = useConfig();
+  // const { config } = useConfig();
   
   // Get chat ID from URL params
   const urlParams = new URLSearchParams(location.search);
@@ -38,7 +39,11 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
   const isConnectingRef = useRef(false);
 
   // Add state for subscription choice modal
-  // const [showSubscriptionChoice, setShowSubscriptionChoice] = useState(false);
+  const [showSubscriptionChoice, setShowSubscriptionChoice] = useState(false);
+  // Add state to track if popup has been shown for current session
+  const [hasShownPopupThisSession, setHasShownPopupThisSession] = useState(false);
+  // Add state to store usage data from RequestCounter
+  const [usageData, setUsageData] = useState(null);
 
   // Add state for message input
   const [messageInput, setMessageInput] = useState('');
@@ -46,16 +51,71 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
   // Add state for typing indicator
   const [isTyping, setIsTyping] = useState(false);
 
+  // Simple refresh function for request counter - use ref to avoid re-render issues
+  const requestCounterRefreshRef = useRef(null);
+  
+  // Debug: Log when refresh function is set
+  useEffect(() => {
+    console.log("ChatInterface: requestCounterRefresh function set:", !!requestCounterRefreshRef.current);
+  }, []);
+
+  // Refresh on mount - simple approach
+  useEffect(() => {
+    if (requestCounterRefreshRef.current && typeof requestCounterRefreshRef.current === 'function') {
+      // Add a small delay to ensure component is fully mounted
+      setTimeout(() => {
+        if (requestCounterRefreshRef.current && typeof requestCounterRefreshRef.current === 'function') {
+          requestCounterRefreshRef.current();
+        }
+      }, 100);
+    }
+  }, []);
+
+  // Check if subscription choice should be shown on mount - only once when component mounts
+  useEffect(() => {
+    if (subscription && !subscription.loading && !hasShownPopupThisSession && !subscription.usingPersonalAPI) {
+      // Only check subscription popup on mount if we haven't shown it this session
+      // and if usage data shows 0 remaining requests
+      if (usageData && usageData.remaining <= 0) {
+        setShowSubscriptionChoice(true);
+        setHasShownPopupThisSession(true);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subscription?.loading, subscription?.usingPersonalAPI, hasShownPopupThisSession, usageData]);
+
   // Add function to handle template clicks
   const handleTemplateClick = (templateCommand) => {
     setMessageInput(templateCommand);
   };
 
-  // Helper function to check if API keys are configured
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const hasApiKeysConfigured = () => {
-    return !!(config.anthropicApiKey || config.openaiApiKey || config.geminiApiKey);
+
+
+  // Function to check if subscription popup should be shown after error
+  const checkAndShowSubscriptionPopupAfterError = () => {
+    // Don't check if subscription is still loading
+    if (subscription?.loading) {
+      return;
+    }
+
+    // Don't check if using personal API
+    if (subscription?.usingPersonalAPI) {
+      return;
+    }
+
+    // Don't check if popup has already been shown this session
+    if (hasShownPopupThisSession) {
+      return;
+    }
+
+    // Use existing usage data to check if remaining requests is 0
+    if (usageData && usageData.remaining <= 0) {
+      setShowSubscriptionChoice(true);
+      setHasShownPopupThisSession(true);
+    }
   };
+
+
 
   // Helper function to detect markdown content
   const hasMarkdownContent = (content) => {
@@ -203,6 +263,17 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
                 timestamp: Date.now()
               });
               break;
+
+            case 'execution_start':
+              setIsExecuting(true);
+              setIsTyping(true);
+              setTaskStatus({ status: 'executing', message: 'Execution started...' });
+              addMessage({
+                type: 'system',
+                content: '⚡ Execution started...',
+                timestamp: Date.now()
+              });
+              break;
               
             case 'status_update':
               setIsExecuting(true); 
@@ -215,6 +286,44 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
                 type: 'system',
                 content: `⚡ ${message.message}`,
                 timestamp: Date.now()
+              });
+              break;
+
+            case 'step_complete':
+              setIsExecuting(true);
+              setIsTyping(true);
+              setTaskStatus({ 
+                status: 'executing', 
+                message: message.message || 'Step completed, continuing...' 
+              });
+              addMessage({
+                type: 'system',
+                content: `✅ ${message.message || 'Step completed, continuing...'}`,
+                timestamp: Date.now()
+              });
+              break;
+
+            case 'observation_strategy':
+              setIsExecuting(true);
+              setIsTyping(true);
+              setTaskStatus({ 
+                status: 'executing', 
+                message: 'Analyzing current situation...' 
+              });
+              
+              let obsStratContent = '🔍 **Current Analysis:**\n\n';
+              if (message.observation) {
+                obsStratContent += `**Observation:** ${message.observation}\n\n`;
+              }
+              if (message.strategy) {
+                obsStratContent += `**Strategy:** ${message.strategy}`;
+              }
+              
+              addMessage({
+                type: 'system',
+                content: obsStratContent,
+                timestamp: Date.now(),
+                isMarkdown: true
               });
               break;
               
@@ -232,6 +341,22 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
                 isMarkdown: message.result.isMarkdown || hasMarkdownContent(responseContent), // Use flag from backend first
                 actions: message.result.actions
               });
+
+              // Simple refresh after API response
+              console.log("ChatInterface: task_complete received, requestCounterRefresh exists:", !!requestCounterRefreshRef.current);
+              if (requestCounterRefreshRef.current && typeof requestCounterRefreshRef.current === 'function') {
+                // Add small delay to ensure API response is fully processed
+                setTimeout(() => {
+                  if (requestCounterRefreshRef.current && typeof requestCounterRefreshRef.current === 'function') {
+                    console.log("ChatInterface: Refreshing after task_complete");
+                    requestCounterRefreshRef.current();
+                  } else {
+                    console.log("ChatInterface: requestCounterRefresh not available after delay");
+                  }
+                }, 200);
+              } else {
+                console.log("ChatInterface: requestCounterRefresh not available for task_complete");
+              }
               break;
               
             case 'task_error':
@@ -240,29 +365,78 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
               setTaskStatus({ status: 'error', message: message.error });
               addMessage({
                 type: 'error',
-                content: `❌ Error: ${message.error}`,
-                timestamp: Date.now()
+                content: `❌ **Task Error**\n\n${message.error}`,
+                timestamp: Date.now(),
+                isMarkdown: true
               });
+              
+              // Simple refresh after API response (even if it failed)
+              if (requestCounterRefreshRef.current && typeof requestCounterRefreshRef.current === 'function') {
+                // Add small delay to ensure API response is fully processed
+                setTimeout(() => {
+                  if (requestCounterRefreshRef.current && typeof requestCounterRefreshRef.current === 'function') {
+                    console.log("ChatInterface: Refreshing after task_error");
+                    requestCounterRefreshRef.current();
+                  }
+                }, 200);
+              }
+              
+              // Check if subscription popup should be shown after task error
+              setTimeout(() => {
+                checkAndShowSubscriptionPopupAfterError();
+              }, 500);
               break;
 
             case 'task_cancelled':
               setIsExecuting(false);
               setIsTyping(false); // Hide typing indicator
               setTaskStatus({ status: 'cancelled', message: 'Task cancelled' });
+              
+              // Show cancellation message with progress
+              let cancelContent = '🛑 **Task Cancelled**\n\n';
+              if (message.progress) {
+                cancelContent += `**Progress Made:** ${message.progress}\n\n`;
+              }
+              cancelContent += 'The task has been cancelled as requested. You can start a new task anytime.';
+              
               addMessage({
                 type: 'system',
                 content: '🛑 Task cancelled by user',
                 timestamp: Date.now()
               });
+
+              addMessage({
+                type: 'assistant',
+                content: cancelContent,
+                timestamp: Date.now(),
+                isMarkdown: true
+              });
+              
+              // Simple refresh after API response
+              if (requestCounterRefreshRef.current && typeof requestCounterRefreshRef.current === 'function') {
+                // Add small delay to ensure API response is fully processed
+                setTimeout(() => {
+                  if (requestCounterRefreshRef.current && typeof requestCounterRefreshRef.current === 'function') {
+                    console.log("ChatInterface: Refreshing after task_cancelled");
+                    requestCounterRefreshRef.current();
+                  }
+                }, 200);
+              }
               break;
 
             case 'error':
               setIsTyping(false); // Hide typing indicator
               addMessage({
                 type: 'error',
-                content: `❌ ${message.error}`,
-                timestamp: Date.now()
+                content: `❌ **Error**\n\n${message.error}`,
+                timestamp: Date.now(),
+                isMarkdown: true
               });
+              
+              // Check if subscription popup should be shown after error
+              setTimeout(() => {
+                checkAndShowSubscriptionPopupAfterError();
+              }, 500);
               break;
               
             default:
@@ -346,31 +520,7 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
   }, []);
 
   const handleSendMessage = async (message) => {
-    // Check if API keys are configured
-    if (!hasApiKeysConfigured()) {
-      addMessage({
-        type: 'system',
-        content: '🔧 **API Configuration Required**\n\nTo use the AI Social Shopping Agent, you need to configure at least one API key.\n\n**What you need to do:**\n• Go to Settings and add your API keys\n• Choose from Anthropic (Claude), OpenAI, or Google Gemini\n• Save your configuration\n\n**Why this is needed:**\nThe agent uses AI models to understand and execute your requests. Without API keys, it cannot function.\n\nClick the Settings button (⚙️) in the header to configure your API keys.',
-        timestamp: Date.now()
-      });
-      
-      // Navigate to settings after a short delay
-      setTimeout(() => {
-        navigate('/settings');
-      }, 2000);
-      
-      return;
-    }
-
-    // const shouldShowSubscription = !subscription.usingPersonalAPI && 
-    //                                !subscription.hasPersonalKeys && 
-    //                                subscription.remaining_requests <= 0;
-
-    // if (shouldShowSubscription) {
-    //   setShowSubscriptionChoice(true);
-    //   return; 
-    // }
-
+    // Send message immediately without any subscription checks
     addMessage({
       type: 'user',
       content: message,
@@ -397,6 +547,9 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
           timestamp: Date.now()
         });
         setConnectionStatus('disconnected');
+        
+        // Check subscription popup after error
+        checkAndShowSubscriptionPopupAfterError();
       }
     } else {
       setIsTyping(false); // Hide typing indicator if can't send
@@ -409,6 +562,9 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
         content: statusMessage,
         timestamp: Date.now()
       });
+      
+      // Check subscription popup after error
+      checkAndShowSubscriptionPopupAfterError();
     }
   };
 
@@ -450,10 +606,6 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
   };
 
   const getConnectionStatusColor = () => {
-    if (!hasApiKeysConfigured()) {
-      return '#ffad1f'; // Warning color for missing API keys
-    }
-    
     switch (connectionStatus) {
       case 'connected': return '#17bf63';
       case 'connecting': return '#ffad1f';
@@ -463,10 +615,6 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
   };
 
   const getConnectionStatusText = () => {
-    if (!hasApiKeysConfigured()) {
-      return 'API Keys Required';
-    }
-    
     switch (connectionStatus) {
       case 'connected': return 'Connected';
       case 'connecting': return 'Connecting...';
@@ -476,10 +624,6 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
   };
 
   const getConnectionIcon = () => {
-    if (!hasApiKeysConfigured()) {
-      return <FaExclamationTriangle />; // Warning icon for missing API keys
-    }
-    
     switch (connectionStatus) {
       case 'connected': return <FaWifi />;
       case 'connecting': return <FaWifi style={{ opacity: 0.6 }} />;
@@ -491,10 +635,8 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
   // Add subscription choice modal as an overlay in the return statement
   return (
     <div className="chat-interface" style={{ 
-      width: '100vw',
-      height: '100vh',
-      maxWidth: '500px',
-      maxHeight: '600px',
+      width: '100%',
+      height: '100%',
       display: 'flex', 
       flexDirection: 'column',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -534,11 +676,11 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
             margin: 0, 
             color: '#FFDCDCFF', 
             fontSize: '15px', 
-            fontWeight: '750',
+            fontWeight: '600',
             lineHeight: '20px', 
             textAlign: 'left'
           }}>
-            SOCIAL SHOPPING AGENT
+            Social Shopping Agent
           </h3>
           <div className="chat-status" style={{ 
             fontSize: '12px', 
@@ -552,10 +694,14 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
             {getConnectionIcon()}
             <span>{getConnectionStatusText()}</span>
             {/* {isExecuting && <span>• Working...</span>} */}
-            {/* <RequestCounter 
-              subscriptionState={subscription} 
-              onUpgradeClick={() => setShowSubscriptionChoice(true)}
-            /> */}
+            {!subscription?.usingPersonalAPI && (
+              <RequestCounter 
+                subscriptionState={subscription} 
+                onUpgradeClick={() => setShowSubscriptionChoice(true)}
+                onRefresh={(func) => { requestCounterRefreshRef.current = func; }}
+                onUsageDataChange={setUsageData}
+              />
+            )}
           </div>
         </div>
         <div className="chat-header-buttons" style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
@@ -576,7 +722,7 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
             }}
             title="New Chat"
           >
-            <FaEdit />
+            <RiChatNewFill />
           </button>
           
           <button 
@@ -601,30 +747,23 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
           
           <div style={{ position: 'relative' }}>
             <button 
-              onClick={() => navigate('/settings')}
+              onClick={() => navigate('/profile')}
               className="chat-header-button"
               style={{ 
                 padding: '6px 8px',
-                backgroundColor: !hasApiKeysConfigured() 
-                  ? 'rgba(255, 173, 31, 0.3)' // Warning background when API keys missing
-                  : 'rgba(255, 220, 220, 0.2)',
-                border: !hasApiKeysConfigured()
-                  ? '1px solid rgba(255, 173, 31, 0.5)' // Warning border when API keys missing
-                  : '1px solid rgba(255, 220, 220, 0.3)',
-                color: !hasApiKeysConfigured()
-                  ? '#ffad1f' // Warning color when API keys missing
-                  : '#FFDCDCFF',
+                backgroundColor: 'rgba(255, 220, 220, 0.2)',
+                border: '1px solid rgba(255, 220, 220, 0.3)',
+                color: '#FFDCDCFF',
                 borderRadius: '8px',
                 cursor: 'pointer',
                 fontSize: '16px',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                animation: !hasApiKeysConfigured() ? 'pulse 2s infinite' : 'none'
+                justifyContent: 'center'
               }}
-              title={!hasApiKeysConfigured() ? "Configure API Keys (Required)" : "Settings"}
+              title="Profile"
             >
-              <FaCog />
+              <FaUser />
             </button>
           </div>
         </div>
@@ -653,13 +792,11 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
           onSendMessage={handleSendMessage}
           onStopExecution={handleStopExecution}
           isExecuting={isExecuting}
-          disabled={!hasApiKeysConfigured() || connectionStatus !== 'connected'}
+          disabled={connectionStatus !== 'connected'}
           placeholder={
-            !hasApiKeysConfigured() 
-              ? "Configure API keys to start..."
-              : connectionStatus === 'connected' 
-                ? (isExecuting ? "Processing..." : "Ask me anything...")
-                : "Connecting..."
+            connectionStatus === 'connected' 
+              ? (isExecuting ? "Processing..." : "Ask me anything...")
+              : "Connecting..."
           }
           value={messageInput}
           onChange={setMessageInput}
@@ -667,21 +804,26 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
       </div>
       
       {/* Add subscription choice as overlay */}
-      {/* {showSubscriptionChoice && (
+      {showSubscriptionChoice && (
         <SubscriptionChoice 
           onSubscribe={() => {
             setShowSubscriptionChoice(false);
+            // setHasShownPopupThisSession(false); // Reset session state
             navigate('/subscription');
           }}
           onUseAPI={() => {
             setShowSubscriptionChoice(false);
+            // setHasShownPopupThisSession(false); // Reset session state
             navigate('/settings');
           }}
-          onClose={() => setShowSubscriptionChoice(false)}
+          onClose={() => {
+            setShowSubscriptionChoice(false);
+            // setHasShownPopupThisSession(false); // Reset session state
+          }}
           onRefreshSubscription={() => subscription.loadSubscriptionData()}
           user={user}
         />
-      )} */}
+      )}
     </div>
   );
 };

@@ -77,8 +77,11 @@ const SubscriptionChoice = ({ onSubscribe, onUseAPI, onClose, onRefreshSubscript
         </div>
 
         <div className="choice-content">
-          <p className="choice-subtitle" style={{ color: 'rgba(255, 220, 220, 0.8)', marginBottom: '24px', textAlign: 'center' }}>
-            Your free trial has ended. Choose how you'd like to continue:
+          <p className="choice-subtitle" style={{ color: 'rgba(255, 220, 220, 0.8)', marginBottom: '16px', textAlign: 'center' }}>
+            Your request quota has been exhausted. Choose how you'd like to continue:
+          </p>
+          <p className="choice-description" style={{ color: 'rgba(255, 220, 220, 0.6)', marginBottom: '24px', textAlign: 'center', fontSize: '14px' }}>
+            Get more requests with a subscription or use your own API keys for unlimited usage.
           </p>
 
           <div className="choice-options">
@@ -92,7 +95,7 @@ const SubscriptionChoice = ({ onSubscribe, onUseAPI, onClose, onRefreshSubscript
               }}
             >
               <FaStar />
-              Subscribe to Premium
+              Subscribe for More Quotas
             </button>
 
             <button
@@ -106,7 +109,7 @@ const SubscriptionChoice = ({ onSubscribe, onUseAPI, onClose, onRefreshSubscript
               }}
             >
               <FaKey />
-              Use Your Own API Keys
+              Use Your Own API Keys (Unlimited)
             </button>
           </div>
         </div>

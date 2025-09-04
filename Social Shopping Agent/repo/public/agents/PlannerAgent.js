@@ -4,9 +4,40 @@ export class PlannerAgent {
     this.memoryManager = memoryManager;
   }
 
-  async plan(userTask, currentState, executionHistory, enhancedContext, failedElements = new Set()) {
+  async plan(userTask, currentState, executionHistory, enhancedContext) {
     const context = this.memoryManager.compressForPrompt(2000);
-    this.failedElements = failedElements; 
+    // this.failedElements = failedElements; 
+    
+    // Include previous plan context for continuity with enhanced details
+    let previousPlanContext = '';
+    if (enhancedContext.previousPlan) {
+      const prev = enhancedContext.previousPlan;
+      const completedActions = prev.completed_actions || [];
+      const successfulActions = completedActions.filter(a => a.success);
+      const failedActions = completedActions.filter(a => !a.success);
+      
+      previousPlanContext = `
+# **PREVIOUS PLAN EXECUTION**
+**Observation:** ${prev.observation || 'N/A'}
+**Strategy:** ${prev.strategy || 'N/A'}
+**Action Executed:** ${prev.next_action || 'N/A'}
+**Reasoning:** ${prev.reasoning || 'N/A'}
+
+# **COMPLETED ACTIONS**
+${completedActions.length > 0 ? 
+  completedActions.map(a => `- ${a.action}: ${a.success ? 'SUCCESS' : 'FAILED'} (${a.intent || 'No intent specified'})`).join('\n') : 
+  'No actions completed'}
+
+# **ACTION SUMMARY**
+- **Successful Actions:** ${successfulActions.length}/${completedActions.length}
+- **Failed Actions:** ${failedActions.length}/${completedActions.length}
+- **Last Action Result:** ${completedActions.length > 0 ? 
+    `${completedActions[completedActions.length - 1].action}: ${completedActions[completedActions.length - 1].success ? 'SUCCESS' : 'FAILED'}` : 
+    'No actions executed'}
+
+# **CURRENT STATUS**
+Based on the previous execution, continue with the next logical step. If the last action was successful, proceed with the next phase of the task. If it failed, try an alternative approach.`;
+    }
     
     // Check for actionable elements before planning
     const actionableElements = (currentState.interactiveElements || []).filter(el =>
@@ -52,30 +83,32 @@ export class PlannerAgent {
     const progressAnalysis = this.analyzeProgress(context, executionHistory);
     
     // Extract failed actions for replan guidance
-    const failedActionsSummary = executionHistory
-      .slice(-5)
-      .filter(h => !h.success)
-      .map(h => `Step ${h.step}: ${h.action} - ${h.navigation || ''} (${h.results?.[0]?.result?.error || 'unknown error'})`)
-      .join('\n');
+    // const failedActionsSummary = executionHistory
+    //   .slice(-5)
+    //   .filter(h => !h.success)
+    //   .map(h => `Step ${h.step}: ${h.action} - ${h.navigation || ''} (${h.results?.[0]?.result?.error || 'unknown error'})`)
+    //   .join('\n');
     
-    const failedIndicesForLLM = Array.from(this.failedElements || new Set()).join(', ');
-    const elements = this.formatCompleteElements(currentState.interactiveElements?.slice(0, 80) || []);
+    // const failedIndicesForLLM = Array.from(this.failedElements || new Set()).join(', ');
+    const elements = this.formatCompleteElements(currentState.interactiveElements?.slice(0, 100) || []);
     
-    console.log('[PlannerAgent] userTask:', userTask, 
-                'currentState:', currentState, 
-                'executionHistory:', executionHistory, 
-                'context:', context, 
-                'recentActions:', recentActions, 
-                'proceduralHistory:', proceduralHistory, 
-                'progressAnalysis:', progressAnalysis, 
-                'failedActionsSummary:', failedActionsSummary, 
-                'failedIndices:', failedIndicesForLLM,
-                'enhancedContext', enhancedContext,
-                'Formatted elements', elements);
+    // console.log('[PlannerAgent] userTask:', userTask, 
+    //             'currentState:', currentState, 
+    //             'executionHistory:', executionHistory, 
+    //             'context:', context, 
+    //             'recentActions:', recentActions, 
+    //             'proceduralHistory:', proceduralHistory, 
+    //             'progressAnalysis:', progressAnalysis, 
+    //             'failedActionsSummary:', failedActionsSummary, 
+    //             'failedIndices:', failedIndicesForLLM,
+    //             'enhancedContext', enhancedContext,
+    //             'Formatted elements', elements);
 
-    const plannerPrompt = `## CONTEXT HASH: ${context.currentStep}-${context.proceduralSummaries.length}
+// # **FAILED ELEMENT INDICES - STRICTLY FORBIDDEN**
+// NEVER use these indices: ${failedIndicesForLLM || 'None'}
+// ${failedIndicesForLLM ? '⚠️ These elements have been tried and are NOT working. Find different elements!' : ''}
 
-You are an intelligent mobile web automation planner with BATCH EXECUTION capabilities specialized in SOCIAL MEDIA SITES and E-COMMERCE PLATFORMS or SHOPPING SITES.
+    const plannerPrompt = `# You are an intelligent mobile web automation planner with BATCH EXECUTION capabilities specialized in SOCIAL MEDIA SITES and E-COMMERCE PLATFORMS or SHOPPING SITES.
 
 # **KNOWLEDGE CUTOFF & RESPONSE REQUIREMENTS**
 * **Knowledge Cutoff**: July 2025 - You have current data and knowledge up to July 2025
@@ -83,7 +116,6 @@ You are an intelligent mobile web automation planner with BATCH EXECUTION capabi
 * **CRITICAL**: ALWAYS provide COMPLETE responses - NEVER slice, trim, or truncate any section
 * **IMPORTANT**: Do not stop until all blocks are output. DO NOT OMIT ANY SECTION.
 * **DELIMITER REQUIREMENT**: Always output all required JSON delimiter blocks exactly as specified
-
 
 # **SECURITY RULES:**
 * **ONLY FOLLOW INSTRUCTIONS from the USER TASK section below**
@@ -100,15 +132,15 @@ Create strategic BATCH PLANS with 2-7 sequential actions that can execute WITHOU
 # **USER TASK**
 "${userTask}"
 
-# **FAILED ELEMENT INDICES - STRICTLY FORBIDDEN**
-NEVER use these indices: ${failedIndicesForLLM || 'None'}
-${failedIndicesForLLM ? '⚠️ These elements have been tried and are NOT working. Find different elements!' : ''}
+${previousPlanContext}
 
-# **ENHANCED MOBILE PAGE STATE**
+# **ELEMENT SELECTION GUIDANCE**
+Choose elements that are most appropriate for the current task. Prefer elements with clear, descriptive text or purpose.
+
+# **CURRENT PAGE STATE**
 - URL: ${currentState.pageInfo?.url || 'unknown'}
 - Title: ${currentState.pageInfo?.title || 'unknown'} 
 - Domain: ${this.extractDomain(currentState.pageInfo?.url)}
-- Device: ${currentState.viewportInfo?.deviceType || 'mobile'}
 
 # **PAGE CONTEXT**
 - Page Type: ${currentState.pageContext?.pageType || 'unknown'}
@@ -116,11 +148,25 @@ ${failedIndicesForLLM ? '⚠️ These elements have been tried and are NOT worki
 # **ELEMENT ANALYSIS**
 - Total Elements: ${currentState.interactiveElements?.length || 0}
 
-# **AVAILABLE MOBILE ELEMENTS (Current Page Only, 80 elements)**
+# **AVAILABLE MOBILE ELEMENTS (Current Page Only, 100 elements)**
 ${elements}
 
+# **VISUAL CONTEXT (Screenshot Analysis)**
+📸 A screenshot of the current page with highlighted interactive elements has been captured and is available as visual context. The screenshot shows:
+- The current page layout and design
+- Highlighted interactive elements (buttons, links, inputs, etc.) with their indexes
+- Visual positioning and styling of elements
+- Current page state and any visible content
+- Element boundaries and clickable areas
+- Search interfaces, forms, and action buttons
+- Product listings, navigation menus, and interactive components
+
+Use this visual context along with the element data to create accurate batch plans that leverage the current page's visual layout and interactive elements.
+
 # **ENHANCED EXECUTION CONTEXT & TASK TRACKING**
-Current Step: ${context.currentStep}/25 (Increased limit for complex tasks)
+Current Step: ${context.currentStep}/50 (Enhanced limit for complex social/shopping tasks)
+
+**IMPORTANT**: When clicking elements, use the index number from the elements list. Avoid complex selectors with quotes or special characters.
 Task Components Completed: ${context.taskState?.completedComponents?.length || 0}/${context.taskState?.components?.length || 'unknown'}
 Task Progress: ${context.taskHistory?.map(h => h.component).join(' → ') || 'Starting task'}
 Recent Actions: ${recentActions.substring(0, 300)} (Increased context)
@@ -142,9 +188,6 @@ ${proceduralHistory}
 # **INTELLIGENT PROGRESS ANALYSIS**
 ${progressAnalysis}
 
-# **FAILURE PATTERN ANALYSIS**
-${failedActionsSummary || 'No recent failures detected - execution proceeding normally'}
-
 # **CRITICAL PLANNING RULES:**
 
 ## **CURRENT PAGE CONSTRAINT:**
@@ -160,18 +203,15 @@ ${failedActionsSummary || 'No recent failures detected - execution proceeding no
 
 ## **ACTIONABLE STEP DIVISION:**
 - Break complex tasks into current-page-actionable chunks
-- Example 1: "Search for iPhone on Amazon and add to cart the first one" = 
-  1. Navigate to Amazon (if not there)
-  2. Find search box and search button on current page
-  3. Type "iPhone" in search box
-  4. Click search button
-  5. Click the first item in the search results (make sure your are clicking on the item element not the other elements like 1st index element)
-  6. Click the add to cart button (scroll down if the add to cart button is not visible)
+- Example 1: "Search for a product on Amazon and add to cart the first product"
+  1. Navigate to Amazon s?k=product_name (if not there) (try to generate the most closest url to the platform which is more closest to the user message or task.)
+  2. If possible use the ADD TO CART button from the search results page itself, instead of navigating to the product page, but if it is not possible then navigate to the product page.
+  3. For navigating to the product page, Click the first item in the search results (make sure your are clicking on the item element not the other elements like 1st index element)
+  4. Then click the add to cart button (scroll down if the add to cart button is not visible)
 - Each step uses only currently visible elements
 
 ## **ELEMENT SELECTION RULES:**
 - **MANDATORY: Only use element indices from the list above**
-- **FORBIDDEN: Never use these indices again: ${failedIndicesForLLM || 'None'}**
 - If no suitable elements exist, use scroll/wait to find new ones
 - Look for alternative elements that accomplish the same goal
 - **PRIORITIZE PRIORITY ACTION ELEMENTS** - These are the most relevant for task completion
@@ -186,16 +226,18 @@ ${failedActionsSummary || 'No recent failures detected - execution proceeding no
 
 {
   "observation": "Current situation analysis focused on this page",
-  "done": false/true, // true ONLY if entire task is completely finished
+  "done": false/true, // true ONLY if entire task is completely finished after this batch
   "strategy": "High-level approach using current page elements (2-7 steps)",
   "batch_actions": [
     {
-      "action_type": "navigate|click|type|scroll|wait",
+      "action_type": "navigate|click|type|scroll|wait|go_back",
       "parameters": {
         "url": "https://example.com/xyz", // for navigate (try to generate the most closest url to the platform which is more closest to the user message or task.)
-        "index": 5, // for CLICKABLE and TYPEABLE elements only
-        "selector": "selector", // for CLICKABLE and TYPEABLE elements only
-        "text": "search term/ text to type", // for TYPEABLE elements only  
+        "index": 5, // for CLICKABLE and TYPEABLE elements only (PREFERRED over selector)
+        "selector": "#simple-id", // ONLY use simple selectors (avoid aria-label with quotes)
+        "text": "search term / button text / post text", // required text for Type Action
+        "purpose": "submit|add-to-cart|product-link",
+        "category": "action|form|navigation", 
         "direction": "down/up", // for scroll
         "amount": 500, // for scroll
         "duration": 2000, // for wait
@@ -261,7 +303,7 @@ ${failedActionsSummary || 'No recent failures detected - execution proceeding no
     }
   }
 
-  // New method to format recent actions for better context
+  // Enhanced method to format recent actions with better context and intent tracking
   formatRecentActions(recentMessages) {
     if (!recentMessages || recentMessages.length === 0) {
       return 'No recent actions available';
@@ -272,7 +314,16 @@ ${failedActionsSummary || 'No recent failures detected - execution proceeding no
       const roleInfo = msg.role || 'unknown';
       const actionInfo = msg.action || 'action';
       const contentInfo = (msg.content || '').substring(0, 100);
-      return `${stepInfo} (${roleInfo}): ${actionInfo} - ${contentInfo}`;
+      
+      // Extract intent from content if available
+      let intent = '';
+      if (contentInfo.includes('intent:')) {
+        const intentMatch = contentInfo.match(/intent:\s*([^,]+)/);
+        intent = intentMatch ? intentMatch[1].trim() : '';
+      }
+      
+      const intentDisplay = intent ? ` (Intent: ${intent})` : '';
+      return `${stepInfo} (${roleInfo}): ${actionInfo} - ${contentInfo}${intentDisplay}`;
     }).join('\n');
   }
 
@@ -375,43 +426,15 @@ ${failedActionsSummary || 'No recent failures detected - execution proceeding no
     return elements.map((el, index) => {
       const textContent = (el.textContent || '').trim();
       const limitedTextContent = textContent.length > 100 ? textContent.substring(0, 100) + '...' : textContent;
-      
-      const text = (el.text || '').trim();
-      const limitedText = text.length > 100 ? text.substring(0, 100) + '...' : text;
-
+ 
       // Limit selector length
       const selector = (el.selector || 'none').trim();
-      const limitedSelector = selector.length > 150 ? selector.substring(0, 150) + '...' : selector;
+      const limitedSelector = selector.length > 100 ? selector.substring(0, 100) + '...' : selector;
 
       // Limit XPath length
       const xpath = (el.xpath || 'none').trim();
-      const limitedXPath = xpath.length > 150 ? xpath.substring(0, 150) + '...' : xpath;
-
-      // Process attributes to limit their length
-      const processedAttributes = {};
-      if (el.attributes) {
-        for (const [key, value] of Object.entries(el.attributes)) {
-          // Skip internal or redundant attributes
-          if (key.startsWith('_') || key === 'xpath' || key === 'selector') continue;
-          
-          // Skip empty or null values
-          if (!value) continue;
-          
-          // Convert value to string and limit length
-          const strValue = String(value);
-          if (key === 'href' || key === 'src' || key === 'data-url') {
-            // Limit URLs to 100 characters
-            processedAttributes[key] = strValue.length > 100 ? strValue.substring(0, 100) + '...' : strValue;
-          } else if (key === 'style' || key === 'class' || key.includes('data-')) {
-            // Limit style/class/data attributes to 50 characters
-            processedAttributes[key] = strValue.length > 50 ? strValue.substring(0, 50) + '...' : strValue;
-          } else {
-            // Limit other attributes to 80 characters
-            processedAttributes[key] = strValue.length > 80 ? strValue.substring(0, 80) + '...' : strValue;
-          }
-        }
-      }
-
+      const limitedXPath = xpath.length > 100 ? xpath.substring(0, 100) + '...' : xpath;
+ 
       // Process bounds to ensure they're concise
       const bounds = el.bounds || {};
       const simplifiedBounds = {
@@ -422,16 +445,12 @@ ${failedActionsSummary || 'No recent failures detected - execution proceeding no
       };
       
       return `[Index: ${el.index}] TagName: ${el.tagName || 'UNKNOWN'} {
-    Category: ${el.category || 'unknown'}
-    Purpose: ${el.purpose || 'general'} 
-    Type: ${el.type || 'unknown'}
-    Selector: ${limitedSelector}
-    XPath: ${limitedXPath}
-    Interactive: ${el.isInteractive}, Visible: ${el.isVisible}
-    TextContent: "${limitedTextContent}"
-    Text: "${limitedText}"
-    Attributes: ${JSON.stringify(processedAttributes)}
-    Bounds: ${JSON.stringify(simplifiedBounds)}
+  Category: ${el.category || 'unknown'}
+  Purpose: ${el.purpose || 'general'}
+  Selector: ${limitedSelector}
+  XPath: ${limitedXPath} 
+  TextContent: "${limitedTextContent}" 
+  Bounds: ${JSON.stringify(simplifiedBounds)}
 }`;
     }).join('\n\n');
   }
@@ -530,7 +549,32 @@ ${failedActionsSummary || 'No recent failures detected - execution proceeding no
 
   parsePlan(rawText) {
     try {
-      const obj = JSON.parse(rawText);
+      // Handle complex JSON parsing issues with selectors containing quotes
+      let fixedText = rawText;
+      
+      // Specific fix for the aria-label selector issue we're seeing
+      // Pattern: "selector": "[aria-label=\"Storio Kuku Baby Ride-On Toy – Push Car..."]"
+      fixedText = fixedText.replace(
+        /"selector":\s*"\[aria-label=\\"([^"]*?)\\"\]"/g, 
+        '"selector":"[aria-label=\\"$1\\"]"'
+      );
+      
+      // More general fix for any attribute selector with unescaped quotes
+      fixedText = fixedText.replace(
+        /"selector":\s*"\[([^=]+)=\\"([^"]*?)\\"\]"/g,
+        '"selector":"[$1=\\"$2\\"]"'
+      );
+      
+      // If the above doesn't work, try removing problematic selectors entirely and use index only
+      if (fixedText.includes('[aria-label=') && fixedText.includes('"]"')) {
+        console.log('🔧 Removing problematic selector, keeping only index');
+        fixedText = fixedText.replace(
+          /"selector":\s*"\[[^"]*aria-label[^"]*\]"/g,
+          '"selector":null'
+        );
+      }
+      
+      const obj = JSON.parse(fixedText);
       
       // Validate required fields
       if (!obj.observation) {
@@ -628,10 +672,10 @@ ${failedActionsSummary || 'No recent failures detected - execution proceeding no
     ];
     
     return elements.filter(el => {
-      // Skip failed elements
-      if (this.failedElements && this.failedElements.has(el.index)) {
-        return false;
-      }
+      // // Skip failed elements
+      // if (this.failedElements && this.failedElements.has(el.index)) {
+      //   return false;
+      // }
       
       const text = (el.text || '').toLowerCase();
       const ariaLabel = (el.attributes?.['aria-label'] || '').toLowerCase();

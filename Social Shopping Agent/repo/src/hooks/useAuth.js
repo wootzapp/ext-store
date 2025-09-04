@@ -16,44 +16,24 @@ export const useAuth = () => {
 
   const checkAuthStatus = async () => {
     try {
-      if (typeof chrome !== 'undefined' && chrome.storage) {
-        const result = await chrome.storage.local.get(['userAuth']);
-        
-        const tokenValid = result.userAuth?.access_token && 
-                          result.userAuth?.tokenExpiry && 
-                          result.userAuth.tokenExpiry > Date.now();
-        
-        if (tokenValid) {
-          apiService.setToken(result.userAuth.access_token);
-          
-          try {
-            const user = await apiService.getCurrentUser();
-            setAuthState({
-              isLoggedIn: true,
-              user: user,
-              loading: false,
-              error: null
-            });
-          } catch (error) {
-            await apiService.clearAuthData();
-            setAuthState({
-              isLoggedIn: false,
-              user: null,
-              loading: false,
-              error: null
-            });
-          }
-        } else {
-          await apiService.clearAuthData();
-          setAuthState({
-            isLoggedIn: false,
-            user: null,
-            loading: false,
-            error: null
-          });
-        }
+      // Check if we have a valid session
+      const authResult = await apiService.checkAuthentication();
+      
+      if (authResult.isAuthenticated) {
+        setAuthState({
+          isLoggedIn: true,
+          user: authResult.user,
+          loading: false,
+          error: null
+        });
       } else {
-        setAuthState(prev => ({ ...prev, loading: false }));
+        await apiService.clearAuthSession();
+        setAuthState({
+          isLoggedIn: false,
+          user: null,
+          loading: false,
+          error: null
+        });
       }
     } catch (error) {
       console.error('Error checking auth status:', error);
@@ -66,61 +46,50 @@ export const useAuth = () => {
     }
   };
 
-  const login = async (credentials) => {
-    setAuthState(prev => ({ ...prev, error: null }));
+  const startDeepHUDLogin = async () => {
+    setAuthState(prev => ({ ...prev, error: null, loading: true }));
     
     try {
-      await apiService.login(credentials);
-      const user = await apiService.getCurrentUser();
+      // Use the new API service method that follows the DeepHUD pattern
+      const user = await apiService.startDeepHUDLogin();
       
-      setAuthState({
-        isLoggedIn: true,
-        user: user,
-        loading: false,
-        error: null
-      });
-      
-      return { success: true, user };
+      if (user) {
+        setAuthState({
+          isLoggedIn: true,
+          user: user,
+          loading: false,
+          error: null
+        });
+      } else {
+        setAuthState(prev => ({
+          ...prev,
+          loading: false,
+          error: 'Authentication failed or timed out.'
+        }));
+      }
     } catch (error) {
-      console.error('Login error:', error);
-      
+      console.error('DeepHUD login error:', error);
       setAuthState(prev => ({
         ...prev,
         loading: false,
         error: error.message
       }));
-      
-      return { success: false, error: error.message };
     }
   };
 
+  const login = async (credentials) => {
+    // Use DeepHUD authentication
+    return await startDeepHUDLogin();
+  };
+
   const signup = async (userData) => {
-    setAuthState(prev => ({ ...prev, error: null }));
-    
-    try {
-      await apiService.signup(userData);
-      const loginResult = await login({
-        email: userData.email,
-        password: userData.password
-      });
-      
-      return loginResult;
-    } catch (error) {
-      console.error('Signup error:', error);
-      
-      setAuthState(prev => ({
-        ...prev,
-        loading: false,
-        error: error.message
-      }));
-      
-      return { success: false, error: error.message };
-    }
+    // Use DeepHUD authentication
+    return await startDeepHUDLogin();
   };
 
   const logout = async () => {
     try {
-      await apiService.clearAuthData();
+      await apiService.logout();
       setAuthState({
         isLoggedIn: false,
         user: null,
@@ -139,6 +108,7 @@ export const useAuth = () => {
     login,
     signup,
     logout,
-    checkAuthStatus
+    checkAuthStatus,
+    startDeepHUDLogin
   };
 };

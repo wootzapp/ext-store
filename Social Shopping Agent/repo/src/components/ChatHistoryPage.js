@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-unused-vars
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useChatHistory } from '../hooks/useChatHistory';
@@ -83,10 +84,8 @@ const ChatHistoryPage = () => {
   };
 
   const containerStyle = {
-    width: '100vw',
-    height: '100vh',
-    maxWidth: '500px',
-    maxHeight: '600px',
+    width: '100%',
+    height: '100%',
     display: 'flex', 
     flexDirection: 'column',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -110,23 +109,81 @@ const ChatHistoryPage = () => {
     background: 'linear-gradient(0deg, #002550FF 0%, #764ba2 100%)',
     flexShrink: 0,
     minHeight: '56px',
-    boxSizing: 'border-box'
+    boxSizing: 'border-box',
+    position: 'relative',
+    zIndex: 1
   };
 
   const contentStyle = {
     flex: 1,
     overflowY: 'auto',
-    padding: '0',
-    WebkitOverflowScrolling: 'touch'
+    padding: '16px',
+    scrollbarWidth: 'none',
+    msOverflowStyle: 'none',
+    position: 'relative',
+    zIndex: 1
   };
 
   return (
     <div className="chat-history-container" style={containerStyle}>
       {/* Background Animation */}
-      <div className="background-animation">
-        <div className="floating-orb chat-orb-1"></div>
-        <div className="floating-orb chat-orb-2"></div>
-        <div className="floating-orb chat-orb-3"></div>
+      <div
+        className="background-animation"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          pointerEvents: "none",
+          zIndex: 0,
+        }}
+      >
+        <div
+          className="chat-history-orb-1"
+          style={{
+            position: "absolute",
+            width: "200px",
+            height: "200px",
+            borderRadius: "50%",
+            background: "radial-gradient(circle, #FF6B6B, #FF8E8E)",
+            filter: "blur(40px)",
+            opacity: 0.2,
+            top: "10%",
+            left: "10%",
+            animation: "float 6s ease-in-out infinite",
+          }}
+        />
+        <div
+          className="chat-history-orb-2"
+          style={{
+            position: "absolute",
+            width: "150px",
+            height: "150px",
+            borderRadius: "50%",
+            background: "radial-gradient(circle, #4ECDC4, #6EE7DF)",
+            filter: "blur(40px)",
+            opacity: 0.2,
+            top: "60%",
+            right: "15%",
+            animation: "float 6s ease-in-out infinite 2s",
+          }}
+        />
+        <div
+          className="chat-history-orb-3"
+          style={{
+            position: "absolute",
+            width: "180px",
+            height: "180px",
+            borderRadius: "50%",
+            background: "radial-gradient(circle, #45B7D1, #67C9E1)",
+            filter: "blur(40px)",
+            opacity: 0.2,
+            bottom: "20%",
+            left: "20%",
+            animation: "float 6s ease-in-out infinite 4s",
+          }}
+        />
       </div>
 
       <style>
@@ -165,7 +222,8 @@ const ChatHistoryPage = () => {
             color: '#FFDCDCFF',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            backdropFilter: 'blur(5px)'
           }}
           title="Back"
         >
@@ -212,7 +270,8 @@ const ChatHistoryPage = () => {
             color: chatHistories.length === 0 ? 'rgba(255, 220, 220, 0.5)' : '#e0245e',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            backdropFilter: 'blur(5px)'
           }}
           title="Clear All"
         >
@@ -225,12 +284,29 @@ const ChatHistoryPage = () => {
         {loading ? (
           <div className="chat-history-loading" style={{ 
             display: 'flex', 
+            flexDirection: 'column',
             justifyContent: 'center', 
             alignItems: 'center',
             height: '200px',
             color: 'rgba(255, 220, 220, 0.8)'
           }}>
-            Loading chat history...
+            <div style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center', 
+              gap: '12px' 
+            }}>
+              <div style={{ transform: 'scale(0.7)' }}>
+                <div className="profile-loader" />
+              </div>
+              <p style={{ 
+                color: 'rgba(255, 220, 220, 0.7)', 
+                margin: '0',
+                fontSize: '13px'
+              }}>
+                Loading chat history...
+              </p>
+            </div>
           </div>
         ) : chatHistories.length === 0 ? (
           <div className="chat-history-empty" style={{ 
@@ -241,16 +317,17 @@ const ChatHistoryPage = () => {
             height: '300px',
             color: 'rgba(255, 220, 220, 0.8)',
             textAlign: 'center',
-            padding: '0 32px'
+            padding: '0 32px',
+            animation: 'fadeInScale 0.2s ease-out 0.1s both'
           }}>
-            <FaComment className="empty-icon" style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }} />
+            <FaComment className="empty-icon" style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5, animation: 'pulse 3s ease-in-out infinite' }} />
             <h4 style={{ margin: '0 0 8px 0', color: '#FFDCDCFF' }}>No Chat History</h4>
             <p style={{ margin: 0, fontSize: '14px' }}>
               Start a conversation to see your chat history here
             </p>
           </div>
         ) : (
-          <div style={{ padding: '8px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {sortedHistories.map((chat) => {
               const isDeleting = deletingIds.has(chat.id);
               const isSwiped = swipedIds.has(chat.id);
@@ -271,10 +348,9 @@ const ChatHistoryPage = () => {
                     }
                   }}
                   style={{
-                    backgroundColor: '#003A7CFF',
+                    backgroundColor: 'rgba(255, 220, 220, 0.08)',
                     borderRadius: '12px',
                     padding: '16px',
-                    marginBottom: '8px',
                     border: '1px solid rgba(255, 220, 220, 0.2)',
                     cursor: 'pointer',
                     opacity: isDeleting ? 0.5 : 1,
@@ -315,9 +391,9 @@ const ChatHistoryPage = () => {
                     </div>
                     <div
                       style={{
-                        width: '2px',
+                        width: '1px',
                         height: '35px',
-                        backgroundColor: 'rgba(255, 220, 220, 0.4)',
+                        backgroundColor: 'rgba(255, 220, 220, 0.3)',
                         margin: '0 8px'
                       }}
                     />
@@ -325,8 +401,8 @@ const ChatHistoryPage = () => {
                       onClick={(e) => handleDelete(chat.id, e)}
                       disabled={isDeleting}
                       style={{
-                        background: 'none',
-                        border: 'none',
+                        background: 'rgba(224, 36, 94, 0.1)',
+                        border: '1px solid rgba(224, 36, 94, 0.3)',
                         color: isDeleting ? 'rgba(224, 36, 94, 0.5)' : '#e0245e',
                         cursor: isDeleting ? 'not-allowed' : 'pointer',
                         padding: '8px',
@@ -334,10 +410,11 @@ const ChatHistoryPage = () => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        borderRadius: '6px',
+                        borderRadius: '8px',
                         transition: 'all 0.2s',
                         minWidth: '32px',
-                        height: '32px'
+                        height: '32px',
+                        backdropFilter: 'blur(5px)'
                       }}
                       title="Delete Chat"
                     >
