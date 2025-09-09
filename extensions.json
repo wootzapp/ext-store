@@ -149,6 +149,7 @@
     {
       "id": "fkagldhhbbaillkjbjilcgflcihbkmoe",
       "name": "Social Shopping Agent",
+      "campaign": "shopping-agent",
       "description": "An extension to assist users to chat and perform tasks using AI.",
       "version": "1.0.1",
       "author": "Wootzapp Team",
