@@ -130,7 +130,7 @@
     {
       "id": "lhgoolpdddhhfahbnofaomjhfhfjfhop",
       "name": "AI Researcher",
-      "campaign": "ai-researcher",
+      "campaign": "ai_researcher",
       "description": "AI-powered web research assistant that provides intelligent summaries, comprehensive research, and fact-checking for any webpage using advanced language models.",
       "version": "1.0.2",
       "author": "Wootzapp Team",
@@ -149,7 +149,7 @@
     {
       "id": "fkagldhhbbaillkjbjilcgflcihbkmoe",
       "name": "Social Shopping Agent",
-      "campaign": "shopping-agent",
+      "campaign": "shopping_agent",
       "description": "An extension to assist users to chat and perform tasks using AI.",
       "version": "1.0.1",
       "author": "Wootzapp Team",
