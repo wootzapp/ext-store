@@ -113,41 +113,49 @@ export class MultiLLMService {
       };
     }
 
-    // Capture screenshot using Wootz API
+    // Capture screenshot - this method will be overridden by background script
     async captureScreenshot() {
       try {
-        console.log('📸 Capturing screenshot using chrome.wootz.captureScreenshot()...');
+        console.log('📸 Capturing screenshot...');
         
-        // // First highlight elements with debug mode
-        // console.log('🔍 Highlighting elements with debug mode...');
-        // await new Promise((resolve) => {
-        //   chrome.wootz.getPageState({
-        //     debugMode: true,
-        //     includeHidden: true
-        //   }, (result) => {
-        //     if (result.success) {
-        //       console.log('✅ Elements highlighted successfully');
-        //     } else {
-        //       console.log('⚠️ Element highlighting failed:', result.error);
-        //     }
-        //     resolve();
-        //   });
-        // });
-        
-        // // Wait a moment for highlighting to complete
-        // await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Capture screenshot using the API: chrome.wootz.captureScreenshot()
-        const screenshotResult = await chrome.wootz.captureScreenshot();
-        
-        if (screenshotResult && screenshotResult.success && screenshotResult.dataUrl) {
-          console.log(`✅ Screenshot captured: ~${Math.round(screenshotResult.dataUrl.length * 0.75 / 1024)}KB`);
-          console.log('🔍 Screenshot dataUrl:', screenshotResult.dataUrl);
-          return screenshotResult.dataUrl;
+        // This method should be overridden by the background script
+        // If not overridden, fallback to direct implementation
+        if (typeof chrome !== 'undefined' && chrome.wootz && chrome.wootz.captureScreenshot) {
+          return new Promise((resolve) => {
+            // Set up a timeout to prevent hanging
+            const timeout = setTimeout(() => {
+              console.log('❌ Screenshot capture timeout');
+              resolve(null);
+            }, 10000); // 10 second timeout
+            
+            // Set up the listener for screenshot completion
+            const handleScreenshotComplete = (result) => {
+              console.log('📸 Screenshot Result:', result);
+              
+              // Clean up
+              clearTimeout(timeout);
+              chrome.wootz.onScreenshotComplete.removeListener(handleScreenshotComplete);
+              
+              if (result && result.success && result.dataUrl) {
+                console.log(`✅ Screenshot captured: ~${Math.round(result.dataUrl.length * 0.75 / 1024)}KB`);
+                resolve(result.dataUrl);
+              } else {
+                console.log('❌ Screenshot capture failed:', result?.error || 'No dataUrl returned');
+                resolve(null);
+              }
+            };
+            
+            // Add the listener
+            chrome.wootz.onScreenshotComplete.addListener(handleScreenshotComplete);
+            
+            // Trigger the screenshot capture
+            chrome.wootz.captureScreenshot();
+          });
         } else {
-          console.log('❌ Screenshot capture failed:', screenshotResult?.error || 'No dataUrl returned');
+          console.log('❌ Screenshot API not available');
           return null;
         }
+        
       } catch (error) {
         console.error('❌ Screenshot capture error:', error);
         return null;

@@ -1655,8 +1655,14 @@ class BackgroundScriptAgent {
     this.taskRouter = null;
     this.currentConfig = null; // Track current config
     
+    // Screenshot handling
+    this.screenshotPromise = null;
+    this.screenshotResolve = null;
+    this.screenshotReject = null;
+    
     this.setupMessageHandlers();
     this.setupConfigWatcher(); // Add config watcher
+    this.setupScreenshotListener(); // Add screenshot listener
     console.log('✅ Universal BackgroundScriptAgent initialized with Wootz API integration');
   }
 
@@ -1670,6 +1676,67 @@ class BackgroundScriptAgent {
         this.reinitializeServices(newConfig);
       }
     });
+  }
+
+  // Setup screenshot listener once
+  setupScreenshotListener() {
+    chrome.wootz.onScreenshotComplete.addListener((result) => {
+      console.log('📸 Screenshot Result:', result);
+      
+      if (this.screenshotResolve) {
+        if (result && result.success && result.dataUrl) {
+          console.log(`✅ Screenshot captured: ~${Math.round(result.dataUrl.length * 0.75 / 1024)}KB`);
+          this.screenshotResolve(result.dataUrl);
+        } else {
+          console.log('❌ Screenshot capture failed:', result?.error || 'No dataUrl returned');
+          this.screenshotResolve(null);
+        }
+        
+        // Reset screenshot handling state
+        this.screenshotPromise = null;
+        this.screenshotResolve = null;
+        this.screenshotReject = null;
+      }
+    });
+  }
+
+  // Capture screenshot using the persistent listener
+  async captureScreenshot() {
+    try {
+      console.log('📸 Capturing screenshot using chrome.wootz.captureScreenshot()...');
+      
+      // If there's already a screenshot in progress, wait for it
+      if (this.screenshotPromise) {
+        console.log('📸 Screenshot already in progress, waiting...');
+        return await this.screenshotPromise;
+      }
+      
+      // Create new promise for this screenshot
+      this.screenshotPromise = new Promise((resolve, reject) => {
+        this.screenshotResolve = resolve;
+        this.screenshotReject = reject;
+        
+        // Set up timeout
+        setTimeout(() => {
+          if (this.screenshotResolve) {
+            console.log('❌ Screenshot capture timeout');
+            this.screenshotResolve(null);
+            this.screenshotPromise = null;
+            this.screenshotResolve = null;
+            this.screenshotReject = null;
+          }
+        }, 10000); // 10 second timeout
+      });
+      
+      // Trigger the screenshot capture
+      chrome.wootz.captureScreenshot();
+      
+      return await this.screenshotPromise;
+      
+    } catch (error) {
+      console.error('❌ Screenshot capture error:', error);
+      return null;
+    }
   }
 
   // Reinitialize services when config changes
@@ -1686,6 +1753,8 @@ class BackgroundScriptAgent {
         
         this.currentConfig = newConfig;
         this.llmService = new MultiLLMService(newConfig);
+        // Pass the background script's screenshot method to the LLM service
+        this.llmService.captureScreenshot = this.captureScreenshot.bind(this);
         this.multiAgentExecutor = new MultiAgentExecutor(this.llmService);
         this.taskRouter = new AITaskRouter(this.llmService);
         
