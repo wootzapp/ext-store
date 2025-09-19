@@ -130,6 +130,18 @@ export const useChat = (chatId = null) => {
           setMessages(uniqueMessages);
           console.log('Loaded current session:', uniqueMessages.length, 'unique messages');
           
+          // Debug: Check for approval/pause messages and their states
+          const approvalMessages = uniqueMessages.filter(msg => msg.type === 'approval' || msg.type === 'pause');
+          if (approvalMessages.length > 0) {
+            console.log('🔍 Found approval/pause messages with states:', approvalMessages.map(msg => ({
+              id: msg.id,
+              type: msg.type,
+              approved: msg.approved,
+              declined: msg.declined,
+              resumed: msg.resumed
+            })));
+          }
+          
           // Update storage with validated messages
           if (uniqueMessages.length !== result.currentSessionMessages.length) {
             console.log('Updated storage with validated messages');
@@ -238,15 +250,18 @@ export const useChat = (chatId = null) => {
 
   // Update message state (for pause/approval messages)
   const updateMessageState = useCallback((messageId, state) => {
+    console.log('🔄 updateMessageState called:', { messageId, state });
     setMessages(prev => {
       const updated = prev.map(msg => {
         if (msg.id === messageId) {
-          return { 
+          const newMsg = { 
             ...msg, 
             ...state,
             // Ensure timestamp is updated for state changes
             lastStateUpdate: Date.now()
           };
+          console.log('📝 Updated message state:', { messageId, oldState: { approved: msg.approved, declined: msg.declined, resumed: msg.resumed }, newState: state });
+          return newMsg;
         }
         return msg;
       });
@@ -254,6 +269,7 @@ export const useChat = (chatId = null) => {
       // Update session storage
       if (typeof chrome !== 'undefined' && chrome.storage) {
         chrome.storage.local.set({ currentSessionMessages: updated }).catch(console.error);
+        console.log('💾 Message state persisted to storage');
       }
       
       return updated;

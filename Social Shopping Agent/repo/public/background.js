@@ -179,7 +179,7 @@ class MultiAgentExecutor {
           break;
         }
 
-        if (initialPlan && this.currentStep === 1) {
+        if (initialPlan && (this.currentStep === 1 || isResume)) {
           // Handle navigation if needed
           if (initialPlan.direct_url && initialPlan.navigation_needed !== false) {
             console.log(`🎯 Not on the correct page, using direct URL: ${initialPlan.direct_url}`);
@@ -208,6 +208,11 @@ class MultiAgentExecutor {
               };
               this.actionQueue = [action];
             }
+          } else if (isResume && initialPlan.batch_actions && initialPlan.batch_actions.length > 0) {
+            // For resumed tasks, use the batch actions from the paused plan
+            console.log(`🔄 Resuming with paused plan batch actions:`, initialPlan.batch_actions);
+            this.actionQueue = this.validateAndPreprocessBatchActions(initialPlan.batch_actions);
+            console.log(`🔄 Action queue set for resume:`, this.actionQueue);
           }
 
           // Set current batch plan
@@ -385,6 +390,17 @@ class MultiAgentExecutor {
               console.log(`⏸️ Task paused: ${plan.pause_reason}`);
               
               // Broadcast pause message
+              console.log('📤 Broadcasting task_paused message:', {
+                type: 'task_paused',
+                message: plan.pause_reason === 'signin' 
+                  ? 'Please sign in to continue with your task. Click Resume when you\'re ready.'
+                  : plan.pause_reason === 'approval'
+                  ? 'Approval Required'
+                  : 'Task execution paused. Click Resume when ready.',
+                pause_reason: plan.pause_reason,
+                pause_description: plan.pause_description || ''
+              });
+              
               connectionManager.broadcast({
                 type: 'task_paused',
                 message: plan.pause_reason === 'signin' 
@@ -2057,8 +2073,14 @@ class BackgroundScriptAgent {
                   try {
                     // Store paused state before clearing
                     const pausedPlan = task.executor.pausedPlan;
-                    const pausedTask = task.executor.pausedTask;
                     const pausedState = task.executor.pausedState;
+                    
+                    console.log('🔄 Resuming with paused plan:', {
+                      hasBatchActions: pausedPlan?.batch_actions?.length > 0,
+                      batchActions: pausedPlan?.batch_actions,
+                      pauseReason: pausedPlan?.pause_reason,
+                      pauseDescription: pausedPlan?.pause_description
+                    });
                     
                     // Clear paused state to prevent re-pausing on same condition
                     task.executor.pausedPlan = null;
@@ -2072,19 +2094,6 @@ class BackgroundScriptAgent {
                     if (pausedState) {
                       task.executor.lastPageState = pausedState;
                     }
-                    
-                    const result = await task.executor.execute(
-                      pausedTask || task.executor.currentUserTask,
-                      this.connectionManager,
-                      pausedPlan,
-                      true // isResume = true
-                    );
-                    
-                    // Handle the result
-                    this.connectionManager.broadcast({
-                      type: 'task_complete',
-                      result: result
-                    });
                     
                     // Clean up
                     this.activeTasks.delete(pausedTaskId);

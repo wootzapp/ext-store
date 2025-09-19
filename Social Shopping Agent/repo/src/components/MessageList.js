@@ -20,13 +20,15 @@ const MessageList = ({ messages, onTemplateClick, onResumeExecution, onApproveTa
   };
 
   const handleApprove = (messageId) => {
-    // Update message state in storage
+    console.log('✅ Approve clicked for message:', messageId);
+    // Update message state in storage immediately
     updateMessageState?.(messageId, { approved: true, declined: false });
     onApproveTask?.();
   };
 
   const handleDecline = (messageId) => {
-    // Update message state in storage
+    console.log('❌ Decline clicked for message:', messageId);
+    // Update message state in storage immediately
     updateMessageState?.(messageId, { approved: false, declined: true });
     onDeclineTask?.();
   };
@@ -863,33 +865,6 @@ const MessageList = ({ messages, onTemplateClick, onResumeExecution, onApproveTa
                       return (
                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                           <button
-                            onClick={() => handleApprove(messageId)}
-                            style={{
-                              backgroundColor: '#4CAF50',
-                              color: 'white',
-                              border: 'none',
-                              padding: '8px 12px',
-                              borderRadius: '6px',
-                              fontSize: '12px',
-                              fontWeight: '600',
-                              cursor: 'pointer',
-                              transition: 'all 0.3s ease',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.target.style.backgroundColor = '#45a049';
-                              e.target.style.transform = 'scale(1.05)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.target.style.backgroundColor = '#4CAF50';
-                              e.target.style.transform = 'scale(1)';
-                            }}
-                          >
-                            ✓ Approve
-                          </button>
-                          <button
                             onClick={() => handleDecline(messageId)}
                             style={{
                               backgroundColor: '#f44336',
@@ -915,6 +890,33 @@ const MessageList = ({ messages, onTemplateClick, onResumeExecution, onApproveTa
                             }}
                           >
                             ✗ Decline
+                          </button>
+                          <button
+                            onClick={() => handleApprove(messageId)}
+                            style={{
+                              backgroundColor: '#4CAF50',
+                              color: 'white',
+                              border: 'none',
+                              padding: '8px 12px',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              transition: 'all 0.3s ease',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.backgroundColor = '#45a049';
+                              e.target.style.transform = 'scale(1.05)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.backgroundColor = '#4CAF50';
+                              e.target.style.transform = 'scale(1)';
+                            }}
+                          >
+                            ✓ Approve
                           </button>
                         </div>
                       );
