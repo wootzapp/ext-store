@@ -51,6 +51,8 @@ Classify user requests as either CHAT (general conversation) or WEB_AUTOMATION (
 - Current page state and any visible content
 - Element boundaries and clickable areas
 
+**IMPORTANT: IGNORE ANY "AI Agent in Action" POPUP WITH "Please do not click or scroll" TEXT** - This is a system notification and should be completely ignored. Do not mention it, interact with it, or wait for it to disappear. Focus only on the actual page content and interactive elements.
+
 Use this visual context along with the element data to make accurate decisions about navigation and automation.
 
 # **SMART NAVIGATION LOGIC**
@@ -247,11 +249,11 @@ Always provide complete, well-formatted responses!
  
       // Limit selector length
       const selector = (el.selector || 'none').trim();
-      const limitedSelector = selector.length > 100 ? selector.substring(0, 100) + '...' : selector;
+      const limitedSelector = selector.length > 50 ? selector.substring(0, 50) + '...' : selector;
 
       // Limit XPath length
       const xpath = (el.xpath || 'none').trim();
-      const limitedXPath = xpath.length > 100 ? xpath.substring(0, 100) + '...' : xpath;
+      const limitedXPath = xpath.length > 70 ? xpath.substring(0, 70) + '...' : xpath;
 
       // Process bounds to ensure they're concise
       const bounds = el.bounds || {};

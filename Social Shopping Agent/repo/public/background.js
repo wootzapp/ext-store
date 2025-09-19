@@ -1,6 +1,5 @@
 /* global chrome */
 import { PlannerAgent } from './agents/PlannerAgent.js';
-import { NavigatorAgent } from './agents/NavigatorAgent.js';
 import { ValidatorAgent } from './agents/ValidatorAgent.js';
 import { AITaskRouter } from './agents/AITaskRouter.js';
 import { ActionRegistry } from './actions/ActionRegistry.js';
@@ -92,7 +91,6 @@ class MultiAgentExecutor {
     this.actionRegistry = new ActionRegistry(this.browserContext);
     
     this.planner = new PlannerAgent(this.llmService, this.memoryManager);
-    this.navigator = new NavigatorAgent(this.llmService, this.memoryManager, this.actionRegistry);
     this.validator = new ValidatorAgent(this.llmService, this.memoryManager);
     
     // Fixed helper methods
@@ -114,18 +112,23 @@ class MultiAgentExecutor {
     this.recentActionKeysMax = 120;
   }
 
-  async execute(userTask, connectionManager, initialPlan = null) {
-    this.currentStep = 0;
-    this.cancelled = false;
-    this.executionHistory = [];
-    this.actionQueue = [];
-    this.currentBatchPlan = null;
-    // this.failedElements = new Set();
-    this.lastPageState = null;
-    this.lastValidationResult = null; 
+  async execute(userTask, connectionManager, initialPlan = null, isResume = false) {
+    if (!isResume) {
+      this.currentStep = 0;
+      this.cancelled = false;
+      this.executionHistory = [];
+      this.actionQueue = [];
+      this.currentBatchPlan = null;
+      // this.failedElements = new Set();
+      this.lastPageState = null;
+      this.lastValidationResult = null; 
 
-    console.log(`🚀 Universal Multi-agent execution: ${userTask}`);
-    console.log(`🧹 State cleaned - Starting fresh`);
+      console.log(`🚀 Universal Multi-agent execution: ${userTask}`);
+      console.log(`🧹 State cleaned - Starting fresh`);
+    } else {
+      console.log(`▶️ Resuming Multi-agent execution: ${userTask}`);
+      console.log(`🔄 Resuming from paused state`);
+    }
     
     // Store current task for completion detection
     this.currentUserTask = userTask;
@@ -144,10 +147,17 @@ class MultiAgentExecutor {
     let finalResult = null;
 
     try {
-      connectionManager.broadcast({
-        type: 'execution_start',
-        message: `🚀 Starting task: ${userTask}`
-      });
+      if (!isResume) {
+        connectionManager.broadcast({
+          type: 'execution_start',
+          message: `🚀 Starting task: ${userTask}`
+        });
+      } else {
+        connectionManager.broadcast({
+          type: 'execution_start',
+          message: `▶️ Resuming task: ${userTask}`
+        });
+      }
 
       while (!taskCompleted && this.currentStep < this.maxSteps && !this.cancelled) {
         this.currentStep++;
@@ -370,6 +380,55 @@ class MultiAgentExecutor {
             const plan = await this.planner.plan(userTask, currentState, this.executionHistory, 
               enhancedContext);
             
+            // Check if execution should be paused
+            if (plan && plan.pause === true) {
+              console.log(`⏸️ Task paused: ${plan.pause_reason}`);
+              
+              // Broadcast pause message
+              connectionManager.broadcast({
+                type: 'task_paused',
+                message: plan.pause_reason === 'signin' 
+                  ? 'Please sign in to continue with your task. Click Resume when you\'re ready.'
+                  : plan.pause_reason === 'approval'
+                  ? 'Approval Required'
+                  : 'Task execution paused. Click Resume when ready.',
+                pause_reason: plan.pause_reason,
+                pause_description: plan.pause_description || ''
+              });
+              
+              // Update execution state to paused
+              await chrome.storage.local.set({
+                isExecuting: false,
+                isTyping: false,
+                taskStatus: { status: 'paused', message: 'Task paused - waiting for user action' }
+              });
+              
+              // Notify content scripts to hide main popup and show appropriate pause popup
+              await this.notifyContentScripts('__agent_hide_popup');
+              
+              // Show appropriate popup based on pause reason
+              if (plan.pause_reason === 'signin') {
+                await this.showSigninPopup();
+              } else if (plan.pause_reason === 'approval') {
+                await this.showApprovalPopup();
+              }
+              
+              // Store the current plan for resumption
+              this.pausedPlan = plan;
+              this.pausedTask = userTask;
+              this.pausedState = currentState;
+              
+              // Return early - execution will resume when user clicks continue
+              return {
+                success: false,
+                response: 'Task paused for user action',
+                reason: 'paused',
+                pause_reason: plan.pause_reason,
+                steps: this.currentStep,
+                confidence: 0.8
+              };
+            }
+            
             // Broadcast planner's observation and strategy
             if (plan && plan.observation) {
               // Show observation and strategy to user
@@ -409,22 +468,76 @@ class MultiAgentExecutor {
           if (batchResults.criticalFailure) {
             connectionManager.broadcast({
               type: 'status_update',
-              message: '⚠️ Multiple action failures detected. Attempting navigator recovery...',
+              message: '⚠️ Multiple action failures detected.',
               details: 'Trying alternative approach'
             });
             
             const currentState = await this.getCurrentState();
-            const recoveryAction = await this.navigator.navigate(this.currentBatchPlan, currentState);
+            const plan = await this.planner.plan(userTask, currentState, this.executionHistory, 
+            this.buildEnhancedContextWithHistory());
             
-            if (recoveryAction && recoveryAction.action) {
-              this.actionQueue = [recoveryAction.action];
-            } else {
-              // If navigator can't recover, replan
-              const plan = await this.planner.plan(userTask, currentState, this.executionHistory, 
-              this.buildEnhancedContextWithHistory());
-              this.actionQueue = this.validateAndPreprocessBatchActions(plan.batch_actions || []);
-              this.currentBatchPlan = plan;
+            // Check if execution should be paused
+            if (plan && plan.pause === true) {
+              console.log(`⏸️ Task paused during recovery: ${plan.pause_reason}`);
+              
+              // Broadcast pause message
+              connectionManager.broadcast({
+                type: 'task_paused',
+                message: plan.pause_reason === 'signin' 
+                  ? 'Please sign in to continue with your task. Click Resume when you\'re ready.'
+                  : plan.pause_reason === 'approval'
+                  ? 'Approval Required'
+                  : 'Task execution paused. Click Resume when ready.',
+                pause_reason: plan.pause_reason,
+                pause_description: plan.pause_description || ''
+              });
+              
+              // Update execution state to paused
+              await chrome.storage.local.set({
+                isExecuting: false,
+                isTyping: false,
+                taskStatus: { status: 'paused', message: 'Task paused - waiting for user action' }
+              });
+              
+              // Notify content scripts to hide main popup and show appropriate pause popup
+              await this.notifyContentScripts('__agent_hide_popup');
+              
+              // Show appropriate popup based on pause reason
+              if (plan.pause_reason === 'signin') {
+                await this.showSigninPopup();
+              } else if (plan.pause_reason === 'approval') {
+                await this.showApprovalPopup();
+              }
+              
+              // Store the current plan for resumption
+              this.pausedPlan = plan;
+              this.pausedTask = userTask;
+              this.pausedState = currentState;
+              
+              // Return early - execution will resume when user clicks continue
+              return {
+                success: false,
+                response: 'Task paused for user action',
+                reason: 'paused',
+                pause_reason: plan.pause_reason,
+                steps: this.currentStep,
+                confidence: 0.8
+              };
             }
+
+            if(plan && plan.done && (!plan.batch_actions || plan.batch_actions.length === 0)) {
+              console.log('🎯 Task marked as complete by planner (no batch actions)');
+              taskCompleted = true;
+              finalResult = {
+                success: true,
+                response: `✅ ${plan.completion_criteria || plan.reasoning || 'Task completed successfully'}`,
+                steps: this.currentStep,
+                isMarkdown: true
+              };
+            }
+            
+            this.actionQueue = this.validateAndPreprocessBatchActions(plan.batch_actions || []);
+            this.currentBatchPlan = plan;
           }
 
           continue;
@@ -453,6 +566,55 @@ class MultiAgentExecutor {
           }
           
           plan = await this.planner.plan(userTask, currentState, this.executionHistory, enhancedContext);
+          
+          // Check if execution should be paused
+          if (plan && plan.pause === true) {
+            console.log(`⏸️ Task paused during replanning: ${plan.pause_reason}`);
+            
+            // Broadcast pause message
+            connectionManager.broadcast({
+              type: 'task_paused',
+              message: plan.pause_reason === 'signin' 
+                ? 'Please sign in to continue with your task. Click Resume when you\'re ready.'
+                : plan.pause_reason === 'approval'
+                ? 'Approval Required'
+                : 'Task execution paused. Click Resume when ready.',
+              pause_reason: plan.pause_reason,
+              pause_description: plan.pause_description || ''
+            });
+            
+            // Update execution state to paused
+            await chrome.storage.local.set({
+              isExecuting: false,
+              isTyping: false,
+              taskStatus: { status: 'paused', message: 'Task paused - waiting for user action' }
+            });
+            
+            // Notify content scripts to hide main popup and show appropriate pause popup
+            await this.notifyContentScripts('__agent_hide_popup');
+            
+            // Show appropriate popup based on pause reason
+            if (plan.pause_reason === 'signin') {
+              await this.showSigninPopup();
+            } else if (plan.pause_reason === 'approval') {
+              await this.showApprovalPopup();
+            }
+            
+            // Store the current plan for resumption
+            this.pausedPlan = plan;
+            this.pausedTask = userTask;
+            this.pausedState = currentState;
+            
+            // Return early - execution will resume when user clicks continue
+            return {
+              success: false,
+              response: 'Task paused for user action',
+              reason: 'paused',
+              pause_reason: plan.pause_reason,
+              steps: this.currentStep,
+              confidence: 0.8
+            };
+          }
         }
 
         if (plan && plan.observation) {
@@ -646,34 +808,6 @@ class MultiAgentExecutor {
         const targetKey = action.parameters?.selector ?? (Number.isFinite(action.parameters?.index) ? `idx:${action.parameters.index}` : 'none');
         const actKey = `${urlBefore}::${action.name}::${targetKey}`;
         
-        // Improved loop prevention: only skip if the same action failed multiple times recently
-        // const recentFailures = this.executionHistory
-        //   .slice(-5)
-        //   .filter(h => !h.success && h.action === action.name && h.navigation === action.parameters?.intent);
-        
-        // if (recentFailures.length >= 3) {
-        //   console.log('🔄 Skipping action due to multiple recent failures:', actKey);
-        //   results.executedActions.push({ 
-        //     action: action.name, 
-        //     success: false, 
-        //     intent: action.parameters?.intent || action.name, 
-        //     error: 'multiple-failures-prevented' 
-        //   });
-        //   continue;
-        // }
-        
-        // // Only skip exact duplicate actions on same URL (less aggressive)
-        // if (this.recentActionKeys.has(actKey) && action.name !== 'wait' && action.name !== 'scroll') {
-        //   console.log('🔄 Skipping exact duplicate action:', actKey);
-        //   results.executedActions.push({ 
-        //     action: action.name, 
-        //     success: false, 
-        //     intent: action.parameters?.intent || action.name, 
-        //     error: 'duplicate-action-prevented' 
-        //   });
-        //   continue;
-        // }
-        
         const actionResult = await this.executeAction(action, connectionManager);
         
         if (!actionResult) {
@@ -717,16 +851,6 @@ class MultiAgentExecutor {
           parameters: action.parameters
         });
         
-        // if (action.name === 'click' && action.parameters?.index !== undefined) {
-        //   const elementIndex = action.parameters.index;
-          
-        //   // Mark element as failed if action failed
-        //   if (!actionResult.success) {
-        //     this.failedElements.add(elementIndex);
-        //     console.log(`🚫 Marking element ${elementIndex} as failed due to click failure`);
-        //   }
-        // }
-        
         // Check for page state change after each action
         let currentState = await this.getCurrentState();
         
@@ -738,12 +862,17 @@ class MultiAgentExecutor {
           currentState = await this.getCurrentState();
           console.log(`📊 After wait - Found ${currentState.interactiveElements?.length || 0} elements`);
           
-          // If still 0 elements after wait, try one more time with longer delay
-          if ((currentState.interactiveElements?.length || 0) === 0) {
-            console.log(`🔄 Still loading - waiting additional 2 seconds...`);
+          // Try up to 5 more attempts if no elements found
+          let attempts = 0;
+          while ((currentState.interactiveElements?.length || 0) === 0 && attempts < 5) {
+            attempts++;
+            console.log(`🔄 Still loading (attempt ${attempts}/5) - waiting additional 2 seconds...`);
             await this.delay(2000);
             currentState = await this.getCurrentState();
-            console.log(`📊 Final attempt - Found ${currentState.interactiveElements?.length || 0} elements`);
+            console.log(`📊 Attempt ${attempts} - Found ${currentState.interactiveElements?.length || 0} elements`);
+            if ((currentState.interactiveElements?.length || 0) > 0) {
+              break;
+            }
           }
         }
         
@@ -773,13 +902,6 @@ class MultiAgentExecutor {
 
         const pageChanged = urlChanged || elementCountChanged || titleChanged || modalStateChanged;
         
-        // if (action.name === 'click' && action.parameters?.index !== undefined && 
-        //     actionResult.success && !pageChanged) {
-        //   const elementIndex = action.parameters.index;
-        //   this.failedElements.add(elementIndex);
-        //   console.log(`⚠️ Element ${elementIndex} clicked successfully but no significant page change - marking as potentially ineffective`);
-        // }
-        
         if (pageChanged) {
           console.log('🔄 Page state changed - triggering replanning');
           // Don't break immediately for go_back actions to allow remaining actions to complete
@@ -790,27 +912,6 @@ class MultiAgentExecutor {
             break;
           }
         }
-        
-        // semantic effectiveness check
-        // const effective = this.verifyAfterAction(action, beforeState, currentState, actionResult);
-        // if (!effective) {
-        //   ineffectiveCount += 1;
-        //   console.log(`⚠️ Action deemed ineffective (count=${ineffectiveCount})`);
-        //   if (ineffectiveCount >= 3) {
-        //     console.log('🔄 Three ineffective actions - triggering replanning');
-        //     this.actionQueue = [];
-        //     break;
-        //   }
-        // } else {
-        //   ineffectiveCount = 0;
-        // }
-
-        // if (ineffectiveCount >= 2) {
-        //   console.log('🔄 Multiple ineffective actions - triggering replanning');
-        //   this.actionQueue = [];
-        //   ineffectiveCount = 0;
-        //   break;
-        // }
         
         // If batch only contains navigation/wait, force replan after execution
         if (this.actionQueue.every(a => ['navigate', 'wait'].includes(a.name))) {
@@ -831,11 +932,6 @@ class MultiAgentExecutor {
       } catch (error) {
         console.error(`❌ Action execution error:`, error);
         
-        // if (action.name === 'click' && action.parameters?.index !== undefined) {
-        //   this.failedElements.add(action.parameters.index);
-        //   console.log(`🚫 Marking element ${action.parameters.index} as failed due to execution error`);
-        // }
-        
         results.executedActions.push({
           action: action.name,
           success: false,
@@ -845,7 +941,7 @@ class MultiAgentExecutor {
         
         // If multiple actions fail, mark as critical failure
         const failedActions = results.executedActions.filter(a => !a.success).length;
-        if (failedActions >= 2) {
+        if (failedActions >= 3) {
           results.criticalFailure = true;
           console.log(`🚨 Critical failure detected: ${failedActions} actions failed in batch`);
           break;
@@ -854,84 +950,6 @@ class MultiAgentExecutor {
     }
     
     return results;
-  }
-
-  // Semantic post-action verification: treat an action as ineffective if neither URL, title,
-  // nor meaningful element count/text presence changed. Used implicitly within batch loop above.
-  verifyAfterAction(action, beforeState, afterState, actionResult) {
-    try {
-      if (!actionResult?.success) return false;
-      if (!beforeState || !afterState) return true;
-      
-      const urlChanged = (beforeState.pageInfo?.url || '') !== (afterState.pageInfo?.url || '');
-      const titleChanged = (beforeState.pageInfo?.title || '') !== (afterState.pageInfo?.title || '');
-      const countBefore = (beforeState.interactiveElements || []).length;
-      const countAfter = (afterState.interactiveElements || []).length;
-      const elementCountChanged = Math.abs(countAfter - countBefore) > 5;
-      
-      // Strong indicators of effectiveness
-      if (urlChanged || titleChanged || elementCountChanged) return true;
-      
-      // E-commerce specific effectiveness checks
-      if (action.name === 'click') {
-        const purpose = action.parameters?.purpose;
-        const beforeCartCount = this.extractCartCount(beforeState);
-        const afterCartCount = this.extractCartCount(afterState);
-        
-        // Check if cart count increased for add-to-cart actions
-        if (purpose === 'add-to-cart' && afterCartCount > beforeCartCount) {
-          console.log(`✅ Cart count increased: ${beforeCartCount} → ${afterCartCount}`);
-          return true;
-        }
-      }
-      
-      // For type actions, verify input contains the typed text
-      if (action.name === 'type') {
-        const sel = action.parameters?.selector;
-        const idx = action.parameters?.index;
-        const target = (afterState.interactiveElements || []).find(e => 
-          (sel && e.selector === sel) || (Number.isFinite(idx) && e.index === idx)
-        );
-        const typed = String(action.parameters?.text ?? '');
-        if (target && (target.text || target.textContent || '').includes(typed.slice(0, 10))) {
-          return true;
-        }
-      }
-      
-      // For scroll actions, check if new elements appeared or viewport changed
-      if (action.name === 'scroll') {
-        const viewportBefore = beforeState.viewportInfo?.scrollTop || 0;
-        const viewportAfter = afterState.viewportInfo?.scrollTop || 0;
-        if (Math.abs(viewportAfter - viewportBefore) > 100) return true;
-      }
-      
-      return false;
-    } catch {
-      return true; // Default to effective on error
-    }
-  }
-  
-  // Helper to extract cart count from page state
-  extractCartCount(state) {
-    try {
-      // Look for cart count in common locations
-      const cartElements = (state.interactiveElements || []).filter(el => 
-        el.selector?.includes('cart') || 
-        el.xpath?.includes('cart') ||
-        el.textContent?.match(/^\d+$/) // Numbers only
-      );
-      
-      for (const el of cartElements) {
-        const text = el.textContent || el.text || '';
-        const num = parseInt(text.trim());
-        if (!isNaN(num) && num >= 0 && num < 100) { // Reasonable cart count
-          return num;
-        }
-      }
-      return 0;
-    } catch {
-      return 0;
-    }
   }
 
   // Clear element highlighting by calling getPageState with debugMode: false
@@ -1211,66 +1229,6 @@ class MultiAgentExecutor {
       return 'unknown';
     }
   }
-
-  detectPlatform(url) {
-    if (!url || typeof url !== 'string') return 'unknown';
-    const lowerUrl = url.toLowerCase();
-    
-    // E-commerce platforms
-    if (lowerUrl.includes('amazon.')) return 'amazon';
-    if (lowerUrl.includes('ebay.')) return 'ebay';
-    if (lowerUrl.includes('walmart.')) return 'walmart';
-    if (lowerUrl.includes('target.')) return 'target';
-    if (lowerUrl.includes('bestbuy.')) return 'bestbuy';
-    if (lowerUrl.includes('flipkart.')) return 'flipkart';
-    if (lowerUrl.includes('snapdeal.')) return 'snapdeal';
-    if (lowerUrl.includes('shopclues.')) return 'shopclues';
-    if (lowerUrl.includes('shopify.')) return 'shopify';
-    if (lowerUrl.includes('bigbasket.')) return 'bigbasket';
-    if (lowerUrl.includes('ajio.')) return 'ajio';
-    if (lowerUrl.includes('myntra.')) return 'myntra';
-    
-    // Social media platforms
-    if (lowerUrl.includes('x.com') || lowerUrl.includes('twitter.com')) return 'twitter';
-    if (lowerUrl.includes('linkedin.com')) return 'linkedin';
-    if (lowerUrl.includes('facebook.com')) return 'facebook';
-    if (lowerUrl.includes('instagram.com')) return 'instagram';
-    if (lowerUrl.includes('youtube.com')) return 'youtube';
-    if (lowerUrl.includes('tiktok.com')) return 'tiktok';
-    if (lowerUrl.includes('reddit.com')) return 'reddit';
-    if (lowerUrl.includes('pinterest.com')) return 'pinterest';
-    if (lowerUrl.includes('quora.com')) return 'quora';
-    if (lowerUrl.includes('medium.com')) return 'medium';
-    if (lowerUrl.includes('dev.to')) return 'devto';
-    if (lowerUrl.includes('hashnode.com')) return 'hashnode';
-    
-    // Chrome-native pages
-    if (lowerUrl.startsWith('chrome-native://') || lowerUrl.startsWith('chrome://')) return 'chrome-native';
-    if (lowerUrl.startsWith('chrome-extension://')) return 'chrome-extension';
-    
-    return 'unknown';
-  }
-  
-  determinePageType(url) {
-    if (!url || typeof url !== 'string') return 'general';
-    
-    // Chrome-native pages
-    if (url.startsWith('chrome-native://') || url.startsWith('chrome://')) return 'chrome-native';
-    
-    // Social media page types
-    if (url.includes('/compose') || url.includes('/intent/tweet')) return 'compose';
-    if (url.includes('/home') || url.includes('/timeline')) return 'home';
-    if (url.includes('/login') || url.includes('/signin')) return 'login';
-    if (url.includes('/profile') || url.includes('/user/')) return 'profile';
-    
-    // E-commerce page types
-    if (url.includes('/search') || url.includes('/s?')) return 'search';
-    if (url.includes('/cart') || url.includes('/basket')) return 'cart';
-    if (url.includes('/product/') || url.includes('/dp/')) return 'product';
-    if (url.includes('/checkout')) return 'checkout';
-    
-    return 'general';
-  }
   
   // Check if page is chrome-native and needs navigation
   isChromeNativePage(url) {
@@ -1365,6 +1323,66 @@ class MultiAgentExecutor {
     this.clearElementHighlighting().catch(err => 
       console.warn('Failed to clear highlighting on cancel:', err)
     );
+  }
+
+  // Helper function to notify content scripts about agent status
+  async notifyContentScripts(messageType) {
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs.length > 0) {
+        await chrome.tabs.sendMessage(tabs[0].id, { type: messageType });
+      }
+    } catch (error) {
+      console.log('Could not notify content script:', error.message);
+    }
+  }
+
+  // Helper function to show signin popup
+  async showSigninPopup() {
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs.length > 0) {
+        await chrome.tabs.sendMessage(tabs[0].id, { type: '__agent_show_signin_popup' });
+      }
+    } catch (error) {
+      console.log('Could not show signin popup:', error.message);
+    }
+  }
+
+  // Helper function to hide signin popup
+  async hideSigninPopup() {
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs.length > 0) {
+        await chrome.tabs.sendMessage(tabs[0].id, { type: '__agent_hide_signin_popup' });
+      }
+    } catch (error) {
+      console.log('Could not hide signin popup:', error.message);
+    }
+  }
+
+  // Helper function to show approval popup
+  async showApprovalPopup() {
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs.length > 0) {
+        await chrome.tabs.sendMessage(tabs[0].id, { type: '__agent_show_approval_popup' });
+      }
+    } catch (error) {
+      console.log('Could not show approval popup:', error.message);
+    }
+  }
+
+  // Helper function to hide approval popup
+  async hideApprovalPopup() {
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs.length > 0) {
+        await chrome.tabs.sendMessage(tabs[0].id, { type: '__agent_hide_approval_popup' });
+      }
+    } catch (error) {
+      console.log('Could not hide approval popup:', error.message);
+    }
   }
 
   formatRecentActions(recentMessages = []) {
@@ -1725,7 +1743,7 @@ class BackgroundScriptAgent {
             this.screenshotResolve = null;
             this.screenshotReject = null;
           }
-        }, 10000); // 10 second timeout
+        }, 15000); // 10 second timeout
       });
       
       // Trigger the screenshot capture
@@ -1846,6 +1864,66 @@ class BackgroundScriptAgent {
     });
   }
 
+  // Helper function to notify content scripts about agent status
+  async notifyContentScripts(messageType) {
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs.length > 0) {
+        await chrome.tabs.sendMessage(tabs[0].id, { type: messageType });
+      }
+    } catch (error) {
+      console.log('Could not notify content script:', error.message);
+    }
+  }
+
+  // Helper function to show signin popup
+  async showSigninPopup() {
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs.length > 0) {
+        await chrome.tabs.sendMessage(tabs[0].id, { type: '__agent_show_signin_popup' });
+      }
+    } catch (error) {
+      console.log('Could not show signin popup:', error.message);
+    }
+  }
+
+  // Helper function to hide signin popup
+  async hideSigninPopup() {
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs.length > 0) {
+        await chrome.tabs.sendMessage(tabs[0].id, { type: '__agent_hide_signin_popup' });
+      }
+    } catch (error) {
+      console.log('Could not hide signin popup:', error.message);
+    }
+  }
+
+  // Helper function to show approval popup
+  async showApprovalPopup() {
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs.length > 0) {
+        await chrome.tabs.sendMessage(tabs[0].id, { type: '__agent_show_approval_popup' });
+      }
+    } catch (error) {
+      console.log('Could not show approval popup:', error.message);
+    }
+  }
+
+  // Helper function to hide approval popup
+  async hideApprovalPopup() {
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs.length > 0) {
+        await chrome.tabs.sendMessage(tabs[0].id, { type: '__agent_hide_approval_popup' });
+      }
+    } catch (error) {
+      console.log('Could not hide approval popup:', error.message);
+    }
+  }  
+
   async handlePortMessage(message, port, connectionId) {
     const { type } = message;
     console.log('Handling:', type, 'from:', connectionId);
@@ -1871,6 +1949,9 @@ class BackgroundScriptAgent {
           sessionId: this.connectionManager.getCurrentSession()
         });
         
+        // Notify content scripts to show popup
+        await this.notifyContentScripts('__agent_show_popup');
+        
         await this.executeTaskWithBackgroundManager(message.task, taskId);
         break;
 
@@ -1892,13 +1973,37 @@ class BackgroundScriptAgent {
             taskStatus: null
           });
           
+          // Notify content scripts to hide popup
+          await this.notifyContentScripts('__agent_hide_popup');
+          await this.hideSigninPopup();
+          await this.hideApprovalPopup();
+          
           // Get progress information for cancellation message
           let progressInfo = '';
-          if (this.currentStep > 0) {
-            progressInfo = `Completed ${this.currentStep} steps`;
-            if (this.executionHistory && this.executionHistory.length > 0) {
-              const successfulSteps = this.executionHistory.filter(h => h.success).length;
-              progressInfo += ` (${successfulSteps} successful)`;
+          if (this.multiAgentExecutor) {
+            const currentStep = this.multiAgentExecutor.currentStep || 0;
+            const executionHistory = this.multiAgentExecutor.executionHistory || [];
+            
+            if (currentStep > 0) {
+              const successfulSteps = executionHistory.filter(h => h.success).length;
+              const failedSteps = executionHistory.filter(h => !h.success).length;
+              
+              progressInfo = `Completed ${currentStep} steps`;
+              if (successfulSteps > 0) {
+                progressInfo += ` (${successfulSteps} successful`;
+                if (failedSteps > 0) {
+                  progressInfo += `, ${failedSteps} failed`;
+                }
+                progressInfo += ')';
+              }
+              
+              // Add more context about what was accomplished
+              if (successfulSteps > 0) {
+                const lastSuccessfulAction = executionHistory.findLast(h => h.success);
+                if (lastSuccessfulAction) {
+                  progressInfo += ` - Last successful action: ${lastSuccessfulAction.action || 'unknown'}`;
+                }
+              }
             }
           }
           
@@ -1912,6 +2017,105 @@ class BackgroundScriptAgent {
           console.log(`✅ Task ${activeTaskId} cancelled: ${cancelled}`);
         } else {
           console.log('⚠️ No active task to cancel');
+        }
+        break;
+
+      case 'resume_task':
+        console.log('▶️ Received resume_task request');
+        const pausedTaskId = this.connectionManager.getActiveTask();
+        if (pausedTaskId) {
+          // Resume execution by continuing with the current state
+          this.connectionManager.broadcast({
+            type: 'task_resumed',
+            message: 'Task execution resumed'
+          });
+          
+          // Update execution state
+          await chrome.storage.local.set({
+            isExecuting: true,
+            isTyping: true
+          });
+          
+          // Hide any pause popups and show main popup again
+          await this.hideSigninPopup();
+          await this.hideApprovalPopup();
+          await this.notifyContentScripts('__agent_show_popup');
+          
+          // Resume the task by calling the executor's resume method
+          if (this.backgroundTaskManager && this.backgroundTaskManager.resumeTask) {
+            const resumed = this.backgroundTaskManager.resumeTask(pausedTaskId);
+            if (resumed) {
+              console.log(`✅ Task ${pausedTaskId} resumed successfully`);
+              
+              // Get the task and restart execution with the paused state
+              const task = this.backgroundTaskManager.runningTasks.get(pausedTaskId);
+              if (task && task.executor && task.executor.pausedPlan && task.executor.pausedTask && task.executor.pausedState) {
+                console.log('🔄 Restarting execution with paused state...');
+                
+                // Restart the execution loop with the paused plan and state
+                setTimeout(async () => {
+                  try {
+                    // Store paused state before clearing
+                    const pausedPlan = task.executor.pausedPlan;
+                    const pausedTask = task.executor.pausedTask;
+                    const pausedState = task.executor.pausedState;
+                    
+                    // Clear paused state to prevent re-pausing on same condition
+                    task.executor.pausedPlan = null;
+                    task.executor.pausedTask = null;
+                    task.executor.pausedState = null;
+                    
+                    // Restore the execution state for resumption
+                    if (pausedPlan) {
+                      task.executor.currentBatchPlan = pausedPlan;
+                    }
+                    if (pausedState) {
+                      task.executor.lastPageState = pausedState;
+                    }
+                    
+                    const result = await task.executor.execute(
+                      pausedTask || task.executor.currentUserTask,
+                      this.connectionManager,
+                      pausedPlan,
+                      true // isResume = true
+                    );
+                    
+                    // Handle the result
+                    this.connectionManager.broadcast({
+                      type: 'task_complete',
+                      result: result
+                    });
+                    
+                    // Clean up
+                    this.activeTasks.delete(pausedTaskId);
+                    this.connectionManager.setActiveTask(null);
+                    
+                    // Clear execution state from storage
+                    await chrome.storage.local.set({
+                      isExecuting: false,
+                      activeTaskId: null,
+                      taskStartTime: null
+                    });
+                    
+                    // Notify content scripts to hide popup
+                    await this.notifyContentScripts('__agent_hide_popup');
+                    
+                  } catch (error) {
+                    console.error('❌ Error during resumed execution:', error);
+                    this.connectionManager.broadcast({
+                      type: 'task_error',
+                      error: error.message,
+                      taskId: pausedTaskId
+                    });
+                  }
+                }, 100); // Small delay to ensure UI updates
+              }
+            } else {
+              console.log('⚠️ Failed to resume task');
+            }
+          }
+        } else {
+          console.log('⚠️ No paused task to resume');
         }
         break;
 
@@ -1935,6 +2139,11 @@ class BackgroundScriptAgent {
           isTyping: false,
           chatHistory: [] // Only clear current chat
         });
+        
+        // Notify content scripts to hide popup
+        await this.notifyContentScripts('__agent_hide_popup');
+        await this.hideSigninPopup();
+        await this.hideApprovalPopup();
         
         // Clear messages and start new session
         this.connectionManager.clearMessages();
@@ -2101,6 +2310,9 @@ class BackgroundScriptAgent {
             taskStartTime: null
           });
           
+          // Notify content scripts to hide popup
+          await this.notifyContentScripts('__agent_hide_popup');
+          
           return;
         }
 
@@ -2132,6 +2344,9 @@ class BackgroundScriptAgent {
         taskStartTime: null,
         sessionId: null
       });
+      
+      // Notify content scripts to hide popup on error
+      await this.notifyContentScripts('__agent_hide_popup');
       
       // Show the ACTUAL error to the user, not a generic message
       let userFriendlyError = this.formatErrorForUser(error);

@@ -256,7 +256,7 @@ const ChatHistoryPage = () => {
           </p>
         </div>
         
-        <button 
+        {/* <button 
           onClick={handleClearAll}
           disabled={chatHistories.length === 0}
           className="chat-header-button"
@@ -276,7 +276,7 @@ const ChatHistoryPage = () => {
           title="Clear All"
         >
           <FaTrashAlt />
-        </button>
+        </button> */}
       </div>
 
       {/* Content */}

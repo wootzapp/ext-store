@@ -54,6 +54,15 @@ export class TaskManager {
                 sessionId: null
               });
               
+              // Notify content scripts to hide popup
+              chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                if (tabs.length > 0) {
+                  chrome.tabs.sendMessage(tabs[0].id, { type: '__agent_hide_popup' }).catch(err => {
+                    console.log('Could not notify content script of task completion:', err.message);
+                  });
+                }
+              });
+              
               console.log(`✅ TaskManager completed: ${taskId}`);
             }
             
@@ -83,6 +92,15 @@ export class TaskManager {
         activeTaskId: null,
         taskStartTime: null,
         sessionId: null
+      });
+      
+      // Notify content scripts to hide popup on error
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs.length > 0) {
+          chrome.tabs.sendMessage(tabs[0].id, { type: '__agent_hide_popup' }).catch(err => {
+            console.log('Could not notify content script of task error:', err.message);
+          });
+        }
       });
       
       const task = this.runningTasks.get(taskId);
@@ -132,7 +150,34 @@ export class TaskManager {
       
       this.taskResults.set(taskId, task);
       this.runningTasks.delete(taskId);
+      
+      // Notify content scripts to hide popup when cancelling
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs.length > 0) {
+          chrome.tabs.sendMessage(tabs[0].id, { type: '__agent_hide_popup' }).catch(err => {
+            console.log('Could not notify content script of task cancellation:', err.message);
+          });
+        }
+      });
+      
       return true;
+    }
+    return false;
+  }
+
+  resumeTask(taskId) {
+    const task = this.runningTasks.get(taskId);
+    if (task && task.executor) {
+      console.log(`▶️ TaskManager resuming: ${taskId}`);
+      
+      // Check if task has paused state
+      if (task.executor.pausedPlan && task.executor.pausedTask && task.executor.pausedState) {
+        console.log('✅ Task has paused state, ready for resumption');
+        return true;
+      } else {
+        console.warn('Task does not have paused state for resumption');
+        return false;
+      }
     }
     return false;
   }

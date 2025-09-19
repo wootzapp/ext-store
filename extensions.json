@@ -151,7 +151,7 @@
       "name": "Social Shopping Agent",
       "campaign": "shopping_agent",
       "description": "An extension to assist users to chat and perform tasks using AI.",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "Wootzapp Team",
       "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Social%20Shopping%20Agent/SocialShoppingAgent.crx",
       "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Social%20Shopping%20Agent/repo/public/icons/icon.png",

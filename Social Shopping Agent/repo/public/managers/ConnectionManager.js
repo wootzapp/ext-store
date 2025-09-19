@@ -62,13 +62,18 @@ export class ConnectionManager {
         await chrome.storage.local.set({ currentSessionMessages: uniqueMessages });
         await chrome.storage.local.remove(['disconnectedMessages']);
 
-        // Send messages in order
-        uniqueMessages.forEach(message => {
-          this.safePortMessage(port, {
-            type: 'restore_message',
-            message
+        // Send messages in order (only if we have messages to restore)
+        if (uniqueMessages.length > 0) {
+          console.log(`📤 Sending ${uniqueMessages.length} messages via restore_message events`);
+          uniqueMessages.forEach(message => {
+            this.safePortMessage(port, {
+              type: 'restore_message',
+              message
+            });
           });
-        });
+        } else {
+          console.log('📤 No messages to restore');
+        }
       }
 
       // Send current execution state if needed
@@ -177,6 +182,8 @@ export class ConnectionManager {
         .filter((msg, index, self) => 
           index === self.findIndex((m) => m.id === msg.id))
         .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      
+      console.log(`📊 Stored ${currentMessages.length} unique messages after deduplication`);
       
       // Keep only last 100 messages to prevent memory issues
       if (currentMessages.length > 100) {

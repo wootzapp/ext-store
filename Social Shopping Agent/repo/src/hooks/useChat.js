@@ -6,7 +6,7 @@ export const useChat = (chatId = null) => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentChatId, setCurrentChatId] = useState(chatId);
-  const { saveChatHistory, getChatHistory, updateChatHistory } = useChatHistory();
+  const { saveChatHistory, updateChatHistory } = useChatHistory();
 
   useEffect(() => {
     // Clear existing messages before loading new ones
@@ -17,7 +17,7 @@ export const useChat = (chatId = null) => {
     } else {
       loadCurrentSessionMessages();
     }
-  }, [chatId]);
+  }, [chatId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Add cleanup on unmount
   useEffect(() => {
@@ -59,7 +59,18 @@ export const useChat = (chatId = null) => {
   const loadCurrentSessionMessages = useCallback(async () => {
     try {
       if (typeof chrome !== 'undefined' && chrome.storage) {
-        const result = await chrome.storage.local.get(['currentSessionMessages']);
+        // Check if there's an active connection that will handle message restoration
+        const storage = await chrome.storage.local.get(['isExecuting', 'activeTaskId', 'currentSessionMessages', 'disconnectedMessages']);
+        
+        // If there's an active task OR disconnected messages exist, don't load messages here
+        // ConnectionManager will handle restoration via restore_message events
+        if ((storage.isExecuting && storage.activeTaskId) || storage.disconnectedMessages?.length > 0) {
+          console.log('Active task or disconnected messages detected - skipping message loading, will receive via restore_message events');
+          setLoading(false);
+          return;
+        }
+        
+        const result = await chrome.storage.local.get(['currentSessionMessages', 'lastMessageTimestamp']);
         if (result.currentSessionMessages && Array.isArray(result.currentSessionMessages)) {
           // Remove duplicates by message ID and ensure all required fields are present
           const uniqueMessages = result.currentSessionMessages
@@ -107,7 +118,11 @@ export const useChat = (chatId = null) => {
                 type: message.type,
                 content: content || '',
                 timestamp: message.timestamp,
-                isMarkdown: message.isMarkdown || false
+                isMarkdown: message.isMarkdown || false,
+                // Preserve state information for pause/approval messages
+                resumed: message.resumed || false,
+                approved: message.approved || false,
+                declined: message.declined || false
               };
             })
             .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
@@ -151,7 +166,11 @@ export const useChat = (chatId = null) => {
       type: message.type || 'system',
       content: content || '',
       timestamp: timestamp,
-      isMarkdown: isMarkdown
+      isMarkdown: isMarkdown,
+      // Preserve state information for pause/approval messages
+      resumed: message.resumed || false,
+      approved: message.approved || false,
+      declined: message.declined || false
     };
     
     // Validate message structure
@@ -217,6 +236,30 @@ export const useChat = (chatId = null) => {
     });
   }, []);
 
+  // Update message state (for pause/approval messages)
+  const updateMessageState = useCallback((messageId, state) => {
+    setMessages(prev => {
+      const updated = prev.map(msg => {
+        if (msg.id === messageId) {
+          return { 
+            ...msg, 
+            ...state,
+            // Ensure timestamp is updated for state changes
+            lastStateUpdate: Date.now()
+          };
+        }
+        return msg;
+      });
+      
+      // Update session storage
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        chrome.storage.local.set({ currentSessionMessages: updated }).catch(console.error);
+      }
+      
+      return updated;
+    });
+  }, []);
+
   // Manual save function (called only when explicitly needed)
   const saveCurrentChat = useCallback(async () => {
     if (messages.length >= 1) {
@@ -244,6 +287,7 @@ export const useChat = (chatId = null) => {
     addMessage, 
     clearMessages, 
     updateMessage,
+    updateMessageState,
     loading,
     currentChatId,
     saveCurrentChat

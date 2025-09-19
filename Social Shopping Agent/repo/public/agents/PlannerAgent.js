@@ -63,18 +63,28 @@ Based on the previous execution, continue with the next logical step. If the las
             }
           }],
           shouldValidate: false,
-          completion_criteria: "Page is fully loaded with interactive elements."
+          completion_criteria: "Page is fully loaded with interactive elements.",
+          pause: false,
+          pause_reason: "",
         };
       }
       
       return {
-        observation: "No actionable elements found. Task cannot continue.",
-        done: true,
-        strategy: "No further actions possible.",
-        batch_actions: [],
-        shouldValidate: true, // Always validate when no actions possible
-        completion_criteria: "No interactive elements left on page."
-      };
+        observation: "No actionable elements found. Waiting for page to load.",
+          done: false,
+          strategy: "Wait for page to fully load and elements to become available.",
+          batch_actions: [{
+            action_type: "wait",
+            parameters: {
+              duration: 1000,
+              intent: "Wait for page to load completely"
+            }
+          }],
+          shouldValidate: false,
+          completion_criteria: "Page is fully loaded with interactive elements.",
+          pause: false,
+          pause_reason: "",
+        };
     }
 
     // Enhanced context analysis
@@ -160,6 +170,9 @@ ${elements}
 - Element boundaries and clickable areas
 - Search interfaces, forms, and action buttons
 - Product listings, navigation menus, and interactive components
+- Any other visible content on the page
+
+**IMPORTANT: IGNORE ANY "AI Agent in Action" POPUP WITH "Please do not click or scroll" TEXT** - This is a system notification and should be completely ignored. Do not mention it, interact with it, or wait for it to disappear. Focus only on the actual page content and interactive elements.
 
 Use this visual context along with the element data to create accurate batch plans that leverage the current page's visual layout and interactive elements.
 
@@ -190,16 +203,41 @@ ${progressAnalysis}
 
 # **CRITICAL PLANNING RULES:**
 
+## **LOGIN/SIGNIN PAGE HANDLING:**
+- **If login/signin page detected AND USER TASK includes CREDENTIALS**: Continue with login/signin automation using provided credentials
+- **If login/signin page detected AND NO CREDENTIALS provided**: Set pause=true, pause_reason='signin' and wait for user to sign in
+- **DO NOT restart the task** - continue from current progress when user resumes
+- **DO NOT navigate away** from login page - let user complete authentication
+- **Preserve all previous progress** and context for seamless continuation
+- **Credentials detection**: Look for username/email, password, or login instructions in the user task
+
+## **APPROVAL HANDLING:**
+- **For sensitive actions** (adding items to cart, entering passwords, payment details): Set pause=true, pause_reason='approval'
+- **Include pause_description**: Short description of what needs approval (e.g., "Adding iPhone 15 to cart for $999")
+- **Let user decide**: Approve to continue, decline to cancel task
+
 ## **CURRENT PAGE CONSTRAINT:**
 - **ONLY use elements visible on the CURRENT page**
 - **NEVER plan actions for elements that might appear after navigation**
 - **If task requires different page, use navigate action FIRST, then replan**
 - **Each batch must be executable with current page elements ONLY**
 
-## **TASK COMPLETION DETECTION:**
+## **TASK CONTINUATION & COMPLETION:**
+- **NEVER restart the task** - always continue from current progress
+- **Analyze previous progress** and build upon it logically
+- **If target element not found**: Check if task can be completed with available elements or inform user of current status
+- **Smart completion detection**: Set done=true when:
+  * Task is fully completed (e.g., item added to cart, post published)
+  * Target element not available but reasonable alternative completed (e.g., "Add to cart not visible on this page, but successfully navigated to product page and scrolled to find it")
+  * User goal partially achieved with clear status update 
 - **Set shouldValidate: true ONLY when you believe the FINAL step of the entire task is complete**
 - **Set shouldValidate: false for intermediate steps that need continuation**
-- **Be conservative - only validate when absolutely certain task is done**
+
+## **INTELLIGENT SCROLLING:**
+- **Use large scroll amounts**: 800-1200px (4/5 of typical page height) instead of small increments
+- **Avoid multiple scrolls**: One large scroll is better than 4-5 small ones
+- **Scroll strategically**: Only when target element is not visible
+- **Example**: "amount": 1000 for significant page movement
 
 ## **ACTIONABLE STEP DIVISION:**
 - Break complex tasks into current-page-actionable chunks
@@ -209,6 +247,15 @@ ${progressAnalysis}
   3. For navigating to the product page, Click the first item in the search results (make sure your are clicking on the item element not the other elements like 1st index element)
   4. Then click the add to cart button (scroll down if the add to cart button is not visible)
 - Each step uses only currently visible elements
+
+## **PROGRESS ANALYSIS & CONTINUATION:**
+- **Review execution history** to understand what has been accomplished
+- **Build upon previous actions** - don't repeat completed steps
+- **If previous step was navigation**: Look for elements that appeared after navigation
+- **If previous step was search**: Look for search results or next action elements
+- **If previous step was clicking**: Wait for page changes or look for new elements
+- **Smart task ending**: If target element not found but reasonable progress made, end with informative message
+- **If navigated to wrong path can go_back to the previous page and then continue with the task**
 
 ## **ELEMENT SELECTION RULES:**
 - **MANDATORY: Only use element indices from the list above**
@@ -239,7 +286,7 @@ ${progressAnalysis}
         "purpose": "submit|add-to-cart|product-link",
         "category": "action|form|navigation", 
         "direction": "down/up", // for scroll
-        "amount": 500, // for scroll
+        "amount": 1000, // for scroll (use 800-1200px for large page movement (not constant))
         "duration": 2000, // for wait
         "intent": "What this action accomplishes"
       }
@@ -248,7 +295,10 @@ ${progressAnalysis}
   "shouldValidate": false/true, // true ONLY when you believe the ENTIRE task is complete after this batch
   "replan_trigger": "element_not_found | new_url_loaded | typing_failed",
   "completion_criteria": "How to know entire task is done",
-  "reasoning": "Why this batch will work with current page state"
+  "reasoning": "Why this batch will work with current page state",
+  "pause": false/true, // true if execution should pause (e.g., for login)
+  "pause_reason": "signin|approval", // reason for pausing (only if pause=true)
+  "pause_description": "Short description of what needs approval (e.g., 'Adding iPhone 15 to cart for $999')" // only if pause_reason='approval'
 }
 
 **ENSURE ALL FIELDS ARE POPULATED - NO INCOMPLETE RESPONSES ALLOWED**
@@ -429,11 +479,11 @@ ${progressAnalysis}
  
       // Limit selector length
       const selector = (el.selector || 'none').trim();
-      const limitedSelector = selector.length > 100 ? selector.substring(0, 100) + '...' : selector;
+      const limitedSelector = selector.length > 50 ? selector.substring(0, 50) + '...' : selector;
 
       // Limit XPath length
       const xpath = (el.xpath || 'none').trim();
-      const limitedXPath = xpath.length > 100 ? xpath.substring(0, 100) + '...' : xpath;
+      const limitedXPath = xpath.length > 70 ? xpath.substring(0, 70) + '...' : xpath;
  
       // Process bounds to ensure they're concise
       const bounds = el.bounds || {};
@@ -596,6 +646,9 @@ ${progressAnalysis}
         replan_trigger: obj.replan_trigger || "",
         completion_criteria: obj.completion_criteria || "",
         reasoning: obj.reasoning || "",
+        pause: obj.pause || false,
+        pause_reason: obj.pause_reason || "",
+        pause_description: obj.pause_description || "",
         // fall back to single-step if no batch_actions
         next_action: (obj.batch_actions?.length || 0) ? null : obj.next_action
       };
