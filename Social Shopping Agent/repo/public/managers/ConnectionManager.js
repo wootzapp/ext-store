@@ -67,13 +67,19 @@ export class ConnectionManager {
           console.log(`📤 Sending ${uniqueMessages.length} messages via restore_message events`);
           
           // Debug: Check if approval message is in the restored messages
-          const approvalMessages = uniqueMessages.filter(msg => msg.type === 'task_paused' && msg.pause_reason === 'approval');
+          const approvalMessages = uniqueMessages.filter(msg => 
+            (msg.type === 'task_paused' && msg.pause_reason === 'approval') ||
+            msg.type === 'approval'
+          );
           if (approvalMessages.length > 0) {
             console.log('🔍 Found approval messages in restore:', approvalMessages.map(msg => ({
               type: msg.type,
               pause_reason: msg.pause_reason,
               pause_description: msg.pause_description,
-              id: msg.id
+              id: msg.id,
+              approved: msg.approved,
+              declined: msg.declined,
+              resumed: msg.resumed
             })));
           }
           

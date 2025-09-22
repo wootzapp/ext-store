@@ -195,7 +195,13 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
                   type: message.message.type,
                   content: message.message.content || '',
                   timestamp: message.message.timestamp,
-                  isMarkdown: message.message.isMarkdown || hasMarkdownContent(message.message.content)
+                  isMarkdown: message.message.isMarkdown || hasMarkdownContent(message.message.content),
+                  // Preserve state information for pause/approval messages
+                  resumed: message.message.resumed || false,
+                  approved: message.message.approved || false,
+                  declined: message.message.declined || false,
+                  pauseReason: message.message.pauseReason,
+                  pauseDescription: message.message.pauseDescription
                 };
                 
                 // Special handling for task_complete messages that might have nested result structure
@@ -780,8 +786,8 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
             {/* {isExecuting && <span>• Working...</span>} */}
             {!subscription?.usingPersonalAPI && (
               <RequestCounter 
-                subscriptionState={subscription} 
-                onUpgradeClick={() => setShowSubscriptionChoice(true)}
+              subscriptionState={subscription} 
+              onUpgradeClick={() => setShowSubscriptionChoice(true)}
                 onRefresh={(func) => { requestCounterRefreshRef.current = func; }}
                 onUsageDataChange={setUsageData}
               />
@@ -883,8 +889,8 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
           disabled={connectionStatus !== 'connected'}
           placeholder={
             connectionStatus === 'connected' 
-              ? (isExecuting ? "Processing..." : "Ask me anything...")
-              : "Connecting..."
+                ? (isExecuting ? "Processing..." : "Ask me anything...")
+                : "Connecting..."
           }
           value={messageInput}
           onChange={setMessageInput}

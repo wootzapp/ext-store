@@ -122,7 +122,10 @@ export const useChat = (chatId = null) => {
                 // Preserve state information for pause/approval messages
                 resumed: message.resumed || false,
                 approved: message.approved || false,
-                declined: message.declined || false
+                declined: message.declined || false,
+                // Preserve other state fields
+                pauseReason: message.pauseReason,
+                pauseDescription: message.pauseDescription
               };
             })
             .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
@@ -138,9 +141,17 @@ export const useChat = (chatId = null) => {
               type: msg.type,
               approved: msg.approved,
               declined: msg.declined,
-              resumed: msg.resumed
+              resumed: msg.resumed,
+              pauseReason: msg.pauseReason,
+              pauseDescription: msg.pauseDescription
             })));
           }
+          
+          console.log('📥 Loaded messages from storage:', {
+            totalMessages: uniqueMessages.length,
+            approvalMessages: approvalMessages.length,
+            messageTypes: uniqueMessages.map(m => m.type)
+          });
           
           // Update storage with validated messages
           if (uniqueMessages.length !== result.currentSessionMessages.length) {

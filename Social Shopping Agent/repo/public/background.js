@@ -2095,7 +2095,16 @@ class BackgroundScriptAgent {
                       task.executor.lastPageState = pausedState;
                     }
                     
-                    // Clean up
+                    // Actually resume execution by calling execute method
+                    console.log('🔄 Calling execute method to resume task...');
+                    await task.executor.execute(
+                      task.executor.currentUserTask, 
+                      this.connectionManager, 
+                      pausedPlan, 
+                      true // isResume = true
+                    );
+                    
+                    // Clean up after execution completes
                     this.activeTasks.delete(pausedTaskId);
                     this.connectionManager.setActiveTask(null);
                     
