@@ -388,7 +388,18 @@ class MultiAgentExecutor {
             // Check if execution should be paused
             if (plan && plan.pause === true) {
               console.log(`⏸️ Task paused: ${plan.pause_reason}`);
+
+              if (plan.observation) {
+                connectionManager.broadcast({
+                  type: 'observation_strategy',
+                  step: this.currentStep,
+                  observation: plan.observation,
+                  strategy: plan.strategy
+                });
+              }
               
+              await this.delay(400);
+
               // Broadcast pause message
               console.log('📤 Broadcasting task_paused message:', {
                 type: 'task_paused',
@@ -496,6 +507,18 @@ class MultiAgentExecutor {
             if (plan && plan.pause === true) {
               console.log(`⏸️ Task paused during recovery: ${plan.pause_reason}`);
               
+              
+              if (plan.observation) {
+                connectionManager.broadcast({
+                  type: 'observation_strategy',
+                  step: this.currentStep,
+                  observation: plan.observation,
+                  strategy: plan.strategy
+                });
+              }
+              
+              await this.delay(400);
+
               // Broadcast pause message
               connectionManager.broadcast({
                 type: 'task_paused',
@@ -587,6 +610,18 @@ class MultiAgentExecutor {
           if (plan && plan.pause === true) {
             console.log(`⏸️ Task paused during replanning: ${plan.pause_reason}`);
             
+            
+            if (plan.observation) {
+              connectionManager.broadcast({
+                type: 'observation_strategy',
+                step: this.currentStep,
+                observation: plan.observation,
+                strategy: plan.strategy
+              });
+            }
+            
+            await this.delay(400);
+
             // Broadcast pause message
             connectionManager.broadcast({
               type: 'task_paused',
@@ -2065,68 +2100,114 @@ class BackgroundScriptAgent {
               
               // Get the task and restart execution with the paused state
               const task = this.backgroundTaskManager.runningTasks.get(pausedTaskId);
-              if (task && task.executor && task.executor.pausedPlan && task.executor.pausedTask && task.executor.pausedState) {
-                console.log('🔄 Restarting execution with paused state...');
-                
-                // Restart the execution loop with the paused plan and state
-                setTimeout(async () => {
-                  try {
-                    // Store paused state before clearing
-                    const pausedPlan = task.executor.pausedPlan;
-                    const pausedState = task.executor.pausedState;
-                    
-                    console.log('🔄 Resuming with paused plan:', {
-                      hasBatchActions: pausedPlan?.batch_actions?.length > 0,
-                      batchActions: pausedPlan?.batch_actions,
-                      pauseReason: pausedPlan?.pause_reason,
-                      pauseDescription: pausedPlan?.pause_description
-                    });
-                    
-                    // Clear paused state to prevent re-pausing on same condition
-                    task.executor.pausedPlan = null;
-                    task.executor.pausedTask = null;
-                    task.executor.pausedState = null;
-                    
-                    // Restore the execution state for resumption
-                    if (pausedPlan) {
-                      task.executor.currentBatchPlan = pausedPlan;
+              if (task && task.executor) {
+                // Check if we have paused state OR if this is a fresh resume
+                const hasPausedState = task.executor.pausedPlan && task.executor.pausedTask && task.executor.pausedState;
+                if (hasPausedState) {
+                  console.log('🔄 Restarting execution with paused state...');
+                  
+                  // Restart the execution loop with the paused plan and state
+                  setTimeout(async () => {
+                    try {
+                      // Store paused state before clearing
+                      const pausedPlan = task.executor.pausedPlan;
+                      const pausedState = task.executor.pausedState;
+                      
+                      console.log('🔄 Resuming with paused plan:', {
+                        hasBatchActions: pausedPlan?.batch_actions?.length > 0,
+                        batchActions: pausedPlan?.batch_actions,
+                        pauseReason: pausedPlan?.pause_reason,
+                        pauseDescription: pausedPlan?.pause_description
+                      });
+                      
+                      // Clear paused state to prevent re-pausing on same condition
+                      task.executor.pausedPlan = null;
+                      task.executor.pausedTask = null;
+                      task.executor.pausedState = null;
+                      
+                      // Restore the execution state for resumption
+                      if (pausedPlan) {
+                        task.executor.currentBatchPlan = pausedPlan;
+                      }
+                      if (pausedState) {
+                        task.executor.lastPageState = pausedState;
+                      }
+                      
+                      // Actually resume execution by calling execute method
+                      console.log('🔄 Calling execute method to resume task...');
+                      const result = await task.executor.execute(
+                        task.executor.currentUserTask, 
+                        this.connectionManager, 
+                        pausedPlan, 
+                        true // isResume = true
+                      );
+                      
+                      // Only clean up if task is actually completed (not paused again)
+                      if (result && result.success !== false && result.reason !== 'paused') {
+                        // Clean up after execution completes
+                        this.activeTasks.delete(pausedTaskId);
+                        this.connectionManager.setActiveTask(null);
+                        
+                        // Clear execution state from storage
+                        await chrome.storage.local.set({
+                          isExecuting: false,
+                          activeTaskId: null,
+                          taskStartTime: null
+                        });
+                        
+                        // Notify content scripts to hide popup
+                        await this.notifyContentScripts('__agent_hide_popup');
+                      }
+                      
+                    } catch (error) {
+                      console.error('❌ Error during resumed execution:', error);
+                      this.connectionManager.broadcast({
+                        type: 'task_error',
+                        error: error.message,
+                        taskId: pausedTaskId
+                      });
                     }
-                    if (pausedState) {
-                      task.executor.lastPageState = pausedState;
+                  }, 100); // Small delay to ensure UI updates
+                } else {
+                  console.log('⚠️ No paused state found, but task exists - continuing execution');
+                  // Continue with normal execution flow
+                  setTimeout(async () => {
+                    try {
+                      const result = await task.executor.execute(
+                        task.executor.currentUserTask, 
+                        this.connectionManager, 
+                        null, 
+                        true // isResume = true
+                      );
+                      
+                      // Only clean up if task is actually completed (not paused again)
+                      if (result && result.success !== false && result.reason !== 'paused') {
+                        // Clean up after execution completes
+                        this.activeTasks.delete(pausedTaskId);
+                        this.connectionManager.setActiveTask(null);
+                        
+                        // Clear execution state from storage
+                        await chrome.storage.local.set({
+                          isExecuting: false,
+                          activeTaskId: null,
+                          taskStartTime: null
+                        });
+                        
+                        // Notify content scripts to hide popup
+                        await this.notifyContentScripts('__agent_hide_popup');
+                      }
+                    } catch (error) {
+                      console.error('❌ Error during resumed execution:', error);
+                      this.connectionManager.broadcast({
+                        type: 'task_error',
+                        error: error.message,
+                        taskId: pausedTaskId
+                      });
                     }
-                    
-                    // Actually resume execution by calling execute method
-                    console.log('🔄 Calling execute method to resume task...');
-                    await task.executor.execute(
-                      task.executor.currentUserTask, 
-                      this.connectionManager, 
-                      pausedPlan, 
-                      true // isResume = true
-                    );
-                    
-                    // Clean up after execution completes
-                    this.activeTasks.delete(pausedTaskId);
-                    this.connectionManager.setActiveTask(null);
-                    
-                    // Clear execution state from storage
-                    await chrome.storage.local.set({
-                      isExecuting: false,
-                      activeTaskId: null,
-                      taskStartTime: null
-                    });
-                    
-                    // Notify content scripts to hide popup
-                    await this.notifyContentScripts('__agent_hide_popup');
-                    
-                  } catch (error) {
-                    console.error('❌ Error during resumed execution:', error);
-                    this.connectionManager.broadcast({
-                      type: 'task_error',
-                      error: error.message,
-                      taskId: pausedTaskId
-                    });
-                  }
-                }, 100); // Small delay to ensure UI updates
+                  }, 100);
+                }
+              } else {
+                console.log('⚠️ Task or executor not found');
               }
             } else {
               console.log('⚠️ Failed to resume task');
