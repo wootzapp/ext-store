@@ -101,6 +101,8 @@ ${this.formatElements(finalState.interactiveElements?.slice(0, 15) || [])}
 - Navigation elements and interactive components
 - Visual confirmation of task completion (e.g., cart items, posted content, search results)
 
+**IMPORTANT: IGNORE ANY "AI Agent in Action" POPUP WITH "Please do not click or scroll" TEXT** - This is a system notification and should be completely ignored. Do not mention it, interact with it, or wait for it to disappear. Focus only on the actual page content and interactive elements.
+
 Use this visual context along with the element data to accurately assess task completion by examining both the visual state of the page and the available interactive elements.
 
 # **PROGRESSIVE VALIDATION RULES:**
@@ -354,15 +356,15 @@ Break down the original task into logical components and assess each:
     return elements.map(el => {
       // Limit text content to prevent token explosion
       const textContent = (el.textContent || '').trim();
-      const limitedTextContent = textContent.length > 80 ? textContent.substring(0, 80) + '...' : textContent;
+      const limitedTextContent = textContent.length > 100 ? textContent.substring(0, 100) + '...' : textContent;
 
       // Limit selector length
       const selector = (el.selector || 'none').trim();
-      const limitedSelector = selector.length > 100 ? selector.substring(0, 100) + '...' : selector;
+      const limitedSelector = selector.length > 50 ? selector.substring(0, 50) + '...' : selector;
 
       // Limit XPath length
       const xpath = (el.xpath || 'none').trim();
-      const limitedXPath = xpath.length > 100 ? xpath.substring(0, 100) + '...' : xpath;
+      const limitedXPath = xpath.length > 70 ? xpath.substring(0, 70) + '...' : xpath;
 
       // Process bounds to ensure they're concise
       const bounds = el.bounds || {};

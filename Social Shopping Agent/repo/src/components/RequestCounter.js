@@ -99,13 +99,13 @@ const RequestCounter = ({ subscriptionState, onUpgradeClick, onRefresh, onUsageD
 
   // Expose refresh function to parent
   useEffect(() => {
-    console.log("RequestCounter: onRefresh prop changed:", !!onRefresh);
+    // console.log("RequestCounter: onRefresh prop changed:", !!onRefresh);
     if (onRefresh) {
       const refreshFunction = () => {
-        console.log("RequestCounter: Parent requested refresh");
+        // console.log("RequestCounter: Parent requested refresh");
         loadUsageData(true); // Force refresh when parent calls
       };
-      console.log("RequestCounter: Setting refresh function for parent");
+      // console.log("RequestCounter: Setting refresh function for parent");
       onRefresh(refreshFunction);
     }
   }, [onRefresh]);

@@ -7,6 +7,7 @@ import AuthPage from './components/AuthPage';
 import SubscriptionPage from './components/SubscriptionPage';
 import SettingsModal from './components/SettingsModal';
 import ProfilePage from './components/ProfilePage';
+import HowToUsePage from './components/HowToUsePage';
 // import IntegrationHub from './components/IntegrationHub';
 // import LabubuRoute from './components/LabubuRoute';
 import './App.css';
@@ -151,6 +152,17 @@ function AppContent() {
             <Navigate to="/auth" replace />
           ) : (
             <ChatHistoryPage />
+          )
+        } 
+      />
+      
+      <Route 
+        path="/how-to-use" 
+        element={
+          !isLoggedIn ? (
+            <Navigate to="/auth" replace />
+          ) : (
+            <HowToUsePage />
           )
         } 
       />

@@ -31,7 +31,7 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
   
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   // eslint-disable-next-line no-unused-vars
-  const { messages, addMessage, clearMessages, loading, saveCurrentChat } = useChat(historyId);
+  const { messages, addMessage, clearMessages, updateMessageState, loading, saveCurrentChat } = useChat(historyId);
   const [isExecuting, setIsExecuting] = useState(false);
   const [taskStatus, setTaskStatus] = useState(null);
   const portRef = useRef(null);
@@ -195,7 +195,13 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
                   type: message.message.type,
                   content: message.message.content || '',
                   timestamp: message.message.timestamp,
-                  isMarkdown: message.message.isMarkdown || hasMarkdownContent(message.message.content)
+                  isMarkdown: message.message.isMarkdown || hasMarkdownContent(message.message.content),
+                  // Preserve state information for pause/approval messages
+                  resumed: message.message.resumed || false,
+                  approved: message.message.approved || false,
+                  declined: message.message.declined || false,
+                  pauseReason: message.message.pauseReason,
+                  pauseDescription: message.message.pauseDescription
                 };
                 
                 // Special handling for task_complete messages that might have nested result structure
@@ -394,8 +400,10 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
               
               // Show cancellation message with progress
               let cancelContent = '🛑 **Task Cancelled**\n\n';
-              if (message.progress) {
+              if (message.progress && message.progress !== 'No progress made') {
                 cancelContent += `**Progress Made:** ${message.progress}\n\n`;
+              } else {
+                cancelContent += '**Status:** Task was cancelled before significant progress was made.\n\n';
               }
               cancelContent += 'The task has been cancelled as requested. You can start a new task anytime.';
               
@@ -422,6 +430,34 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
                   }
                 }, 200);
               }
+              break;
+
+            case 'task_paused':
+              setIsExecuting(false);
+              setIsTyping(false); // Hide typing indicator
+              setTaskStatus({ status: 'paused', message: 'Task paused - waiting for user action' });
+              
+              // Add pause message with continue button
+              addMessage({
+                type: message.pause_reason === 'approval' ? 'approval' : 'pause',
+                content: message.message || 'Task execution paused',
+                pauseReason: message.pause_reason || 'unknown',
+                pauseDescription: message.pause_description || '',
+                timestamp: Date.now()
+              });
+              break;
+
+            case 'task_resumed':
+              setIsExecuting(true);
+              setIsTyping(true);
+              setTaskStatus({ status: 'executing', message: 'Task resumed - continuing execution...' });
+              
+              // Add a system message to show task was resumed
+              addMessage({
+                type: 'system',
+                content: '✅ Task resumed - continuing execution...',
+                timestamp: Date.now()
+              });
               break;
 
             case 'error':
@@ -583,6 +619,60 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
     }
   };
 
+  const handleResumeExecution = () => {
+    if (portRef.current) {
+      try {
+        console.log('Resuming task execution...');
+        portRef.current.postMessage({
+          type: 'resume_task'
+        });
+      } catch (error) {
+        console.error('Error resuming task:', error);
+        addMessage({
+          type: 'error',
+          content: '❌ Failed to resume task. Connection lost.',
+          timestamp: Date.now()
+        });
+      }
+    }
+  };
+
+  const handleApproveTask = () => {
+    if (portRef.current) {
+      try {
+        console.log('Approving task execution...');
+        portRef.current.postMessage({
+          type: 'resume_task'
+        });
+      } catch (error) {
+        console.error('Error approving task:', error);
+        addMessage({
+          type: 'error',
+          content: '❌ Failed to approve task. Connection lost.',
+          timestamp: Date.now()
+        });
+      }
+    }
+  };
+
+  const handleDeclineTask = () => {
+    if (portRef.current) {
+      try {
+        console.log('Declining task execution...');
+        portRef.current.postMessage({
+          type: 'cancel_task'
+        });
+      } catch (error) {
+        console.error('Error declining task:', error);
+        addMessage({
+          type: 'error',
+          content: '❌ Failed to decline task. Connection lost.',
+          timestamp: Date.now()
+        });
+      }
+    }
+  };
+
   const handleNewChat = async () => {
     if (messages.length >= 2) {
       const userMessages = messages.filter(msg => msg.type === 'user' || msg.type === 'assistant');
@@ -696,8 +786,8 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
             {/* {isExecuting && <span>• Working...</span>} */}
             {!subscription?.usingPersonalAPI && (
               <RequestCounter 
-                subscriptionState={subscription} 
-                onUpgradeClick={() => setShowSubscriptionChoice(true)}
+              subscriptionState={subscription} 
+              onUpgradeClick={() => setShowSubscriptionChoice(true)}
                 onRefresh={(func) => { requestCounterRefreshRef.current = func; }}
                 onUsageDataChange={setUsageData}
               />
@@ -782,7 +872,11 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
         <MessageList 
           messages={messages} 
           onTemplateClick={handleTemplateClick}
+          onResumeExecution={handleResumeExecution}
+          onApproveTask={handleApproveTask}
+          onDeclineTask={handleDeclineTask}
           isTyping={isTyping}
+          updateMessageState={updateMessageState}
         />
       </div>
 
@@ -795,8 +889,8 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
           disabled={connectionStatus !== 'connected'}
           placeholder={
             connectionStatus === 'connected' 
-              ? (isExecuting ? "Processing..." : "Ask me anything...")
-              : "Connecting..."
+                ? (isExecuting ? "Processing..." : "Ask me anything...")
+                : "Connecting..."
           }
           value={messageInput}
           onChange={setMessageInput}

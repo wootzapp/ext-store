@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-const MessageList = ({ messages, onTemplateClick, isTyping }) => {
+const MessageList = ({ messages, onTemplateClick, onResumeExecution, onApproveTask, onDeclineTask, isTyping, updateMessageState }) => {
   const messagesEndRef = useRef(null);
   const containerRef = useRef(null);
   const [animatedMessages, setAnimatedMessages] = useState(new Set());
@@ -17,6 +17,26 @@ const MessageList = ({ messages, onTemplateClick, isTyping }) => {
     if (containerRef.current) {
       containerRef.current.scrollTop = 0;
     }
+  };
+
+  const handleApprove = (messageId) => {
+    console.log('✅ Approve clicked for message:', messageId);
+    // Update message state in storage immediately
+    updateMessageState?.(messageId, { approved: true, declined: false });
+    onApproveTask?.();
+  };
+
+  const handleDecline = (messageId) => {
+    console.log('❌ Decline clicked for message:', messageId);
+    // Update message state in storage immediately
+    updateMessageState?.(messageId, { approved: false, declined: true });
+    onDeclineTask?.();
+  };
+
+  const handleResume = (messageId) => {
+    // Update message state in storage
+    updateMessageState?.(messageId, { resumed: true });
+    onResumeExecution?.();
   };
 
   useEffect(() => {
@@ -151,6 +171,34 @@ const MessageList = ({ messages, onTemplateClick, isTyping }) => {
             boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
             animation: 'slideInFromLeft 0.3s ease-out'
           };
+        case 'pause':
+          return {
+            ...baseStyle,
+            backgroundColor: '#fff3cd',
+            color: '#856404',
+            alignSelf: 'center',
+            border: '1px solid #ffeaa7',
+            textAlign: 'center',
+            maxWidth: '85%', 
+            fontSize: '12px',
+            margin: '4px 8px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            animation: 'slideInFromLeft 0.3s ease-out'
+          };
+        case 'approval':
+          return {
+            ...baseStyle,
+            backgroundColor: '#e3f2fd',
+            color: '#1565c0',
+            alignSelf: 'center',
+            border: '1px solid #bbdefb',
+            textAlign: 'center',
+            maxWidth: '85%', 
+            fontSize: '12px',
+            margin: '4px 8px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            animation: 'slideInFromLeft 0.3s ease-out'
+          };
         default:
           return baseStyle;
       }
@@ -205,6 +253,32 @@ const MessageList = ({ messages, onTemplateClick, isTyping }) => {
             margin: '2px 8px',
             boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
           };
+        case 'pause':
+          return {
+            ...baseStyle,
+            backgroundColor: '#fff3cd',
+            color: '#856404',
+            alignSelf: 'center',
+            border: '1px solid #ffeaa7',
+            textAlign: 'center',
+            maxWidth: '85%', 
+            fontSize: '12px',
+            margin: '4px 8px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          };
+        case 'approval':
+          return {
+            ...baseStyle,
+            backgroundColor: '#e3f2fd',
+            color: '#1565c0',
+            alignSelf: 'center',
+            border: '1px solid #bbdefb',
+            textAlign: 'center',
+            maxWidth: '85%', 
+            fontSize: '12px',
+            margin: '4px 8px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          };
         default:
           return baseStyle;
       }
@@ -214,24 +288,31 @@ const MessageList = ({ messages, onTemplateClick, isTyping }) => {
   const templateCommands = [
     {
       id: 'general_chat',
-      emoji: '💬',
-      title: 'General Chat',
-      description: 'Explain how Artificial Intelligence works in simple terms',
+      emoji: '🤖',
+      title: 'AI Assistant',
+      description: 'Ask me anything! I can explain concepts, help with research, or have a conversation',
       command: 'Explain how Artificial Intelligence works in simple terms'
     },
     {
       id: 'social_media',
-      emoji: '🐦',
-      title: 'Social Media Task',
-      description: 'Search for AI Agents video on YouTube and play the first one',
-      command: 'Search for AI Agents video on YouTube and play the first one'
+      emoji: '📱',
+      title: 'Social Media',
+      description: 'Post content, manage accounts, or interact with social platforms',
+      command: 'Post a tweet about the latest AI developments'
     },
     {
       id: 'shopping_task',
-      emoji: '🛒',
-      title: 'Shopping Task',
-      description: 'Find the Labubu Doll on Amazon India and add to cart the first one',
-      command: 'Find the Labubu Doll on Amazon India and add to cart the first one'
+      emoji: '🛍️',
+      title: 'Shopping Assistant',
+      description: 'Find products, compare prices, add to cart, or complete purchases',
+      command: 'Find the best wireless headphones on Amazon and add to cart'
+    },
+    {
+      id: 'page_analysis',
+      emoji: '🔍',
+      title: 'Page Analysis',
+      description: 'Analyze current webpage, extract information, or summarize content',
+      command: 'Summarize the main points of this article and highlight key insights from the current page'
     }
   ];
 
@@ -375,119 +456,128 @@ const MessageList = ({ messages, onTemplateClick, isTyping }) => {
 
   const TemplateCommands = () => (
     <div style={{ 
-      padding: '15px 15px',
+      padding: '16px',
       display: 'flex',
       flexDirection: 'column',
-      gap: '12px',
-      alignItems: 'center'
+      gap: '16px',
+      alignItems: 'center',
+      maxWidth: '400px',
+      margin: '0 auto'
     }}>
+      {/* Header Section */}
       <div style={{ 
         textAlign: 'center', 
-        marginBottom: '16px'
+        marginBottom: '2px'
       }}>
-        <h4 style={{ 
-          color: '#AADEFFFF', 
-          marginBottom: '4px', 
-          fontSize: '16px', 
+        <h2 style={{ 
+          color: '#FFDCDCFF', 
+          marginBottom: '2px', 
+          fontSize: '18px', 
           fontWeight: '700',
-          margin: 0
+          margin: '0 0 2px 0'
         }}>
-          🚀 Quick Start Templates
-        </h4>
+          How can I help you today?
+        </h2>
         <p style={{ 
           fontSize: '12px', 
           color: '#ABDFFFEA', 
-          fontWeight: '600',
-          margin: '4px 0 0 0'
+          fontWeight: '400',
+          margin: '0',
+          lineHeight: '1.4'
         }}>
-          Choose a template to get started quickly
+          Choose a template below or type your own request
         </p>
       </div>
 
+      {/* Template Grid */}
       <div style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: '8px',
-        width: '100%',
-        maxWidth: '320px'
+        gap: '7px',
+        width: '100%'
       }}>
         {templateCommands.map((template) => (
           <button
             key={template.id}
             onClick={() => onTemplateClick?.(template.command)}
             style={{
-              background: 'linear-gradient(135deg, #003A7CFF 0%, #004499FF 100%)',
-              border: '1px solid rgba(255, 220, 220, 0.3)',
+              background: 'rgba(255, 220, 220, 0.08)',
+              border: '1px solid rgba(255, 220, 220, 0.15)',
               borderRadius: '12px',
-              padding: '8px 10px',
+              padding: '8px',
               cursor: 'pointer',
               textAlign: 'left',
               transition: 'all 0.3s ease',
               display: 'flex',
               alignItems: 'center',
-              gap: '12px',
+              gap: '11px',
               width: '100%',
-              color: '#FFDCDCFF'
+              color: '#FFDCDCFF',
+              backdropFilter: 'blur(10px)',
+              position: 'relative',
+              overflow: 'hidden'
             }}
           >
+            {/* Template Icon */}
             <div style={{
-              fontSize: '20px',
+              fontSize: '18px',
               width: '24px',
               height: '24px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              flexShrink: 0
+              flexShrink: 0,
+              background: 'rgba(78, 205, 196, 0.1)',
+              borderRadius: '10px'
             }}>
               {template.emoji}
             </div>
+            
+            {/* Template Content */}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{
-                fontSize: '14px',
+              <h3 style={{
+                fontSize: '13px',
                 fontWeight: '600',
-                marginBottom: '2px',
+                margin: '0 0 2px 0',
                 color: '#FFDCDCFF'
               }}>
                 {template.title}
-              </div>
-              <div style={{
+              </h3>
+              <p style={{
                 fontSize: '11px',
-                color: 'rgba(255, 220, 220, 0.8)',
-                lineHeight: '1.3'
+                color: '#ABDFFFEA',
+                lineHeight: '1.3',
+                margin: 0
               }}>
                 {template.description}
-              </div>
+              </p>
             </div>
-            <div style={{
-              width: '2px',
-              height: '30px',
-              backgroundColor: 'rgba(255, 220, 220, 0.3)',
-              margin: '0 0 0 0',
-              flexShrink: 0
-            }} />
+            
+            {/* Try Arrow */}
             <div style={{
               fontSize: '12px',
-              color: 'rgba(255, 220, 220, 0.6)',
+              color: '#4ECDC4',
               flexShrink: 0
             }}>
-              Try ➤
+              Try →
             </div>
           </button>
         ))}
       </div>
 
+      {/* Help Section */}
       <div style={{
-        marginTop: '16px',
+        marginTop: '4px',
         padding: '12px',
-        backgroundColor: 'rgba(255, 220, 220, 0.1)',
+        backgroundColor: 'rgba(255, 220, 220, 0.05)',
         borderRadius: '8px',
-        border: '1px solid rgba(255, 220, 220, 0.2)',
+        border: '1px solid rgba(255, 220, 220, 0.1)',
         textAlign: 'center',
-        maxWidth: '280px'
+        backdropFilter: 'blur(10px)'
       }}>
         <p style={{ 
           fontSize: '11px', 
-          color: 'rgba(255, 220, 220, 0.8)',
+          color: '#ABDFFFEA',
           margin: 0,
           lineHeight: '1.4'
         }}>
@@ -500,44 +590,49 @@ const MessageList = ({ messages, onTemplateClick, isTyping }) => {
   const WelcomeMessage = () => (
     <div style={{ 
       textAlign: 'center', 
-      color: '#657786', 
-      marginTop: '10px',
+      marginTop: '16px',
       padding: '0 16px'
     }}>
-      <h4 style={{ color: '#AADEFFFF', marginBottom: '-5px', fontSize: '15px', fontWeight: '750' }}>🤖 Welcome to Social Shopping Agent!</h4>
-      <p style={{ marginBottom: '12px', fontSize: '13px', color: '#ABDFFFEA', fontWeight: '600' }}>Ask me to help you with tasks or start a conversation.</p>
-      {/* <div style={{ 
-        textAlign: 'left', 
-        maxWidth: '280px', 
-        margin: '0 auto',
-        backgroundColor: '#FFDCDCE3',
-        color: '#000000FF',
-        padding: '12px',
-        borderRadius: '10px',
-        border: '1px solid #888888FF'
-      }}> 
-        <div style={{ marginBottom: '6px', fontSize: '12px' }}>
-          <strong>• YouTube:</strong> "Search for videos and play"
-        </div>
-        <div style={{ marginBottom: '6px', fontSize: '12px' }}>
-          <strong>• Social:</strong> "Post content on Twitter"
-        </div>
-        <div style={{ marginBottom: '6px', fontSize: '12px' }}>
-          <strong>• Shopping:</strong> "Find products online"
-        </div>
-        <div style={{ fontSize: '12px' }}>
-          <strong>• Any site:</strong> "Help me navigate this page"
-        </div>
-      </div> */}
-      {/* <p style={{ 
-        fontSize: '13px', 
+      <h3 style={{ 
         color: '#FFDCDCFF', 
-        marginTop: '15px',
-        fontStyle: 'italic', 
-        fontWeight: '600'
+        marginBottom: '6px', 
+        fontSize: '16px', 
+        fontWeight: '600' 
       }}>
-        Configure your API keys in Settings ⚙️ to get started..
-      </p> */}
+        🤖 Welcome to Social Shopping Agent!
+      </h3>
+      <p style={{ 
+        marginBottom: '16px', 
+        fontSize: '12px', 
+        color: '#ABDFFFEA', 
+        fontWeight: '400',
+        lineHeight: '1.4'
+      }}>
+        Your intelligent companion for web automation, shopping, and social media tasks.
+      </p>
+      
+      {/* How to Use Button */}
+      <button
+        onClick={() => window.location.hash = '/how-to-use'}
+        style={{
+          background: 'rgba(78, 205, 196, 0.1)',
+          border: '1px solid rgba(78, 205, 196, 0.3)',
+          borderRadius: '8px',
+          padding: '8px 16px',
+          cursor: 'pointer',
+          color: '#4ECDC4',
+          fontSize: '12px',
+          fontWeight: '500',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          margin: '0 auto',
+          transition: 'all 0.3s ease',
+          backdropFilter: 'blur(10px)'
+        }}
+      >
+        📖 How to Use
+      </button>
     </div>
   );
 
@@ -624,6 +719,17 @@ const MessageList = ({ messages, onTemplateClick, isTyping }) => {
             }
           }
           
+          @keyframes fadeInScale {
+            0% {
+              opacity: 0;
+              transform: scale(0.8);
+            }
+            100% {
+              opacity: 1;
+              transform: scale(1);
+            }
+          }
+          
           .message-item {
             animation-fill-mode: both;
           }
@@ -695,28 +801,202 @@ const MessageList = ({ messages, onTemplateClick, isTyping }) => {
 
         return (
           <div key={message.id || `msg-${index}`} className={`message-item message-${message.type}`} style={style}>
-            {/* Render content with proper markdown support */}
-            <div style={{ textAlign: 'left', width: '100%' }}>
-              {message.isMarkdown ? (
-                <ReactMarkdown 
-                  components={markdownComponents}
-                  remarkPlugins={[remarkGfm]}
-                  style={{ textAlign: 'left' }}
-                >
-                  {message.content}
-                </ReactMarkdown>
-              ) : message.type === 'error' ? (
-                <ReactMarkdown 
-                  components={markdownComponents}
-                  remarkPlugins={[remarkGfm]}
-                  style={{ textAlign: 'left' }}
-                >
-                  {message.content}
-                </ReactMarkdown>
-              ) : (
-                message.content
-              )}
-            </div>
+            {/* Special rendering for pause and approval messages */}
+            {message.type === 'pause' || message.type === 'approval' ? (
+              <div style={{ textAlign: 'center', width: '100%' }}>
+                <div style={{ marginBottom: '12px' }}>
+                  {message.pauseReason === 'signin' ? '🔐' : message.pauseReason === 'approval' ? '⏳' : '❓'} {message.content}
+                </div>
+                {message.pauseDescription && (
+                  <div style={{ 
+                    marginBottom: '12px', 
+                    fontSize: '11px', 
+                    color: message.type === 'approval' ? '#1565c0' : '#856404',
+                    fontStyle: 'italic'
+                  }}>
+                    {message.pauseDescription}
+                  </div>
+                )}
+                
+                {message.type === 'approval' ? (
+                  // Approval message rendering
+                  (() => {
+                    const messageId = message.id || `msg-${index}`;
+                    
+                    if (message.approved) {
+                      return (
+                        <div style={{
+                          backgroundColor: '#4CAF50',
+                          color: 'white',
+                          border: 'none',
+                          padding: '8px 16px',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          margin: '0 auto',
+                          animation: 'fadeInScale 0.3s ease-out'
+                        }}>
+                          ✅ Approved
+                        </div>
+                      );
+                    } else if (message.declined) {
+                      return (
+                        <div style={{
+                          backgroundColor: '#f44336',
+                          color: 'white',
+                          border: 'none',
+                          padding: '8px 16px',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          margin: '0 auto',
+                          animation: 'fadeInScale 0.3s ease-out'
+                        }}>
+                          ❌ Declined
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                          <button
+                            onClick={() => handleDecline(messageId)}
+                            style={{
+                              backgroundColor: '#f44336',
+                              color: 'white',
+                              border: 'none',
+                              padding: '8px 12px',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              transition: 'all 0.3s ease',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.backgroundColor = '#da190b';
+                              e.target.style.transform = 'scale(1.05)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.backgroundColor = '#f44336';
+                              e.target.style.transform = 'scale(1)';
+                            }}
+                          >
+                            ✗ Decline
+                          </button>
+                          <button
+                            onClick={() => handleApprove(messageId)}
+                            style={{
+                              backgroundColor: '#4CAF50',
+                              color: 'white',
+                              border: 'none',
+                              padding: '8px 12px',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              transition: 'all 0.3s ease',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.backgroundColor = '#45a049';
+                              e.target.style.transform = 'scale(1.05)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.backgroundColor = '#4CAF50';
+                              e.target.style.transform = 'scale(1)';
+                            }}
+                          >
+                            ✓ Approve
+                          </button>
+                        </div>
+                      );
+                    }
+                  })()
+                ) : (
+                  // Pause message rendering (existing logic)
+                  !message.resumed ? (
+                    <button
+                      onClick={() => handleResume(message.id || `msg-${index}`)}
+                      style={{
+                        backgroundColor: '#4ecdc4',
+                        color: 'white',
+                        border: 'none',
+                        padding: '8px 16px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        margin: '0 auto'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.backgroundColor = '#45b7d1';
+                        e.target.style.transform = 'scale(1.05)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.backgroundColor = '#4ecdc4';
+                        e.target.style.transform = 'scale(1)';
+                      }}
+                    >
+                      ✓ Resume
+                    </button>
+                  ) : (
+                    <div style={{
+                      backgroundColor: '#4CAF50',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      margin: '0 auto',
+                      animation: 'fadeInScale 0.3s ease-out'
+                    }}>
+                      ✅ Resumed
+                    </div>
+                  )
+                )}
+              </div>
+            ) : (
+              /* Render content with proper markdown support */
+              <div style={{ textAlign: 'left', width: '100%' }}>
+                {message.isMarkdown ? (
+                  <ReactMarkdown 
+                    components={markdownComponents}
+                    remarkPlugins={[remarkGfm]}
+                    style={{ textAlign: 'left' }}
+                  >
+                    {message.content}
+                  </ReactMarkdown>
+                ) : message.type === 'error' ? (
+                  <ReactMarkdown 
+                    components={markdownComponents}
+                    remarkPlugins={[remarkGfm]}
+                    style={{ textAlign: 'left' }}
+                  >
+                    {message.content}
+                  </ReactMarkdown>
+                ) : (
+                  message.content
+                )}
+              </div>
+            )}
             {message.actions && message.actions.length > 0 && (
               <div style={{ 
                 marginTop: '6px', 

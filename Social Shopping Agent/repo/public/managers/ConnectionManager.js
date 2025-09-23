@@ -62,13 +62,36 @@ export class ConnectionManager {
         await chrome.storage.local.set({ currentSessionMessages: uniqueMessages });
         await chrome.storage.local.remove(['disconnectedMessages']);
 
-        // Send messages in order
-        uniqueMessages.forEach(message => {
-          this.safePortMessage(port, {
-            type: 'restore_message',
-            message
+        // Send messages in order (only if we have messages to restore)
+        if (uniqueMessages.length > 0) {
+          console.log(`📤 Sending ${uniqueMessages.length} messages via restore_message events`);
+          
+          // Debug: Check if approval message is in the restored messages
+          const approvalMessages = uniqueMessages.filter(msg => 
+            (msg.type === 'task_paused' && msg.pause_reason === 'approval') ||
+            msg.type === 'approval'
+          );
+          if (approvalMessages.length > 0) {
+            console.log('🔍 Found approval messages in restore:', approvalMessages.map(msg => ({
+              type: msg.type,
+              pause_reason: msg.pause_reason,
+              pause_description: msg.pause_description,
+              id: msg.id,
+              approved: msg.approved,
+              declined: msg.declined,
+              resumed: msg.resumed
+            })));
+          }
+          
+          uniqueMessages.forEach(message => {
+            this.safePortMessage(port, {
+              type: 'restore_message',
+              message
+            });
           });
-        });
+        } else {
+          console.log('📤 No messages to restore');
+        }
       }
 
       // Send current execution state if needed
@@ -138,6 +161,13 @@ export class ConnectionManager {
     message.sessionId = this.currentSessionId;
     message.timestamp = Date.now();
     
+    console.log('📤 ConnectionManager.broadcast called with:', {
+      type: message.type,
+      pause_reason: message.pause_reason,
+      pause_description: message.pause_description,
+      connections: this.connections.size
+    });
+    
     let messageSent = false;
     
     // Send to all connected ports
@@ -177,6 +207,18 @@ export class ConnectionManager {
         .filter((msg, index, self) => 
           index === self.findIndex((m) => m.id === msg.id))
         .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      
+      console.log(`📊 Stored ${currentMessages.length} unique messages after deduplication`);
+      
+      // Debug: Log the last few messages to see if approval message is there
+      if (message.type === 'task_paused') {
+        console.log('🔍 Approval message stored:', {
+          type: messageToStore.type,
+          pause_reason: messageToStore.pause_reason,
+          pause_description: messageToStore.pause_description,
+          id: messageToStore.id
+        });
+      }
       
       // Keep only last 100 messages to prevent memory issues
       if (currentMessages.length > 100) {
