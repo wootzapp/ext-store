@@ -16,7 +16,8 @@
         "Browse"
       ],
       "created_at": "2025-02-26T15:00:00Z",
-      "updated_at": "2025-05-31T15:00:00Z"
+      "updated_at": "2025-05-31T15:00:00Z",
+      "default_extension": false
     },
     {
       "id": "fdjkflhcgjnhmbfpbojnalpfmomjggkj",
@@ -34,7 +35,8 @@
         "Solana"
       ],
       "created_at": "2025-02-26T15:00:00Z",
-      "updated_at": "2025-02-26T15:00:00Z"
+      "updated_at": "2025-02-26T15:00:00Z",
+      "default_extension": true
     },
     {
       "id": "lldicgmlhdphidpnhgeiibfkifemhgal",
@@ -53,7 +55,8 @@
         "Scraping"
       ],
       "created_at": "2025-05-21T12:10:33Z",
-      "updated_at": "2025-05-21T12:10:33Z"
+      "updated_at": "2025-05-21T12:10:33Z",
+      "default_extension": false
     },
     {
       "id": "gpfellaldmjpgonllcjpjfpodfmgobnk",
@@ -71,7 +74,8 @@
         "Crypto"
       ],
       "created_at": "2025-02-26T15:00:00Z",
-      "updated_at": "2025-02-26T15:00:00Z"
+      "updated_at": "2025-02-26T15:00:00Z",
+      "default_extension": false
     },
     {
       "id": "kpobgdhknoakgagflffeigaojlglkbhn",
@@ -89,7 +93,8 @@
         "Scraping"
       ],
       "created_at": "2025-02-26T15:00:00Z",
-      "updated_at": "2025-02-26T15:00:00Z"
+      "updated_at": "2025-02-26T15:00:00Z",
+      "default_extension": false
     },
     {
       "id": "amjlbcejmaebkjfmeenkcijgpjpieepc",
@@ -107,7 +112,8 @@
         "Scraping"
       ],
       "created_at": "2025-02-26T15:00:00Z",
-      "updated_at": "2025-02-26T15:00:00Z"
+      "updated_at": "2025-02-26T15:00:00Z",
+      "default_extension": false
     },
     {
       "id": "doklnekkemmhclakfekoccilofpdcncb",
@@ -125,7 +131,8 @@
         "Instagram"
       ],
       "created_at": "2025-02-26T15:00:00Z",
-      "updated_at": "2025-02-26T15:00:00Z"
+      "updated_at": "2025-02-26T15:00:00Z",
+      "default_extension": false
     },
     {
       "id": "lhgoolpdddhhfahbnofaomjhfhfjfhop",
@@ -144,7 +151,8 @@
         "Page Summarization"
       ],
       "created_at": "2025-08-01T15:00:00Z",
-      "updated_at": "2025-08-01T15:00:00Z"
+      "updated_at": "2025-08-01T15:00:00Z",
+      "default_extension": true
     },
     {
       "id": "fkagldhhbbaillkjbjilcgflcihbkmoe",
@@ -163,7 +171,8 @@
         "Chatbot"
       ],
       "created_at": "2025-08-01T15:00:00Z",
-      "updated_at": "2025-08-01T15:00:00Z"
+      "updated_at": "2025-08-01T15:00:00Z",
+      "default_extension": true
     },
     {
       "id": "ficjckojhebnoogjmhacgodjcgddphac",
@@ -182,7 +191,8 @@
         "Automation"
       ],
       "created_at": "2025-07-02T15:00:00Z",
-      "updated_at": "2025-07-02T15:00:00Z"
+      "updated_at": "2025-07-02T15:00:00Z",
+      "default_extension": false
     },
     {
       "id": "mafnkcehjhddilcnhlnkbcbelilbifhm",
@@ -200,7 +210,8 @@
         "Starknet"
       ],
       "created_at": "2025-04-26T15:00:00Z",
-      "updated_at": "2025-04-26T15:00:00Z"
+      "updated_at": "2025-04-26T15:00:00Z",
+      "default_extension": false
     },
     {
       "id": "gfciojmkoheeffnkgpfdjdkfiffnohmb",
@@ -218,7 +229,8 @@
         "Data Mining"
       ],
       "created_at": "2025-02-26T15:00:00Z",
-      "updated_at": "2025-02-26T15:00:00Z"
+      "updated_at": "2025-02-26T15:00:00Z",
+      "default_extension": false
     },
     {
       "id": "gckloiljabipmjohgnklademghjaoboa",
@@ -236,7 +248,8 @@
         "Twitter"
       ],
       "created_at": "2025-07-12T15:00:02Z",
-      "updated_at": "2025-07-12T15:00:02Z"
+      "updated_at": "2025-07-12T15:00:02Z",
+      "default_extension": false
     },
     {
       "id": "nofldplihhlkcpbejlmccfafcpeejaef",
@@ -254,7 +267,8 @@
         "Games"
       ],
       "created_at": "2025-02-26T15:00:00Z",
-      "updated_at": "2025-02-26T15:00:00Z"
+      "updated_at": "2025-02-26T15:00:00Z",
+      "default_extension": false
     },
     {
       "id": "dplofonbfgpbejjdjnjdjgohcjkpaaja",
@@ -274,7 +288,8 @@
         "SSO"
       ],
       "created_at": "2025-07-16T15:00:00Z",
-      "updated_at": "2025-07-16T15:00:00Z"
+      "updated_at": "2025-07-16T15:00:00Z",
+      "default_extension": true
     },
     {
       "id": "cpanfhhncafgokableoilhanbkdpafpk",
@@ -291,7 +306,8 @@
         "Proofs"
       ],
       "created_at": "2025-07-31T15:00:00Z",
-      "updated_at": "2025-07-31T15:00:00Z"
+      "updated_at": "2025-07-31T15:00:00Z",
+      "default_extension": false
     }
   ]
 }
