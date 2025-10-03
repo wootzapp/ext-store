@@ -418,7 +418,7 @@ const MessageList = ({ messages, isTyping }) => {
   );
 };
 
-const SuggestionButtons = ({ onSuggestionClick, disabled, isNewTabPage }) => {
+const SuggestionButtons = ({ onSuggestionClick, disabled, isNewTabPage, isValidWebPage }) => {
   const allSuggestions = [
     {
       id: 'research',
@@ -446,10 +446,18 @@ const SuggestionButtons = ({ onSuggestionClick, disabled, isNewTabPage }) => {
     }
   ];
 
-  // Filter suggestions based on whether it's a new tab page
-  const suggestions = isNewTabPage 
-    ? allSuggestions.filter(s => s.id === 'research') // Only show research for new tab
-    : allSuggestions; // Show all suggestions for other pages
+  // Filter suggestions based on page validity
+  let suggestions;
+  if (isNewTabPage) {
+    // Only show research for new tab pages
+    suggestions = allSuggestions.filter(s => s.id === 'research');
+  } else if (!isValidWebPage) {
+    // Only show research for invalid web pages (chrome://, extensions, etc.)
+    suggestions = allSuggestions.filter(s => s.id === 'research');
+  } else {
+    // Show all suggestions for valid web pages
+    suggestions = allSuggestions;
+  }
 
   return (
     <div style={{
@@ -547,6 +555,7 @@ const ChatInterface = ({
   const [activeMode, setActiveMode] = useState(null);
   const [isNewTabPage, setIsNewTabPage] = useState(false); // 'research', 'analysis', 'factcheck', or null for normal chat
   const [conversationHistory, setConversationHistory] = useState([]); // Store conversation history separately
+  const [isValidWebPage, setIsValidWebPage] = useState(false); // Whether current page is valid for analysis
 
   // Function to get current page URL
   const getCurrentPageUrl = async () => {
@@ -556,6 +565,60 @@ const ChatInterface = ({
     } catch (error) {
       console.error('Error getting current page URL:', error);
       return '';
+    }
+  };
+
+  // Function to check if current page is valid for analysis
+  const checkIfValidWebPage = async () => {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const url = tab?.url || '';
+      
+      console.log('🔍 Checking page validity for URL:', url);
+      
+      // Check if URL is invalid for analysis
+      const invalidPatterns = [
+        'chrome://',           // Chrome internal pages
+        'wootzapp://',         // Internal Wootzapp URLs
+        'chrome-search://',    // Chrome search pages
+        'chrome-devtools://',  // DevTools
+        'chrome-extension://', // Extensions
+        'newtab',              // New tab pages
+        'new-tab-page',        // New tab pages
+      ];
+      
+      // Check if URL matches any invalid patterns
+      const isInvalid = invalidPatterns.some(pattern => 
+        url.toLowerCase().includes(pattern.toLowerCase())
+      );
+      
+      // Also check for empty or undefined URLs
+      const isEmpty = !url || url.trim() === '';
+      
+      // Check if it's a new tab page specifically
+      const isNewTab = url === 'chrome://newtab/' || 
+                      url.startsWith('chrome://newtab/') ||
+                      url === 'chrome-search://local-ntp/local-ntp.html' ||
+                      url.includes('newtab') ||
+                      url.includes('new-tab');
+      
+      const isValid = !isInvalid && !isEmpty && !isNewTab;
+      
+      console.log('🔍 Page validity check:', { 
+        url, 
+        isInvalid, 
+        isEmpty, 
+        isNewTab, 
+        isValid 
+      });
+      
+      setIsValidWebPage(isValid);
+      return isValid;
+      
+    } catch (error) {
+      console.error('Error checking page validity:', error);
+      setIsValidWebPage(false);
+      return false;
     }
   };
 
@@ -589,21 +652,49 @@ const ChatInterface = ({
     }));
   };
 
-  // Check if current page is new tab page
+  // Check if current page is new tab page and valid for analysis
   useEffect(() => {
-    const checkNewTabPage = async () => {
+    const checkPageStatus = async () => {
       try {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tab && tab.url) {
           const isNewTab = tab.url === 'chrome://newtab/' || tab.url.startsWith('chrome://newtab/');
           setIsNewTabPage(isNewTab);
+          
+          // Check if page is valid for analysis
+          await checkIfValidWebPage();
         }
       } catch (error) {
-        console.error('Error checking new tab page:', error);
+        console.error('Error checking page status:', error);
         setIsNewTabPage(false);
+        setIsValidWebPage(false);
       }
     };
-    checkNewTabPage();
+    checkPageStatus();
+
+    // Listen for tab updates to recheck page validity
+    const handleTabUpdate = (tabId, changeInfo, tab) => {
+      if (changeInfo.status === 'complete' && tab.active) {
+        console.log('🔄 Tab updated, rechecking page validity');
+        checkPageStatus();
+      }
+    };
+
+    // Listen for tab activation to recheck page validity
+    const handleTabActivated = (activeInfo) => {
+      console.log('🔄 Tab activated, rechecking page validity');
+      checkPageStatus();
+    };
+
+    // Add listeners
+    chrome.tabs.onUpdated.addListener(handleTabUpdate);
+    chrome.tabs.onActivated.addListener(handleTabActivated);
+
+    // Cleanup listeners
+    return () => {
+      chrome.tabs.onUpdated.removeListener(handleTabUpdate);
+      chrome.tabs.onActivated.removeListener(handleTabActivated);
+    };
   }, []);
 
   // New chat functionality
@@ -962,57 +1053,9 @@ const ChatInterface = ({
           onSuggestionClick={handleSuggestionClick} 
           disabled={isExecuting}
           isNewTabPage={isNewTabPage}
+          isValidWebPage={isValidWebPage}
         />
       )}
-
-      {/* Scroll to Bottom Button */}
-      {/* {messages.length > 0 && (
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          padding: '8px 16px',
-          backgroundColor: '#ffffff',
-          borderTop: '1px solid #e5e7eb'
-        }}>
-          <button
-            onClick={() => {
-              const messagesContainer = document.querySelector('.messages-container');
-              if (messagesContainer) {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-              }
-            }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 16px',
-              backgroundColor: '#f3f4f6',
-              border: '1px solid #d1d5db',
-              borderRadius: '20px',
-              color: '#6b7280',
-              fontSize: '12px',
-              fontWeight: '500',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              outline: 'none'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.backgroundColor = '#e5e7eb';
-              e.target.style.color = '#374151';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.backgroundColor = '#f3f4f6';
-              e.target.style.color = '#6b7280';
-            }}
-            title="Scroll to bottom"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 5v14M5 12l7 7 7-7"/>
-            </svg>
-            Scroll to bottom
-          </button>
-        </div>
-      )} */}
 
       {/* Input */}
       <ChatInput
