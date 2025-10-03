@@ -127,9 +127,10 @@ const sharedDirectives = (opts = {}) => {
 
 // -------------------------- templates --------------------------
 
-function chatTemplate({ message }, opts = {}, conversationHistory = []) {
+function chatTemplate({ message }, opts = {}, conversationHistory = [], currentUrl) {
   console.log('📝 Prompt Builder - Conversation History:', conversationHistory);
   console.log('📝 Prompt Builder - History Length:', conversationHistory?.length || 0);
+  console.log('📝 Prompt Builder - Current URL:', currentUrl);
   
   // Build conversation context
   let conversationContext = '';
@@ -147,6 +148,10 @@ function chatTemplate({ message }, opts = {}, conversationHistory = []) {
 
   return [
     'You are Wootz AI, an intelligent AI assistant specialized in web content analysis, research, and fact-checking. You have access to real-time web data and can analyze current pages.',
+    '',
+    `**CURRENT PAGE CONTEXT:**`,
+    `- Current URL: ${currentUrl || 'Not available'}`,
+    `- You can reference this page in your responses when relevant`,
     '',
     '**KNOWLEDGE & CAPABILITIES:**',
     '- **Real-time Data Access**: You have access to current web information and can analyze live web pages',
@@ -355,9 +360,9 @@ function faqOnlyTemplate({ content, url, title }, opts = {}) {
  * buildPrompt(kind, payload, options?, conversationHistory?)
  * kind: 'chat' | 'pageAnalysis' | 'research' | 'factCheck' | 'faq'
  */
-export function buildPrompt(kind, payload = {}, options = {}, conversationHistory = []) {
+export function buildPrompt(kind, payload = {}, options = {}, conversationHistory = [], currentUrl) {
   switch (kind) {
-    case 'chat':         return chatTemplate(payload, options, conversationHistory);
+    case 'chat':         return chatTemplate(payload, options, conversationHistory, currentUrl);
     case 'pageAnalysis': return pageAnalysisTemplate(payload, options);
     case 'research':     return researchTemplate(payload, options);
     case 'factCheck':    return factCheckTemplate(payload, options);

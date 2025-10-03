@@ -568,6 +568,29 @@ const ChatInterface = ({
     }
   };
 
+  // Function to get current page state using chrome.wootz API
+  const getCurrentPageState = async () => {
+    try {
+      return new Promise((resolve) => {
+        chrome.wootz.getPageState({
+          debugMode: false,
+          includeHidden: true
+        }, (result) => {
+          if (result.success) {
+            console.log('📄 Page State Retrieved:', result.pageState);
+            resolve(result.pageState);
+          } else {
+            console.error('Failed to get page state:', result.error);
+            resolve(null);
+          }
+        });
+      });
+    } catch (error) {
+      console.error('Error getting page state:', error);
+      return null;
+    }
+  };
+
   // Function to check if current page is valid for analysis
   const checkIfValidWebPage = async () => {
     try {
@@ -724,11 +747,11 @@ const ChatInterface = ({
       timestamp: new Date()
     };
     
-    // Add user message to conversation history
-    addToConversationHistory(userMessage, 'user');
-    
-    // Update messages state
+    // Update messages state FIRST
     setMessages(prev => [...prev, userMessage]);
+    
+    // Add user message to conversation history AFTER adding to messages
+    addToConversationHistory(userMessage, 'user');
     setMessageInput('');
     setIsExecuting(true);
     setIsTyping(true);
@@ -785,14 +808,19 @@ const ChatInterface = ({
       // Get conversation history for AI service
       const historyForAI = getConversationHistoryForAI();
       
+      // Get current page URL for context
+      const currentPageUrl = await getCurrentPageUrl();
+      
       console.log('📚 Conversation History:', historyForAI);
       console.log('📚 History Length:', historyForAI.length);
+      console.log('🌐 Current Page URL:', currentPageUrl);
       
       await aiService.stream({
         kind: requestType,
         payload,
         signal: controller.signal,
         conversationHistory: historyForAI,
+        currentUrl: currentPageUrl,
         onDelta: (delta) => {
           console.log('📝 Received delta:', delta);
           setMessages(prev => {

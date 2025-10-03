@@ -8,9 +8,9 @@ import { ensureMarkdown } from './markdown';
 import StorageUtils, { SUPPORTED_MODELS } from '@/storage';
 export { buildPrompt } from '@/services/ai/promptBuilder';
 
-function buildRequest(kind, payload, conversationHistory = []) {
+function buildRequest(kind, payload, conversationHistory = [], currentUrl) {
   try {
-    const prompt = (typeof window !== 'undefined' ? require('@/services/ai/promptBuilder') : null)?.buildPrompt?.(kind, payload, conversationHistory);
+    const prompt = (typeof window !== 'undefined' ? require('@/services/ai/promptBuilder') : null)?.buildPrompt?.(kind, payload, conversationHistory, currentUrl);
     if (prompt) return { kind, prompt, payload, conversationHistory };
   } catch {}
   
@@ -36,6 +36,10 @@ function buildRequest(kind, payload, conversationHistory = []) {
       }
       
       prompt = `You are Wootz AI, an intelligent AI assistant specialized in web content analysis, research, and fact-checking. You have access to real-time web data and can analyze current pages.
+
+**CURRENT PAGE CONTEXT:**
+- Current URL: ${currentUrl || 'Not available'}
+- You can reference this page in your responses when relevant
 
 **KNOWLEDGE & CAPABILITIES:**
 - **Real-time Data Access**: You have access to current web information and can analyze live web pages
@@ -103,7 +107,7 @@ function pickProvider({ useOwnKey, selectedModel }) {
  * route: { useOwnKey: boolean, selectedModel?: string, apiKey?: string }
  * conversationHistory: Array of { role: 'user'|'assistant', content: string }
  */
-export async function stream({ kind, payload, signal, onDelta, route, onProvider, conversationHistory = [] }) {
+export async function stream({ kind, payload, signal, onDelta, route, onProvider, conversationHistory = [], currentUrl }) {
   // Prefer explicit route from caller (the hook). If absent, make a minimal read from *local*.
   let useOwnKey = route?.useOwnKey;
   let selectedModel = route?.selectedModel;
@@ -121,9 +125,10 @@ export async function stream({ kind, payload, signal, onDelta, route, onProvider
 
   console.log('🔧 AI Service - Conversation History:', conversationHistory);
   console.log('🔧 AI Service - History Length:', conversationHistory?.length || 0);
+  console.log('🔧 AI Service - Current URL:', currentUrl);
   
-  const req = buildRequest(kind, payload, conversationHistory);
-  console.log('🔧 AI Service - Built Request:', { kind, payload: req.payload, hasHistory: !!req.conversationHistory });
+  const req = buildRequest(kind, payload, conversationHistory, currentUrl);
+  console.log('🔧 AI Service - Built Request:', { kind, payload: req.payload, hasHistory: !!req.conversationHistory, currentUrl });
   
   const ctx = {
     apiKey,
