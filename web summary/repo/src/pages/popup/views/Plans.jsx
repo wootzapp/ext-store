@@ -1,6 +1,7 @@
 // src/pages/popup/views/Plans.jsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { FaArrowLeft } from 'react-icons/fa';
 import { createPortal } from 'react-dom';
 import useUserOrgs from '@/hooks/useUserOrgs';
 
@@ -187,7 +188,8 @@ export default function Plans({
             onClick={() => onBack?.()}
             className="text-gray-600 hover:text-red-500 text-sm font-medium transition-colors"
           >
-            Back
+            <FaArrowLeft size={16} />
+            <span className="font-medium">Back</span>
           </button>
 
           <div className="flex items-center gap-2">

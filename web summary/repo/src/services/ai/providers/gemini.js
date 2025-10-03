@@ -53,7 +53,7 @@ Please format your answer as GitHub-flavored **Markdown** with clear headings, b
     '';
 
   const md = ensureMarkdown(text || '_(no content)_');
-  for (const piece of chunkMarkdown(md, 1200)) {
+  for (const piece of chunkMarkdown(md, 2000)) {
     yield piece;
   }
 }

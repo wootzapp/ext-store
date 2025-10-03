@@ -1,609 +1,417 @@
-// pages/popup/views/Settings/Settings.jsx
-import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  FaCog, FaArrowLeft, FaSave, FaRobot, FaBrain, FaCompass, 
+  FaClipboardList, FaCheckCircle, FaTimes, FaKey, FaShieldAlt,
+  FaToggleOn, FaToggleOff, FaChevronDown, FaChevronUp,
+  FaExclamationTriangle, FaInfoCircle, FaSpinner
+} from 'react-icons/fa';
 
 import useAuthAndPrefs from '@/hooks/useAuthAndPrefs';
 import useUserOrgs from '@/hooks/useUserOrgs';
+import StorageUtils, { SUPPORTED_MODELS } from '@/storage';
 
-import ProfileSection from '@/components/settings/ProfileSection';
-import DefaultSearchEngineSection from '@/components/settings/DefaultSearchEngineSection';
-import UseOwnKeySection from '@/components/settings/UseOwnKeySection';
-import OrganizationsSection from '@/components/settings/OrganizationsSection';
-
-import StorageUtils, { SUPPORTED_MODELS, SEARCH_ENGINES } from '@/storage';
-import auth from '@/services/auth';
-
-const PRICING_URL = 'https://nextjs-app-410940835135.us-central1.run.app/dashboard';
-
-// Helper: derive current org + validity
-function useSubscriptionInfo(userFromApi, organizations) {
-  return React.useMemo(() => {
-    const currentOrg =
-      (userFromApi?.selectedOrganizationId &&
-        organizations?.find(o => Number(o.id) === Number(userFromApi.selectedOrganizationId))) ||
-      (organizations?.[0] ?? null);
-
-    if (!currentOrg) return { invalid: true, reason: 'No subscription found', org: null };
-
-    const status = String(currentOrg.subscriptionStatus || '').toLowerCase();
-    const type = String(currentOrg.subscriptionType || 'free').toLowerCase();
-    const expiryTs = Number.isFinite(Date.parse(currentOrg.subExpiry))
-      ? new Date(currentOrg.subExpiry).getTime()
-      : null;
-
-    const now = Date.now();
-    const isExpired = expiryTs ? expiryTs <= now : false;
-    const isBadStatus = ['canceled', 'past_due', 'unpaid', 'inactive'].includes(status);
-    const isInactive = currentOrg.isActive === false;
-    const isNotPaid = type !== 'paid';
-
-    const invalid = isInactive || isBadStatus || isExpired || isNotPaid;
-
-    let reason = '';
-    if (isInactive) reason = 'Your subscription is inactive.';
-    else if (isBadStatus) reason = `Your subscription is ${status.replace('_', ' ')}.`;
-    else if (isExpired) reason = 'Your subscription has expired.';
-    else if (isNotPaid) reason = 'You are on the Free plan.';
-
-    return { invalid, reason, org: currentOrg };
-  }, [userFromApi, organizations]);
-}
-
-// Snapshot helpers (compare local draft vs last saved)
-function makeSnapshot(draft, draftSearchEngine) {
-  return {
-    useOwnKey: !!draft.useOwnKey,
-    selectedModel: draft.selectedModel || '',
-    apiKey: draft.apiKey || '',
-    selectedSearchEngine: draftSearchEngine || '',
-  };
-}
-function snapshotsEqual(a, b) {
-  return (
-    a.useOwnKey === b.useOwnKey &&
-    a.selectedModel === b.selectedModel &&
-    a.apiKey === b.apiKey &&
-    a.selectedSearchEngine === b.selectedSearchEngine
-  );
-}
-
-export default function Settings({ onBack, onOpenPlans }) {
+const Settings = ({ onBack, onOpenPlans }) => {
   const {
-    authUser, isAuthed, authLoading, authError, setAuthError,
-    prefs, setPrefs, selectedSearchEngine, setSelectedSearchEngine,
-    loadPrefs, savePrefs,
+    authUser, isAuthed, authLoading, authError,
+    prefs, setPrefs, loadPrefs, savePrefs,
   } = useAuthAndPrefs();
 
-  const contentRef = useRef(null);
-  const ownKeyRef = useRef(null);
+  const { loading: orgsLoading, error: orgsError, user: userFromApi, organizations } = useUserOrgs();
 
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  // Local state
+  const [localConfig, setLocalConfig] = useState({
+    useOwnKey: false,
+    selectedModel: 'gemini',
+    apiKey: '',
+    anthropicApiKey: '',
+    openaiApiKey: '',
+    geminiApiKey: ''
+  });
+  
   const [isLoading, setIsLoading] = useState(true);
-
+  const [isSaving, setIsSaving] = useState(false);
   const [validationError, setValidationError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [isValidating, setIsValidating] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
 
-  const { loading: orgsLoading, error: orgsError, user: userFromApi, organizations } = useUserOrgs();
-  const subInfo = useSubscriptionInfo(userFromApi, organizations);
-
-  // ---------- LOCAL DRAFT ----------
-  const [draft, setDraft] = useState({ useOwnKey: false, selectedModel: '', apiKey: '' });
-  const [draftSearchEngine, setDraftSearchEngine] = useState('');
-  const [savedSnapshot, setSavedSnapshot] = useState(makeSnapshot(draft, draftSearchEngine));
-  const [snapshotInitialized, setSnapshotInitialized] = useState(false);
-  const [confirmLeaveOpen, setConfirmLeaveOpen] = useState(false);
-
-  const currentSnapshot = useMemo(
-    () => makeSnapshot(draft, draftSearchEngine),
-    [draft, draftSearchEngine]
-  );
-  const hasUnsaved = useMemo(
-    () => snapshotInitialized && !snapshotsEqual(savedSnapshot, currentSnapshot),
-    [snapshotInitialized, savedSnapshot, currentSnapshot]
-  );
-
-  // Smooth scroll
-  const scrollToOwnKey = useCallback(() => {
-    const container = contentRef.current;
-    const anchor = ownKeyRef.current;
-    if (!container || !anchor) return;
-    const containerRect = container.getBoundingClientRect();
-    const anchorRect = anchor.getBoundingClientRect();
-    const delta = anchorRect.top - containerRect.top + container.scrollTop - 12;
-    container.scrollTo({ top: delta, behavior: 'smooth' });
-  }, []);
-
-  // ---- HYDRATION FIX ----
-  // 1) Start loading persisted prefs on mount.
+  // Load configuration on mount
   useEffect(() => {
-    if (!isAuthed) return;
-    (async () => { await loadPrefs(); })();
-  }, [isAuthed, loadPrefs]);
-
-  // 2) When persisted prefs actually hydrate, mirror them into the draft
-  //    (unless the user has local edits). Only then mark screen as loaded.
-  useEffect(() => {
-    if (!isAuthed) return;
-    if (!hasUnsaved) {
-      const nextDraft = {
-        useOwnKey: !!(prefs?.useOwnKey),
-        selectedModel: prefs?.selectedModel || '',
-        apiKey: prefs?.apiKey || '',
-      };
-      const nextEngine = selectedSearchEngine || '';
-      setDraft(nextDraft);
-      setDraftSearchEngine(nextEngine);
-      setSavedSnapshot(makeSnapshot(nextDraft, nextEngine));
-      setSnapshotInitialized(true);
+    const loadConfig = async () => {
+      try {
+        setIsLoading(true);
+        await loadPrefs();
+        
+        // Load API keys
+        const anthropicKey = await StorageUtils.getApiKey('anthropic');
+        const openaiKey = await StorageUtils.getApiKey('openai');
+        const geminiKey = await StorageUtils.getApiKey('gemini');
+        const selectedModel = await StorageUtils.getSelectedModel();
+        const useOwnKey = await StorageUtils.getUseOwnKey();
+        
+        setLocalConfig({
+          useOwnKey: useOwnKey || false,
+          selectedModel: selectedModel || 'gemini',
+          apiKey: '',
+          anthropicApiKey: anthropicKey || '',
+          openaiApiKey: openaiKey || '',
+          geminiApiKey: geminiKey || ''
+        });
+      } catch (error) {
+        console.error('Error loading config:', error);
+        setValidationError('Failed to load configuration');
+      } finally {
       setIsLoading(false);
-    }
-  }, [
-    isAuthed,
-    prefs?.useOwnKey,
-    prefs?.selectedModel,
-    prefs?.apiKey,
-    selectedSearchEngine,
-    hasUnsaved,
-  ]);
-  // ---- /HYDRATION FIX ----
-
-  // Success toast timeout
-  useEffect(() => {
-    if (!successMessage) return;
-    const t = setTimeout(() => setSuccessMessage(''), 3000);
-    return () => clearTimeout(t);
-  }, [successMessage]);
-
-  // beforeunload guard
-  useEffect(() => {
-    const handler = (e) => {
-      if (hasUnsaved) {
-        e.preventDefault();
-        e.returnValue = '';
       }
     };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [hasUnsaved]);
 
-  // Settings.jsx (add this near other effects)
-  useEffect(() => {
+    loadConfig();
+  }, [loadPrefs]);
+
+  const handleSave = async () => {
     try {
-      const k = localStorage.getItem('intent.scrollToOwnKeyOnce');
-      if (k === '1') {
-        localStorage.removeItem('intent.scrollToOwnKeyOnce');
-      // ensure the toggle is on so the section is relevant
-      setDraft(d => ({ ...d, useOwnKey: true }));
-      // wait a tick for layout, then scroll and focus input
-      setTimeout(() => {
-        scrollToOwnKey();
-        const input = ownKeyRef.current?.querySelector('input[type="password"], input');
-        input?.focus();
-      }, 150);
-      }
-    } catch {}
-  }, []);
-
-  const openManageSubscription = () => {
-    try {
-      if (chrome?.tabs?.open) chrome.tabs.open(PRICING_URL);
-      else if (chrome?.tabs?.create) chrome.tabs.create({ url: PRICING_URL });
-      else window.open(PRICING_URL, '_blank', 'noopener,noreferrer');
-    } catch {
-      window.open(PRICING_URL, '_blank', 'noopener,noreferrer');
-    }
-  };
-
-  // near the other callbacks in Settings.jsx
-  const openPlansHere = useCallback(() => {
-    const orgId =
-      subInfo?.org?.id ??
-      subInfo?.org?.organizationId ??
-      null;
-
-    if (onOpenPlans) onOpenPlans(orgId);
-    else {
-      // fallback: external URL
-      try {
-        if (chrome?.tabs?.open) chrome.tabs.open(PRICING_URL);
-        else if (chrome?.tabs?.create) chrome.tabs.create({ url: PRICING_URL });
-        else window.open(PRICING_URL, '_blank', 'noopener,noreferrer');
-      } catch {
-        window.open(PRICING_URL, '_blank', 'noopener,noreferrer');
-      }
-    }
-  }, [onOpenPlans, subInfo]);
-
-
-  // SAVE uses local draft exclusively
-  const handleSave = useCallback(async () => {
+      setIsSaving(true);
     setValidationError('');
     setSuccessMessage('');
 
-    const { selectedModel, apiKey, useOwnKey } = draft;
+      // Validate API key if using own key
+      if (localConfig.useOwnKey) {
+        const currentApiKey = localConfig[`${localConfig.selectedModel}ApiKey`];
+        if (!currentApiKey) {
+          setValidationError('Please enter an API key for the selected model');
+          return;
+        }
 
-    // Only enforce validation when user intends to use their own key
-    if (useOwnKey) {
-      if (!selectedModel) {
-        setValidationError('Please select a model');
-        return false;
-      }
-      if (!apiKey?.trim()) {
-        setValidationError('Please enter your API key');
-        return false;
-      }
-    }
-
+        // Test API key
     setIsValidating(true);
-    try {
-      if (useOwnKey && selectedModel && apiKey?.trim()) {
-        const formatValidation = StorageUtils.validateApiKey(selectedModel, apiKey);
-        if (!formatValidation.valid) {
-          setValidationError(`Invalid API key format: ${formatValidation.error}`);
+        const validation = await StorageUtils.testApiKey(localConfig.selectedModel, currentApiKey);
+        if (!validation.valid) {
+          setValidationError(validation.error);
           setIsValidating(false);
-          return false;
+          return;
         }
-        const testResult = await StorageUtils.testApiKey(selectedModel, apiKey.trim());
-        if (!testResult.valid) {
-          const baseError = testResult.error || 'The API key you entered is not valid or has expired.';
-          let msg = baseError;
-          if (baseError.includes('Unauthorized') || baseError.includes('401')) {
-            msg = `❌ Invalid API Key: ${baseError}\n\nPlease verify that you copied the correct key and it hasn't been revoked.`;
-          } else if (baseError.includes('Forbidden') || baseError.includes('403')) {
-            msg = `🚫 Access Denied: ${baseError}\n\nYour API key may lack required permissions.`;
-          } else if (baseError.includes('Rate limit') || baseError.includes('429')) {
-            msg = `⏰ Rate Limited: ${baseError}\n\nPlease wait a few minutes and try again.`;
-          } else if (baseError.includes('Network error')) {
-            msg = `🌐 Connection Issue: ${baseError}\n\nCheck your internet and retry.`;
-          } else if (baseError.includes('server') || baseError.includes('500')) {
-            msg = `🔧 Server Issue: ${baseError}\n\nService is temporarily unavailable.`;
-          } else {
-            msg = `❌ Validation Failed: ${baseError}\n\nPlease check your API key and try again.`;
-          }
-          setValidationError(msg);
           setIsValidating(false);
-          return false;
+      }
+
+      // Save configuration
+      await StorageUtils.setUseOwnKey(localConfig.useOwnKey);
+      await StorageUtils.saveSelectedModel(localConfig.selectedModel);
+      
+      if (localConfig.useOwnKey) {
+        const currentApiKey = localConfig[`${localConfig.selectedModel}ApiKey`];
+        if (currentApiKey) {
+          await StorageUtils.saveApiKey(localConfig.selectedModel, currentApiKey);
         }
       }
 
-      // Persist draft (always store model/key; toggle decides whether extension uses it)
-      const toSave = {
-        selectedModel: draft.selectedModel,
-        apiKey: draft.apiKey.trim(),
-        useOwnKey: !!useOwnKey,
-        setupDate: new Date().toISOString(),
-      };
-      await savePrefs(toSave, draftSearchEngine);
-      await StorageUtils.setUseOwnKey(!!useOwnKey);
+      setSuccessMessage('Settings saved successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
 
-      if (draft.selectedModel) await StorageUtils.saveSelectedModel(draft.selectedModel);
-      if (draft.apiKey?.trim()) await StorageUtils.saveApiKey(draft.selectedModel, draft.apiKey.trim());
-
-      // Update Wootz browser config if we have a model + key
-      const selectedEngineData = SEARCH_ENGINES.find(e => e.id === draftSearchEngine);
-      const selectedModelData = SUPPORTED_MODELS[draft.selectedModel];
-      if (
-        chrome?.wootz?.changeWootzAppSearchConfiguration &&
-        selectedModelData &&
-        draft.apiKey?.trim()
-      ) {
-        chrome.wootz.changeWootzAppSearchConfiguration(
-          selectedEngineData?.keyword,
-          selectedModelData?.baseUrlToSearch,
-          draft.apiKey.trim(),
-          (result) => {
-            if (!result.success) console.error('❌ Error saving Wootz configuration:', result.error);
-          }
-        );
-      }
-
-      // Sync hook state (for other screens)
-      setSelectedSearchEngine(draftSearchEngine);
-      setPrefs(toSave);
-
-      // Update baseline snapshot
-      const newSnap = makeSnapshot(draft, draftSearchEngine);
-      setSavedSnapshot(newSnap);
-      if (!snapshotInitialized) setSnapshotInitialized(true);
-
-      setSuccessMessage('Settings updated!');
-      return true;
-    } catch (err) {
-      console.error('❌ Settings update error:', err);
-      setValidationError('Failed to save settings. Please check your connection and try again.');
-      return false;
+    } catch (error) {
+      console.error('Error saving config:', error);
+      setValidationError('Failed to save configuration');
     } finally {
-      setIsValidating(false);
+      setIsSaving(false);
     }
-  }, [draft, draftSearchEngine, savePrefs, setPrefs, setSelectedSearchEngine, snapshotInitialized]);
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !isValidating && hasUnsaved) handleSave();
   };
 
-  // ---------- AUTH GATE ----------
-  if (authLoading) {
-    return (
-      <motion.div className="w-full h-full flex items-center justify-center bg-white" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
-      </motion.div>
-    );
-  }
+  const getAvailableModels = (provider) => {
+    switch (provider) {
+      case 'anthropic':
+        return [
+          { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (Latest)', recommended: true },
+          { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku (Fast)' },
+          { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
+          { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' },
+          { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus (Most Capable)' }
+        ];
+      case 'openai':
+        return [
+          { value: 'gpt-4o', label: 'GPT-4o (Latest)', recommended: true },
+          { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Fast & Cheap)' },
+          { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+          { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
+        ];
+      case 'gemini':
+        return [
+          { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Latest)', recommended: true },
+          { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+          { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' }
+        ];
+      default:
+        return [];
+    }
+  };
 
-  if (!isAuthed) {
-    return (
-      <motion.div
-        className="w-full h-full bg-white flex flex-col relative overflow-hidden"
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -20 }}
-        transition={{ duration: 0.3 }}
-      >
-        {/* Header */}
-        <div className="bg-white/90 backdrop-blur-sm text-gray-800 p-4 shadow-sm relative z-10 border-b border-gray-200">
-          <div className="flex items-center justify-between gap-3">
-            <button onClick={onBack} className="text-sm font-medium text-gray-600 hover:text-red-500 transition-colors">Back</button>
-            <h1 className="text-lg font-bold text-gray-800 whitespace-nowrap">Settings</h1>
-            <div className="w-16" />
-          </div>
-        </div>
+  const getCurrentApiKey = () => {
+    return localConfig[`${localConfig.selectedModel}ApiKey`] || '';
+  };
 
-        {/* Auth Content */}
-        <div className="flex-1 p-6 flex flex-col items-center justify-center text-center">
-          <div className="max-w-sm w-full">
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Please Authenticate</h2>
-            <p className="text-gray-600 mb-6">You need to sign in to manage your settings and API configuration.</p>
-            {authError && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{authError}</div>
-            )}
-            <motion.button
-              onClick={async () => {
-                try {
-                  setAuthError('');
-                  setIsAuthenticating(true);
-                  await auth.startGitHubLogin();
-                } catch (e) {
-                  setAuthError(e?.message || 'Authentication failed. Please try again.');
-                } finally {
-                  setIsAuthenticating(false);
-                }
-              }}
-              disabled={isAuthenticating}
-              className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
-                isAuthenticating
-                  ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-red-500 to-orange-500 text-white hover:from-red-600 hover:to-orange-600 shadow-lg'
-              }`}
-              whileHover={isAuthenticating ? {} : { scale: 1.02 }}
-              whileTap={isAuthenticating ? {} : { scale: 0.98 }}
-            >
-              {isAuthenticating ? 'Authenticating…' : 'Sign in with GitHub'}
-            </motion.button>
-            <p className="text-xs text-gray-500 mt-3">A small window or tab will open to complete sign-in.</p>
-          </div>
-        </div>
-      </motion.div>
-    );
-  }
+  const setCurrentApiKey = (value) => {
+    setLocalConfig(prev => ({
+      ...prev,
+      [`${prev.selectedModel}ApiKey`]: value
+    }));
+  };
 
-  // ---------- MAIN UI ----------
   if (isLoading) {
     return (
-      <motion.div className="w-full h-full flex items-center justify-center bg-white" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
-      </motion.div>
+      <div className="settings-container w-full h-full bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <FaSpinner className="animate-spin text-4xl text-blue-500 mx-auto mb-4" />
+          <p className="text-gray-600">Loading settings...</p>
+        </div>
+      </div>
     );
   }
 
   return (
-    <motion.div
-      className="w-full h-full bg-white flex flex-col relative overflow-hidden"
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      transition={{ duration: 0.3 }}
-    >
-      {/* Background */}
-      <div className="absolute inset-0">
-        <div className="absolute inset-0 bg-gradient-radial from-red-500/10 via-orange-500/5 to-transparent"></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-white via-gray-50/80 to-white"></div>
+    <div className="settings-container w-full h-full bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col relative overflow-hidden">
+      {/* Background Animation */}
+      <div className="background-animation">
+        <div className="settings-orb-1 floating-orb"></div>
+        <div className="settings-orb-2 floating-orb"></div>
+        <div className="settings-orb-3 floating-orb"></div>
       </div>
 
       {/* Header */}
-      <div className="bg-white/90 backdrop-blur-sm text-gray-800 p-4 shadow-sm relative z-10 border-b border-gray-200">
-        <div className="flex items-center justify-between gap-3">
+      <div className="settings-header bg-white/95 backdrop-blur-sm border-b border-gray-200 p-3 relative z-10">
+        <div className="flex items-center justify-between">
           <button
-            onClick={() => {
-              if (hasUnsaved) setConfirmLeaveOpen(true);
-              else onBack();
-            }}
-            className="text-sm font-medium text-gray-600 hover:text-red-500 transition-colors"
+            onClick={onBack}
+            className="settings-back-button flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors px-2 py-1 rounded-lg hover:bg-gray-100"
           >
-            Back
+            <FaArrowLeft size={14} />
+            <span className="font-medium text-sm">Back</span>
           </button>
 
-          <h1 className="text-lg font-bold text-gray-800 whitespace-nowrap">Settings</h1>
-
-          <div className="flex items-center gap-3">
-            <AnimatePresence>
-              {hasUnsaved && (
-                <motion.button
-                  key="update-btn"
-                  onClick={handleSave}
-                  disabled={isValidating}
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                    isValidating
-                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                      : 'bg-red-500 hover:bg-red-600 text-white shadow'
-                  }`}
-                >
-                  {isValidating ? 'Saving…' : 'Update'}
-                </motion.button>
-              )}
-            </AnimatePresence>
+          <div className="text-center">
+            <h1 className="settings-title text-lg font-bold text-gray-800">API Settings</h1>
+            <p className="settings-subtitle text-xs text-gray-600">Configure your AI providers</p>
           </div>
+          
+          <button
+                  onClick={handleSave}
+            disabled={isSaving || isValidating}
+            className="settings-save-button flex items-center gap-2 px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 text-sm"
+          >
+            {isSaving ? (
+              <FaSpinner className="animate-spin" size={12} />
+            ) : (
+              <FaSave size={12} />
+            )}
+            <span>{isSaving ? 'Saving...' : 'Save'}</span>
+          </button>
         </div>
       </div>
 
       {/* Content */}
-      <div ref={contentRef} className="flex-1 p-6 overflow-y-auto overflow-x-hidden relative z-10">
-        {!hasUnsaved && successMessage && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <div className="flex items-center space-x-2">
-              <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
+      <div className="settings-content flex-1 p-3 overflow-y-auto relative z-10">
+        <div className="max-w-4xl mx-auto space-y-3">
+          
+          {/* Provider Selection */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="settings-provider-section bg-white rounded-xl shadow-lg p-3 border border-gray-200"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <FaRobot className="text-blue-500" size={18} />
+              <div>
+                <h3 className="text-base font-semibold text-gray-800">AI Provider</h3>
+                <p className="text-xs text-gray-600">Choose your preferred AI model</p>
               </div>
-              <p className="text-sm text-green-700 font-medium">Settings saved and active</p>
             </div>
+
+            <div className="provider-tabs grid grid-cols-3 gap-2">
+              {[
+                { id: 'anthropic', name: 'Anthropic', icon: FaBrain, color: 'text-orange-500' },
+                { id: 'openai', name: 'OpenAI', icon: FaCompass, color: 'text-green-500' },
+                { id: 'gemini', name: 'Google', icon: FaClipboardList, color: 'text-purple-500' }
+              ].map((provider) => {
+                const Icon = provider.icon;
+                return (
+                  <button
+                    key={provider.id}
+                    onClick={() => setLocalConfig(prev => ({ ...prev, selectedModel: provider.id }))}
+                    className={`provider-tab p-3 rounded-lg border-2 transition-all duration-300 ${
+                      localConfig.selectedModel === provider.id
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    <Icon className={`${provider.color} mx-auto mb-1`} size={18} />
+                    <div className="font-medium text-sm">{provider.name}</div>
+                  </button>
+                );
+              })}
           </div>
-        )}
+          </motion.div>
 
-        <div className="space-y-6 max-w-full">
-          <ProfileSection user={authUser} />
+          {/* API Key Configuration */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="settings-api-section bg-white rounded-xl shadow-lg p-4 border border-gray-200"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <FaKey className="text-purple-500" size={18} />
+              <div>
+                <h3 className="text-base font-semibold text-gray-800">API Configuration</h3>
+                <p className="text-xs text-gray-600">Configure your API keys and preferences</p>
+              </div>
+            </div>
 
-          {!orgsLoading && subInfo.invalid && (
-            <div className="mb-6 p-4 rounded-lg border bg-amber-50 border-amber-200">
-              <div className="flex items-start gap-3">
-                <svg className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.72-1.36 3.485 0l6.518 11.588c.718 1.277-.18 2.863-1.742 2.863H3.48c-1.562 0-2.46-1.586-1.742-2.863L8.257 3.1zM11 14a1 1 0 10-2 0 1 1 0 002 0zm-1-2a1 1 0 01-1-1V8a1 1 0 112 0v3a1 1 0 01-1 1z" clipRule="evenodd" />
-                </svg>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-amber-900">Subscription not active</p>
-                  <p className="text-sm text-amber-800 mt-1">
-                    {subInfo.reason || 'Your subscription is not active.'} You can purchase a plan or use your own API key to continue.
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      onClick={openPlansHere}
-                      className="px-3 py-2 rounded-md text-sm font-medium bg-white border border-amber-300 text-amber-900 hover:bg-amber-100"
-                    >
-                      View plans
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSuccessMessage('');
-                        setValidationError('');
-                        setDraft(d => ({ ...d, useOwnKey: true }));
-                        requestAnimationFrame(() => {
-                          scrollToOwnKey();
-                          setTimeout(() => {
-                            const input = ownKeyRef.current?.querySelector('input[type="password"], input');
-                            input?.focus();
-                          }, 350);
-                        });
-                      }}
-                      className="px-3 py-2 rounded-md text-sm font-medium bg-amber-600 text-white hover:bg-amber-700"
-                    >
-                      Use your own API key
-                    </button>
+            {/* Use Own Key Toggle */}
+            <div className="api-toggle-section mb-4">
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <FaShieldAlt className="text-gray-600" size={16} />
+                  <div>
+                    <div className="font-medium text-gray-800 text-sm">Use Your Own API Key</div>
+                    <div className="text-xs text-gray-600">
+                      {localConfig.useOwnKey 
+                        ? 'Using your personal API keys' 
+                        : 'Using backend service (recommended)'
+                      }
+                    </div>
                   </div>
                 </div>
+                    <button
+                  onClick={() => setLocalConfig(prev => ({ ...prev, useOwnKey: !prev.useOwnKey }))}
+                  className={`api-toggle p-1.5 rounded-lg transition-colors ${
+                    localConfig.useOwnKey ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-600'
+                  }`}
+                >
+                  {localConfig.useOwnKey ? <FaToggleOn size={16} /> : <FaToggleOff size={16} />}
+                    </button>
               </div>
             </div>
-          )}
 
-          <OrganizationsSection
-            loading={orgsLoading}
-            error={orgsError}
-            user={userFromApi}
-            organizations={organizations}
-            onManageClick={openManageSubscription}
-          />
+            {/* API Key Input */}
+            {localConfig.useOwnKey && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="api-input-group space-y-4"
+              >
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    API Key for {localConfig.selectedModel.charAt(0).toUpperCase() + localConfig.selectedModel.slice(1)}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showApiKey ? 'text' : 'password'}
+                      value={getCurrentApiKey()}
+                      onChange={(e) => setCurrentApiKey(e.target.value)}
+                      placeholder={`Enter your ${localConfig.selectedModel} API key...`}
+                      className="api-input w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                      {showApiKey ? <FaChevronUp size={12} /> : <FaChevronDown size={12} />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Your API key is stored locally and never shared
+                  </p>
+                </div>
 
-          <DefaultSearchEngineSection
-            isEditMode={true}
-            selectedSearchEngine={draftSearchEngine}
-            onSelect={(id) => {
-              setDraftSearchEngine(id);
-              setSuccessMessage('');
-            }}
-          />
+                {/* Model Selection */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Model
+                  </label>
+                  <select
+                    value={localConfig.selectedModel}
+                    onChange={(e) => setLocalConfig(prev => ({ ...prev, selectedModel: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  >
+                    {getAvailableModels(localConfig.selectedModel).map((model) => (
+                      <option key={model.value} value={model.value}>
+                        {model.label} {model.recommended ? '(Recommended)' : ''}
+                      </option>
+                    ))}
+                  </select>
+              </div>
+              </motion.div>
+            )}
 
-          <div ref={ownKeyRef}>
-            <UseOwnKeySection
-              isEditMode={true}
-              showSaveButton={false}
-              isValidating={isValidating}
-              useOwnKey={draft.useOwnKey}
-              setUseOwnKey={(updater) =>
-                setDraft(prev => {
-                  const nextVal = typeof updater === 'function' ? updater(prev.useOwnKey) : updater;
-                  return { ...prev, useOwnKey: nextVal };
-                })
-              }
-              selectedModel={draft.selectedModel}
-              setSelectedModel={(modelId) => setDraft(prev => ({ ...prev, selectedModel: modelId }))}
-              apiKey={draft.apiKey}
-              setApiKey={(k) => setDraft(prev => ({ ...prev, apiKey: k }))}
-              onKeyPress={handleKeyPress}
-              onSave={handleSave}
-              validationError={validationError}
-              successMessage={successMessage}
-            />
+            {/* Backend Service Info */}
+            {!localConfig.useOwnKey && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-3 bg-blue-50 border border-blue-200 rounded-lg"
+              >
+                <div className="flex items-start gap-2">
+                  <FaInfoCircle className="text-blue-500 mt-0.5" size={14} />
+                  <div>
+                    <div className="font-medium text-blue-800 text-sm">Using Backend Service</div>
+                    <div className="text-xs text-blue-700 mt-1">
+                      Your requests are processed through our secure backend service. 
+                      No API keys required - just start using the extension!
           </div>
         </div>
       </div>
-
-      {/* Unsaved changes modal */}
-      <AnimatePresence>
-        {confirmLeaveOpen && (
-          <motion.div
-            key="unsaved-modal"
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div
-              initial={{ y: 12, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 12, opacity: 0 }}
-              className="w-[92%] max-w-md rounded-2xl bg-white p-5 shadow-xl border border-gray-200"
-            >
-              <h3 className="text-lg font-semibold text-gray-900">Unsaved changes</h3>
-              <p className="text-sm text-gray-600 mt-1">You’ve made changes to your settings. Save them before leaving?</p>
-
-              <div className="mt-5 flex flex-col sm:flex-row gap-2">
-                <button
-                  onClick={async () => {
-                    const ok = await handleSave();
-                    if (ok) {
-                      setConfirmLeaveOpen(false);
-                      onBack();
-                    }
-                  }}
-                  disabled={isValidating}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium ${
-                    isValidating
-                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-red-500 to-orange-500 text-white hover:from-red-600 hover:to-orange-600'
-                  }`}
-                >
-                  {isValidating ? 'Saving…' : 'Save & leave'}
-                </button>
-                <button
-                  onClick={() => { setConfirmLeaveOpen(false); onBack(); }}
-                  className="flex-1 px-4 py-2 rounded-lg font-medium bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-200"
-                >
-                  Discard
-                </button>
-                <button
-                  onClick={() => setConfirmLeaveOpen(false)}
-                  className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:text-gray-800"
-                >
-                  Cancel
-                </button>
-              </div>
-            </motion.div>
+              </motion.div>
+            )}
           </motion.div>
-        )}
+
+          {/* Status Messages */}
+      <AnimatePresence>
+            {validationError && (
+          <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="settings-message bg-red-50 border border-red-200 rounded-lg p-3"
+              >
+                <div className="flex items-center gap-2">
+                  <FaExclamationTriangle className="text-red-500" size={14} />
+                  <span className="text-red-800 text-sm">{validationError}</span>
+                </div>
+              </motion.div>
+            )}
+
+            {successMessage && (
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="settings-message bg-green-50 border border-green-200 rounded-lg p-3"
+              >
+                <div className="flex items-center gap-2">
+                  <FaCheckCircle className="text-green-500" size={14} />
+                  <span className="text-green-800 text-sm">{successMessage}</span>
+                </div>
+              </motion.div>
+            )}
+
+            {isValidating && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="settings-message bg-blue-50 border border-blue-200 rounded-lg p-3"
+              >
+                <div className="flex items-center gap-2">
+                  <FaSpinner className="animate-spin text-blue-500" size={14} />
+                  <span className="text-blue-800 text-sm">Validating API key...</span>
+                </div>
+              </motion.div>
+            )}
       </AnimatePresence>
-    </motion.div>
+        </div>
+      </div>
+    </div>
   );
-}
+};
+
+export default Settings;

@@ -1,132 +1,35 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import HomeHub from '@/pages/popup/views/HomeHub';
 import Research from '@/pages/popup/views/Research';
 import Plans from '@/pages/popup/views/Plans';
 import Analysis from '@/pages/popup/views/Analysis';
 import FactCheck from '@/pages/popup/views/FactCheck';
 import Settings from '@/pages/popup/views/Settings';
+import ProfilePage from '@/pages/popup/views/ProfilePage';
+import ChatInterface from '@/pages/popup/views/ChatInterface';
+import LoginPage from '@/pages/popup/views/LoginPage';
+import LoaderScreen from '@/pages/popup/components/LoaderScreen';
 import aiService from '@/services/ai';
 import StorageUtils from '@/storage';
 import auth from '@/services/auth'; // ✅ NEW: server-verified auth gate
 
-const LandingPage = React.memo(({ onGetStarted }) => (
-  <motion.div
-    className="w-full h-full flex flex-col relative overflow-hidden min-w-0"
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    exit={{ opacity: 0 }}
-  >
-    {/* Background */}
-    <div className="absolute inset-0">
-      <div className="absolute inset-0 bg-gradient-radial from-red-500/10 via-orange-500/5 to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-b from-white via-gray-50/80 to-white" />
-    </div>
-
-    <motion.div
-      initial={{ scale: 0.5, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 1, ease: 'easeOut' }}
-      className="flex-1 flex flex-col pt-6 px-6 relative z-10 min-w-0"
-    >
-      {/* Header with globe logo and AI badge */}
-      <div className="flex items-center justify-between mb-6 min-w-0">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="w-6 h-6 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
-            <div className="w-3 h-3 bg-white rounded-full" />
-          </div>
-          <span className="text-gray-800 font-semibold truncate">Web Summary</span>
-        </div>
-        <div className="flex items-center justify-end flex-1 min-w-0">
-          <div className="bg-gradient-to-r from-red-500 to-orange-500 rounded-full px-3 py-1 flex items-center gap-1 shadow-sm">
-            <span className="text-white text-xs">⚡</span>
-            <span className="text-white text-xs font-medium">AI</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Welcome text */}
-      <motion.h1
-        className="text-2xl font-bold text-gray-800 mb-2 break-words"
-        initial={{ y: 30, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.3, duration: 0.8 }}
-      >
-        Welcome to
-      </motion.h1>
-
-      <motion.h2
-        className="text-3xl font-bold bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent mb-6 break-words"
-        initial={{ y: 30, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.5, duration: 0.8 }}
-      >
-        Web Summary
-      </motion.h2>
-
-      {/* Description */}
-      <motion.p
-        className="text-gray-600 text-sm mb-8 leading-relaxed break-words"
-        initial={{ y: 30, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.7, duration: 0.8 }}
-      >
-        Conduct comprehensive research with AI for academic sources, credible articles, and expert insights on any topic.
-      </motion.p>
-
-      {/* Feature boxes */}
-      <motion.div
-        className="flex justify-between gap-2 mb-4 min-w-0"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.9, duration: 0.8 }}
-      >
-        {/* Academic Sources */}
-        <div className="flex-1 max-w-full bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl p-3 flex flex-col items-center shadow-lg">
-          <div className="text-red-500 text-lg mb-1">🎓</div>
-          <span className="text-gray-800 text-xs font-medium">Academic</span>
-        </div>
-
-        {/* Credible Articles */}
-        <div className="flex-1 max-w-full bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl p-3 flex flex-col items-center shadow-lg">
-          <div className="text-red-500 text-lg mb-1">📰</div>
-          <span className="text-gray-800 text-xs font-medium">Credible</span>
-        </div>
-
-        {/* Expert Insights */}
-        <div className="flex-1 max-w-full bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl p-3 flex flex-col items-center shadow-lg">
-          <div className="text-red-500 text-lg mb-1">👨‍🎓</div>
-          <span className="text-gray-800 text-xs font-medium">Expert</span>
-        </div>
-      </motion.div>
-
-      {/* Get Started button */}
-      <motion.button
-        onClick={onGetStarted}
-        className="w-full max-w-full bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white px-6 py-4 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 font-semibold flex items-center justify-center gap-2 mb-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1.1, duration: 0.8 }}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-      >
-        <span>Get Started</span>
-        <span className="text-lg">→</span>
-      </motion.button>
-    </motion.div>
-  </motion.div>
-));
 
 const Popup = () => {
+  // New flow states
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  
+  // Legacy states (kept for compatibility)
   const [showPlans, setShowPlans] = useState(false);
   const [preselectedOrgId, setPreselectedOrgId] = useState(null); 
-  const [showLanding, setShowLanding] = useState(true);
-  const [showHome, setShowHome] = useState(false);
   const [showResearch, setShowResearch] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showFactChecker, setShowFactChecker] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [researchResults, setResearchResults] = useState(null);
   const [inputMessage, setInputMessage] = useState('');
   const [researchDepth, setResearchDepth] = useState('comprehensive');
@@ -146,8 +49,10 @@ const Popup = () => {
   const [setupCompleted, setSetupCompleted] = useState(false);
   const [intendedRoute, setIntendedRoute] = useState(null);
   const [apiKeyError, setApiKeyError] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [authUser, setAuthUser] = useState(null);
 
-  const [currentRoute, setCurrentRoute] = useState(null);
+  // Removed currentRoute state - using direct state management instead
 
   const inputRef = useRef(null);
 
@@ -159,7 +64,9 @@ const Popup = () => {
     } catch {}
     try { await StorageUtils.clearAuthSession?.(); } catch {}
     setIntendedRoute({ route: target, feature: target?.replace('/', '') });
-    setCurrentRoute('/settings');
+    setShowSettings(true);
+    setShowChat(false);
+    setShowLogin(false);
     return false;
   }, []);
 
@@ -233,10 +140,19 @@ const Popup = () => {
     
     switch (message.route) {
       case '/home':
-        if (await ensureAuthedOrRedirect('/home')) setCurrentRoute('/home');
+        if (await ensureAuthedOrRedirect('/home')) {
+          setShowChat(true);
+          setShowLogin(false);
+          setShowSettings(false);
+        }
         break;
       case '/research':
-        if (await ensureAuthedOrRedirect('/research')) setCurrentRoute('/research');
+        if (await ensureAuthedOrRedirect('/research')) {
+          setShowResearch(true);
+          setShowChat(false);
+          setShowLogin(false);
+          setShowSettings(false);
+        }
         break;
       case '/analysis':
         handleAnalysePage();
@@ -245,11 +161,14 @@ const Popup = () => {
         handleFactChecker();
         break;
       case '/settings':
-        try { await chrome.storage.local.set({ hasSeenLanding: true }); } catch {}
-        setCurrentRoute('/settings');
+        setShowSettings(true);
+        setShowChat(false);
+        setShowLogin(false);
         break;
       default:
-        setCurrentRoute('/landing');
+        setShowLogin(true);
+        setShowChat(false);
+        setShowSettings(false);
         break;
     }
   };
@@ -300,42 +219,68 @@ const Popup = () => {
     console.log('� Save Function: Fact check data storage disabled for fresh API calls');
   }, [factCheckData, currentPageUrl]);
 
-  // ---------- first-open routing ----------
+  // ---------- Authentication and Initialization ----------
   useEffect(() => {
-    const checkFirstTime = async () => {
+    const initializeApp = async () => {
       try {
-        if (currentRoute !== null) return;
-
-        const pendingRoute = await chrome.storage.local.get(['pendingRouteMessage']);
-        if (pendingRoute.pendingRouteMessage) return;
-
-        const storage = await chrome.storage.local.get(['hasSeenLanding']);
-
-        if (!storage.hasSeenLanding) {
-          setCurrentRoute('/landing');
+        setIsLoading(true);
+        
+        // Check authentication status directly
+        const authResult = await auth.checkAuthentication();
+        const isAuth = authResult.isAuthenticated;
+        
+        setIsAuthenticated(isAuth);
+        
+        if (isAuth) {
+          // Get user data
+          const userData = await auth.getUser();
+          setAuthUser(userData);
+          
+          // User is authenticated, show chat interface
+          setShowChat(true);
+          setShowLogin(false);
         } else {
-          // ✅ NEW: do a server check (cookies may be wiped)
-          const { isAuthenticated: isAuthed } = await auth.checkAuthentication();
-          if (!isAuthed) {
-            setCurrentRoute('/settings');
-            return;
-          }
-
-          // Only force Settings if using own key AND not configured
-          const { useOwnKey, hasConfig } = await getCustomKeySetupState();
-          if (useOwnKey && !hasConfig) {
-            setCurrentRoute('/settings');
-          } else {
-            setCurrentRoute('/home');
-          }
+          // User not authenticated, show login
+          setShowLogin(true);
+          setShowChat(false);
         }
       } catch (error) {
-        console.error('Error checking first time status:', error);
-        setCurrentRoute('/landing');
+        console.error('Error during initialization:', error);
+        // On error, show login page
+        setShowLogin(true);
+        setShowChat(false);
+      } finally {
+        setIsLoading(false);
       }
     };
-    checkFirstTime();
-  }, [currentRoute, getCustomKeySetupState]);
+
+    initializeApp();
+  }, []);
+
+  // Handle successful login
+  const handleLoginSuccess = useCallback(async () => {
+    setIsAuthenticated(true);
+    setShowLogin(false);
+    setShowChat(true);
+    
+    // Get user data after successful login
+    try {
+      const userData = await auth.getUser();
+      setAuthUser(userData);
+    } catch (error) {
+      console.error('Error getting user data after login:', error);
+    }
+  }, []);
+
+  // Handle settings navigation from chat
+  const handleSettingsFromChat = useCallback(() => {
+    setShowChat(false);
+    setShowSettings(true);
+  }, []);
+
+  // ---------- first-open routing ----------
+  // Removed checkFirstTime logic as it conflicts with the main initialization
+  // The main useEffect handles authentication and routing properly
 
   useEffect(() => {
     const updateCurrentUrl = async () => {
@@ -476,20 +421,45 @@ const Popup = () => {
     }
   }, [abortController, isUserCancelled]);
 
-  const handleLandingButtonClick = useCallback(async () => {
-    try { await chrome.storage.local.set({ hasSeenLanding: true }); } catch {}
-    setCurrentRoute('/settings');
-  }, []);
 
   const handleApiKeyErrorDismiss = () => setApiKeyError(null);
 
-  const navigateToSettings = () => {
-    setShowSettings(true);
+
+  const navigateToChat = () => {
+    setShowSettings(false);
+    setShowProfile(false);
     setShowResearch(false);
     setShowAnalysis(false);
     setShowFactChecker(false);
+    setShowChat(true);
     setApiKeyError(null);
   };
+
+  const navigateToProfile = () => {
+    setShowSettings(false);
+    setShowResearch(false);
+    setShowAnalysis(false);
+    setShowFactChecker(false);
+    setShowChat(false);
+    setShowProfile(true);
+    setApiKeyError(null);
+  };
+
+  const navigateToSettings = () => {
+    // Reset all states first
+    setShowProfile(false);
+    setShowResearch(false);
+    setShowAnalysis(false);
+    setShowFactChecker(false);
+    setShowChat(false);
+    setApiKeyError(null);
+    
+    // Use setTimeout to ensure state updates are processed
+    setTimeout(() => {
+      setShowSettings(true);
+    }, 0);
+  };
+
 
   const handleSettingsComplete = useCallback(async () => {
     await initializeAIService();
@@ -501,13 +471,23 @@ const Popup = () => {
       const target = intendedRoute.route;
       setIntendedRoute(null);
       switch (target) {
-        case '/research': setCurrentRoute('/research'); break;
+        case '/research': 
+          setShowResearch(true);
+          setShowChat(false);
+          setShowLogin(false);
+          setShowSettings(false);
+          break;
         case '/analysis': handleAnalysePage(); break;
         case '/fact-checker': handleFactChecker(); break;
-        default: setCurrentRoute('/home');
+        default: 
+          setShowChat(true);
+          setShowLogin(false);
+          setShowSettings(false);
       }
     } else {
-      setCurrentRoute('/home');
+      setShowChat(true);
+      setShowLogin(false);
+      setShowSettings(false);
     }
   }, [intendedRoute, handleAnalysePage, handleFactChecker]);
 
@@ -518,16 +498,25 @@ const Popup = () => {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       setCurrentPageUrl(tab?.url || '');
-      setCurrentRoute('/analysis');
+      setShowAnalysis(true);
+      setShowChat(false);
+      setShowLogin(false);
+      setShowSettings(false);
     } catch (error) {
       console.error('Analysis: could not get active tab URL', error);
       setCurrentPageUrl('');
-      setCurrentRoute('/analysis');
+      setShowAnalysis(true);
+      setShowChat(false);
+      setShowLogin(false);
+      setShowSettings(false);
     }
   }, [ensureAuthedOrRedirect]);
 
   const handleBackFromAnalysis = useCallback(() => {
-    setCurrentRoute('/home');
+    setShowChat(true);
+    setShowAnalysis(false);
+    setShowLogin(false);
+    setShowSettings(false);
     setAnalysisData(null);
   }, []);
 
@@ -543,21 +532,33 @@ const Popup = () => {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       setCurrentPageUrl(tab?.url || '');
-      setCurrentRoute('/fact-checker');
+      setShowFactChecker(true);
+      setShowChat(false);
+      setShowLogin(false);
+      setShowSettings(false);
     } catch (error) {
       console.error('FactChecker: could not get active tab URL', error);
       setCurrentPageUrl('');
-      setCurrentRoute('/fact-checker');
+      setShowFactChecker(true);
+      setShowChat(false);
+      setShowLogin(false);
+      setShowSettings(false);
     }
   }, [ensureAuthedOrRedirect]);
 
   const handleBackFromFactChecker = useCallback(() => {
-    setCurrentRoute('/home');
+    setShowChat(true);
+    setShowFactChecker(false);
+    setShowLogin(false);
+    setShowSettings(false);
     setFactCheckData(null);
   }, []);
 
   const handleBackFromResearch = useCallback(() => {
-    setCurrentRoute('/home');
+    setShowChat(true);
+    setShowResearch(false);
+    setShowLogin(false);
+    setShowSettings(false);
   }, []);
 
   const handleRetryFactCheck = useCallback(() => {
@@ -620,84 +621,80 @@ Please provide a detailed and helpful answer based on the content and context of
   // Settings handlers
   const handleSettingsClick = useCallback(async () => {
     try { await chrome.storage.local.set({ hasSeenLanding: true }); } catch {}
-    setCurrentRoute('/settings');
+    setShowSettings(true);
+    setShowChat(false);
+    setShowLogin(false);
   }, []);
 
   const handleBackFromSettings = useCallback(() => {
-    if (intendedRoute) {
-      setCurrentRoute(intendedRoute.route);
-    } else {
-      setCurrentRoute('/home');
+    // Reset all states first
+    setShowSettings(false);
+    setShowResearch(false);
+    setShowAnalysis(false);
+    setShowFactChecker(false);
+    setApiKeyError(null);
+    
+    // Use setTimeout to ensure state updates are processed
+    setTimeout(() => {
+      setShowChat(true);
+    }, 0);
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await auth.logout();
+      setShowLogin(true);
+      setShowChat(false);
+      setShowProfile(false);
+      setShowSettings(false);
+      setIsAuthenticated(false);
+    } catch (error) {
+      console.error('Logout error:', error);
     }
-  }, [intendedRoute]);
+  }, []);
 
   const openPlans = useCallback((orgId) => {
     setPreselectedOrgId(orgId ?? null);
-    setCurrentRoute('/plans');
+    setShowPlans(true);
+    setShowChat(false);
+    setShowLogin(false);
+    setShowSettings(false);
   }, []);
 
   // ✅ Wrapper so HomeHub buttons are also gated
   const handleOpenResearch = useCallback(async () => {
     const ok = await ensureAuthedOrRedirect('/research');
     if (!ok) return;
-    setShowHome(false);
     setShowResearch(true);
-    setCurrentRoute('/research');
+    setShowChat(false);
+    setShowLogin(false);
+    setShowSettings(false);
   }, [ensureAuthedOrRedirect]);
 
-  useEffect(() => {
-    switch (currentRoute) {
-      case '/home':
-        setShowLanding(false); setShowPlans(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(false); setShowResearch(false); setShowHome(true);
-        break;
-      case '/plans':
-        setShowLanding(false); setShowHome(false); setShowResearch(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(false); setShowPlans(true);
-        break;
-      case '/research':
-        setShowLanding(false); setShowPlans(false); setShowHome(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(false); setShowResearch(true);
-        break;
-      case '/analysis':
-        setShowLanding(false); setShowPlans(false); setShowHome(false); setShowResearch(false); setShowFactChecker(false); setShowSettings(false); setShowAnalysis(true);
-        handleAnalysePage();
-        break;
-      case '/fact-checker':
-        setShowLanding(false); setShowPlans(false); setShowHome(false); setShowResearch(false); setShowAnalysis(false); setShowSettings(false); setShowFactChecker(true);
-        handleFactChecker();
-        break;
-      case '/settings':
-        setShowLanding(false); setShowPlans(false); setShowHome(false); setShowResearch(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(true);
-        break;
-      case '/landing':
-        setShowResearch(false); setShowPlans(false); setShowHome(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(false); setShowLanding(true);
-        break;
-      case null:
-        return;
-      default:
-        setShowResearch(false); setShowPlans(false); setShowHome(false); setShowAnalysis(false); setShowFactChecker(false); setShowSettings(false); setShowLanding(true);
-        break;
-    }
-  }, [currentRoute, handleAnalysePage, handleFactChecker]);
+  // Removed currentRoute effect as we now use direct state management
+  // This prevents automatic navigation conflicts
 
   return (
     <div className="relative w-full h-full overflow-hidden min-w-0">
+      {/* Loader Screen */}
+      {isLoading && (
+        <LoaderScreen message="Checking authentication..." />
+      )}
+      
       <AnimatePresence mode="wait">
-        {showLanding ? (
-          <LandingPage key="landing" onGetStarted={handleLandingButtonClick} />
-        ) : showHome ? (
-        <HomeHub
-          key="home"
-          onOpenSettings={handleSettingsClick}
-          onOpenResearch={handleOpenResearch}   
-          onOpenAnalysis={handleAnalysePage}
-          onOpenFactChecker={handleFactChecker}
-          onOpenPlans={openPlans}
-        />
-      ) : showPlans ? (
+        {!isLoading && showLogin ? (
+          <LoginPage key="login" onLoginSuccess={handleLoginSuccess} />
+        ) : showPlans ? (
         <Plans
           key="plans"
           preselectedOrgId={preselectedOrgId}
           defaultCurrency="inr"
-          onBack={() => setCurrentRoute('/home')}
+          onBack={() => {
+            setShowPlans(false);
+            setShowChat(true);
+            setShowLogin(false);
+            setShowSettings(false);
+          }}
         />
       ) : showAnalysis ? (
           <Analysis
@@ -728,6 +725,33 @@ Please provide a detailed and helpful answer based on the content and context of
           />
         ) : showSettings ? (
           <Settings key="settings" onBack={handleBackFromSettings} onSetupComplete={handleSettingsComplete} onOpenPlans={openPlans} />
+        ) : showProfile ? (
+          <ProfilePage 
+            key="profile" 
+            onBack={() => {
+              setShowProfile(false);
+              setShowChat(true);
+            }}
+            onOpenSettings={navigateToSettings}
+            onOpenPlans={openPlans}
+            onLogout={handleLogout}
+          />
+              ) : showChat ? (
+                <ChatInterface
+                  key="chat"
+                  onOpenProfile={navigateToProfile}
+                  onOpenPlans={openPlans}
+                  currentPageUrl={currentPageUrl}
+                  onBack={() => {
+                    setShowChat(false);
+                    setShowLogin(true);
+                  }}
+                  onNewChat={() => {
+                    setMessages([]);
+                    setShowChat(true);
+                  }}
+                  userProfilePicUrl={authUser?.avatarUrl || authUser?.avatar_url}
+                />
         ) : showResearch ? (
           <div className="relative w-full h-full overflow-hidden min-w-0">
             <Research

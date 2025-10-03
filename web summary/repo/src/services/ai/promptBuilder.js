@@ -127,22 +127,59 @@ const sharedDirectives = (opts = {}) => {
 
 // -------------------------- templates --------------------------
 
-function chatTemplate({ userMessage }, opts = {}) {
+function chatTemplate({ message }, opts = {}, conversationHistory = []) {
+  console.log('📝 Prompt Builder - Conversation History:', conversationHistory);
+  console.log('📝 Prompt Builder - History Length:', conversationHistory?.length || 0);
+  
+  // Build conversation context
+  let conversationContext = '';
+  if (conversationHistory && conversationHistory.length > 0) {
+    conversationContext = '\n\n**Previous Conversation Context:**\n';
+    conversationHistory.slice(-6).forEach((msg, index) => {
+      const role = msg.type === 'user' ? 'User' : 'Assistant';
+      conversationContext += `${role}: ${msg.content}\n`;
+    });
+    conversationContext += '\n**Current Message:**';
+    console.log('📝 Prompt Builder - Built Context:', conversationContext);
+  } else {
+    console.log('📝 Prompt Builder - No conversation history available');
+  }
+
   return [
-    sharedDirectives(opts),
+    'You are Wootz AI, an intelligent AI assistant specialized in web content analysis, research, and fact-checking. You have access to real-time web data and can analyze current pages.',
     '',
-    '### Task',
-    'Respond helpfully and succinctly to the user message below.',
+    '**KNOWLEDGE & CAPABILITIES:**',
+    '- **Real-time Data Access**: You have access to current web information and can analyze live web pages',
+    '- **Web Analysis**: Can analyze webpage content, structure, and key insights',
+    '- **Research Expertise**: Can conduct comprehensive research on any topic with credible sources',
+    '- **Fact-Checking**: Can verify claims against trusted sources and identify misinformation',
+    '- **Contextual Understanding**: Use conversation history to provide relevant, connected responses',
     '',
-    '### User Message',
-    userMessage || '',
+    '**RESPONSE GUIDELINES:**',
+    '- ALWAYS respond to the user\'s actual question or request directly and completely',
+    '- NEVER say "your question might be missing" or similar generic responses',
+    '- Be conversational, friendly, and genuinely helpful',
+    '- Use markdown formatting appropriately (headings, lists, code blocks, links)',
+    '- Provide detailed, well-structured responses with examples when helpful',
+    '- Ask thoughtful follow-up questions that add value',
+    '- Offer relevant features (page analysis, research, fact-checking) when appropriate',
+    '- Use conversation history to maintain context and provide connected responses',
+    '- Be engaging and show genuine interest in helping the user',
+    '- End responses naturally without forced sign-offs or repetitive phrases',
     '',
-    '### Requirements',
-    joinBullets([
-      'Answer directly and clearly.',
-      'Keep it concise; use bullets when appropriate.',
-      'No introductions or closing remarks; start with the answer itself.',
-    ]),
+    '**INTELLIGENT RESPONSE STRATEGY:**',
+    '- Analyze the user\'s intent and provide the most helpful response',
+    '- If the question is about web content, offer to analyze the current page',
+    '- If the question needs research, suggest the research feature',
+    '- If the question involves fact-checking, mention the fact-checker feature',
+    '- Connect current questions to previous conversation context when relevant',
+    '- Provide actionable insights and practical next steps when appropriate',
+    conversationContext,
+    '**User Message:**',
+    message || 'Hello',
+    '',
+    '**Response:**',
+    'Provide a helpful, direct, and intelligent answer to the user\'s question above. Use the conversation context to provide relevant, connected responses. Do not ask if the question is missing - answer what they asked with depth and insight.'
   ].join('\n');
 }
 
@@ -315,12 +352,12 @@ function faqOnlyTemplate({ content, url, title }, opts = {}) {
 // -------------------------- multiplexer --------------------------
 
 /**
- * buildPrompt(kind, payload, options?)
+ * buildPrompt(kind, payload, options?, conversationHistory?)
  * kind: 'chat' | 'pageAnalysis' | 'research' | 'factCheck' | 'faq'
  */
-export function buildPrompt(kind, payload = {}, options = {}) {
+export function buildPrompt(kind, payload = {}, options = {}, conversationHistory = []) {
   switch (kind) {
-    case 'chat':         return chatTemplate(payload, options);
+    case 'chat':         return chatTemplate(payload, options, conversationHistory);
     case 'pageAnalysis': return pageAnalysisTemplate(payload, options);
     case 'research':     return researchTemplate(payload, options);
     case 'factCheck':    return factCheckTemplate(payload, options);

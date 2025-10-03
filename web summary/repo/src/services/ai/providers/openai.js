@@ -65,7 +65,7 @@ export async function* stream({ kind, req, ctx }) {
       json?.choices?.[0]?.delta?.content ??
       '';
     const md = ensureMarkdown(text || '_(no content)_');
-    for (const piece of chunkMarkdown(md, 1200)) yield piece;
+    for (const piece of chunkMarkdown(md, 2000)) yield piece;
     return;
   }
 
