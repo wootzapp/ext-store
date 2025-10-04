@@ -556,6 +556,9 @@ const ChatInterface = ({
   const [isNewTabPage, setIsNewTabPage] = useState(false); // 'research', 'analysis', 'factcheck', or null for normal chat
   const [conversationHistory, setConversationHistory] = useState([]); // Store conversation history separately
   const [isValidWebPage, setIsValidWebPage] = useState(false); // Whether current page is valid for analysis
+  const [screenshotData, setScreenshotData] = useState(null); // Store screenshot data
+  const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false); // Screenshot capture state
+  const [autoScreenshotEnabled, setAutoScreenshotEnabled] = useState(true); // Auto-capture screenshots
 
   // Function to get current page URL
   const getCurrentPageUrl = async () => {
@@ -566,6 +569,33 @@ const ChatInterface = ({
       console.error('Error getting current page URL:', error);
       return '';
     }
+  };
+
+  // Handle screenshot completion (for legacy compatibility)
+  const handleScreenshotComplete = (result) => {
+    console.log('📸 Screenshot Result:', result);
+    setIsCapturingScreenshot(false);
+    
+    if (result && result.success && result.dataUrl) {
+      setScreenshotData(result.dataUrl);
+      console.log('📸 Screenshot captured successfully:', {
+        dataUrlLength: result.dataUrl.length,
+        estimatedSize: Math.round(result.dataUrl.length * 0.75 / 1024) + 'KB'
+      });
+      
+      // Auto-clear screenshot after a delay to allow AI processing
+      setTimeout(() => {
+        setScreenshotData(null);
+        console.log('📸 Screenshot cleared after processing');
+      }, 5000);
+    } else {
+      console.error('📸 Screenshot capture failed:', result?.message || 'Unknown error');
+    }
+  };
+
+  // Clear screenshot data
+  const clearScreenshot = () => {
+    setScreenshotData(null);
   };
 
   // Function to get current page state using chrome.wootz API
@@ -712,11 +742,15 @@ const ChatInterface = ({
     // Add listeners
     chrome.tabs.onUpdated.addListener(handleTabUpdate);
     chrome.tabs.onActivated.addListener(handleTabActivated);
+    
+    // Add screenshot listener
+    chrome.wootz.onScreenshotComplete.addListener(handleScreenshotComplete);
 
     // Cleanup listeners
     return () => {
       chrome.tabs.onUpdated.removeListener(handleTabUpdate);
       chrome.tabs.onActivated.removeListener(handleTabActivated);
+      chrome.wootz.onScreenshotComplete.removeListener(handleScreenshotComplete);
     };
   }, []);
 
@@ -756,38 +790,71 @@ const ChatInterface = ({
     setIsExecuting(true);
     setIsTyping(true);
 
+    // Determine the type of request based on message content or context FIRST
+    let requestType = 'chat';
+    let payload = { message };
+
+    // Handle based on active mode
+    if (activeMode === 'research') {
+      // Deep research mode - user entered topic
+      requestType = 'research';
+      payload = { topic: message, depth: 'comprehensive' };
+      setActiveMode(null); // Reset to normal chat after research
+    } else if (activeMode === 'analysis') {
+      // This shouldn't happen as analysis is immediate
+      requestType = 'pageAnalysis';
+      const currentUrl = await getCurrentPageUrl();
+      payload = { url: currentUrl };
+      setActiveMode(null);
+    } else if (activeMode === 'factcheck') {
+      // This shouldn't happen as fact check is immediate
+      requestType = 'factCheck';
+      const currentUrl = await getCurrentPageUrl();
+      payload = { url: currentUrl };
+      setActiveMode(null);
+    } else {
+      // Normal chat mode - no active mode
+      requestType = 'chat';
+      payload = { message };
+    }
+
+    // Auto-capture screenshot if enabled and for specific modes
+    let capturedScreenshotData = null;
+    if (autoScreenshotEnabled && (requestType === 'pageAnalysis' || requestType === 'factCheck' || requestType === 'chat')) {
+      console.log('📸 Auto-capturing screenshot for AI analysis...');
+      
+      // Capture screenshot and wait for completion
+      capturedScreenshotData = await new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          console.warn('📸 Screenshot capture timeout');
+          resolve(null);
+        }, 5000); // 5 second timeout
+        
+        const handleScreenshotComplete = (result) => {
+          clearTimeout(timeout);
+          chrome.wootz.onScreenshotComplete.removeListener(handleScreenshotComplete);
+          
+          if (result && result.success && result.dataUrl) {
+            console.log('📸 Screenshot captured successfully:', {
+              dataUrlLength: result.dataUrl.length,
+              estimatedSize: Math.round(result.dataUrl.length * 0.75 / 1024) + 'KB'
+            });
+            resolve(result.dataUrl);
+          } else {
+            console.error('📸 Screenshot capture failed:', result?.message || 'Unknown error');
+            resolve(null);
+          }
+        };
+        
+        chrome.wootz.onScreenshotComplete.addListener(handleScreenshotComplete);
+        chrome.wootz.captureScreenshot();
+      });
+    }
+
     try {
       // Create abort controller for this request
       const controller = new AbortController();
       setAbortController(controller);
-
-      // Determine the type of request based on message content or context
-      let requestType = 'chat';
-      let payload = { message };
-
-      // Handle based on active mode
-      if (activeMode === 'research') {
-        // Deep research mode - user entered topic
-        requestType = 'research';
-        payload = { topic: message, depth: 'comprehensive' };
-        setActiveMode(null); // Reset to normal chat after research
-      } else if (activeMode === 'analysis') {
-        // This shouldn't happen as analysis is immediate
-        requestType = 'pageAnalysis';
-        const currentUrl = await getCurrentPageUrl();
-        payload = { url: currentUrl };
-        setActiveMode(null);
-      } else if (activeMode === 'factcheck') {
-        // This shouldn't happen as fact check is immediate
-        requestType = 'factCheck';
-        const currentUrl = await getCurrentPageUrl();
-        payload = { url: currentUrl };
-        setActiveMode(null);
-      } else {
-        // Normal chat mode - no active mode
-        requestType = 'chat';
-        payload = { message };
-      }
 
       console.log('🔍 Debug - Request Type:', requestType, 'Payload:', payload);
       console.log('🔍 Debug - Message content:', message);
@@ -803,7 +870,36 @@ const ChatInterface = ({
 
       setMessages(prev => [...prev, assistantMessage]);
 
-      console.log('🚀 Calling AI service with:', { kind: requestType, payload });
+      // Validate screenshot data if available
+      let validatedScreenshotData = null;
+      if (capturedScreenshotData) {
+        try {
+          // Check if screenshot data is valid
+          if (capturedScreenshotData.startsWith('data:image/') && capturedScreenshotData.includes('base64,')) {
+            const base64Data = capturedScreenshotData.split(',')[1];
+            if (base64Data && base64Data.length > 0) {
+              validatedScreenshotData = capturedScreenshotData;
+              console.log('📸 Valid screenshot data available:', {
+                dataUrlLength: capturedScreenshotData.length,
+                base64Length: base64Data.length,
+                estimatedSize: Math.round(base64Data.length * 0.75 / 1024) + 'KB'
+              });
+            } else {
+              console.warn('📸 Invalid screenshot data - empty base64 content');
+            }
+          } else {
+            console.warn('📸 Invalid screenshot data format - not a valid data URL');
+          }
+        } catch (error) {
+          console.error('📸 Error validating screenshot data:', error);
+        }
+      }
+
+      console.log('🚀 Calling AI service with:', { 
+        kind: requestType, 
+        payload,
+        hasScreenshot: !!validatedScreenshotData
+      });
       
       // Get conversation history for AI service
       const historyForAI = getConversationHistoryForAI();
@@ -821,6 +917,7 @@ const ChatInterface = ({
         signal: controller.signal,
         conversationHistory: historyForAI,
         currentUrl: currentPageUrl,
+        screenshotData: validatedScreenshotData,
         onDelta: (delta) => {
           console.log('📝 Received delta:', delta);
           setMessages(prev => {
@@ -933,11 +1030,44 @@ const ChatInterface = ({
           const controller = new AbortController();
           setAbortController(controller);
           
+          // Capture screenshot for page analysis
+          let capturedScreenshotData = null;
+          if (autoScreenshotEnabled) {
+            console.log('📸 Auto-capturing screenshot for page analysis...');
+            
+            capturedScreenshotData = await new Promise((resolve) => {
+              const timeout = setTimeout(() => {
+                console.warn('📸 Screenshot capture timeout');
+                resolve(null);
+              }, 5000);
+              
+              const handleScreenshotComplete = (result) => {
+                clearTimeout(timeout);
+                chrome.wootz.onScreenshotComplete.removeListener(handleScreenshotComplete);
+                
+                if (result && result.success && result.dataUrl) {
+                  console.log('📸 Screenshot captured successfully for analysis:', {
+                    dataUrlLength: result.dataUrl.length,
+                    estimatedSize: Math.round(result.dataUrl.length * 0.75 / 1024) + 'KB'
+                  });
+                  resolve(result.dataUrl);
+                } else {
+                  console.error('📸 Screenshot capture failed:', result?.message || 'Unknown error');
+                  resolve(null);
+                }
+              };
+              
+              chrome.wootz.onScreenshotComplete.addListener(handleScreenshotComplete);
+              chrome.wootz.captureScreenshot();
+            });
+          }
+          
           try {
             await aiService.stream({
               kind: 'pageAnalysis',
               payload: { url: currentUrl },
               signal: controller.signal,
+              screenshotData: capturedScreenshotData,
               onDelta: (delta) => {
                 setMessages(prev => {
                   const newMessages = [...prev];
@@ -1006,11 +1136,44 @@ const ChatInterface = ({
           const controller = new AbortController();
           setAbortController(controller);
           
+          // Capture screenshot for fact checking
+          let capturedScreenshotData = null;
+          if (autoScreenshotEnabled) {
+            console.log('📸 Auto-capturing screenshot for fact checking...');
+            
+            capturedScreenshotData = await new Promise((resolve) => {
+              const timeout = setTimeout(() => {
+                console.warn('📸 Screenshot capture timeout');
+                resolve(null);
+              }, 5000);
+              
+              const handleScreenshotComplete = (result) => {
+                clearTimeout(timeout);
+                chrome.wootz.onScreenshotComplete.removeListener(handleScreenshotComplete);
+                
+                if (result && result.success && result.dataUrl) {
+                  console.log('📸 Screenshot captured successfully for fact check:', {
+                    dataUrlLength: result.dataUrl.length,
+                    estimatedSize: Math.round(result.dataUrl.length * 0.75 / 1024) + 'KB'
+                  });
+                  resolve(result.dataUrl);
+                } else {
+                  console.error('📸 Screenshot capture failed:', result?.message || 'Unknown error');
+                  resolve(null);
+                }
+              };
+              
+              chrome.wootz.onScreenshotComplete.addListener(handleScreenshotComplete);
+              chrome.wootz.captureScreenshot();
+            });
+          }
+          
           try {
             await aiService.stream({
               kind: 'factCheck',
               payload: { url: factCheckUrl },
               signal: controller.signal,
+              screenshotData: capturedScreenshotData,
               onDelta: (delta) => {
                 setMessages(prev => {
                   const newMessages = [...prev];

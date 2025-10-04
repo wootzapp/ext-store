@@ -8,7 +8,7 @@ import { ensureMarkdown } from './markdown';
 import StorageUtils, { SUPPORTED_MODELS } from '@/storage';
 export { buildPrompt } from '@/services/ai/promptBuilder';
 
-function buildRequest(kind, payload, conversationHistory = [], currentUrl) {
+function buildRequest(kind, payload, conversationHistory = [], currentUrl, screenshotData) {
   try {
     const prompt = (typeof window !== 'undefined' ? require('@/services/ai/promptBuilder') : null)?.buildPrompt?.(kind, payload, conversationHistory, currentUrl);
     if (prompt) return { kind, prompt, payload, conversationHistory };
@@ -107,7 +107,7 @@ function pickProvider({ useOwnKey, selectedModel }) {
  * route: { useOwnKey: boolean, selectedModel?: string, apiKey?: string }
  * conversationHistory: Array of { role: 'user'|'assistant', content: string }
  */
-export async function stream({ kind, payload, signal, onDelta, route, onProvider, conversationHistory = [], currentUrl }) {
+export async function stream({ kind, payload, signal, onDelta, route, onProvider, conversationHistory = [], currentUrl, screenshotData }) {
   // Prefer explicit route from caller (the hook). If absent, make a minimal read from *local*.
   let useOwnKey = route?.useOwnKey;
   let selectedModel = route?.selectedModel;
@@ -123,12 +123,14 @@ export async function stream({ kind, payload, signal, onDelta, route, onProvider
   const provider = pickProvider({ useOwnKey, selectedModel });
   onProvider?.(provider.type, { useOwnKey, selectedModel });
 
+  console.log('🔧 AI Service - Provider:', provider.type, 'UseOwnKey:', useOwnKey, 'SelectedModel:', selectedModel);
   console.log('🔧 AI Service - Conversation History:', conversationHistory);
   console.log('🔧 AI Service - History Length:', conversationHistory?.length || 0);
   console.log('🔧 AI Service - Current URL:', currentUrl);
+  console.log('🔧 AI Service - Screenshot Data:', screenshotData ? 'Available' : 'Not available');
   
-  const req = buildRequest(kind, payload, conversationHistory, currentUrl);
-  console.log('🔧 AI Service - Built Request:', { kind, payload: req.payload, hasHistory: !!req.conversationHistory, currentUrl });
+  const req = buildRequest(kind, payload, conversationHistory, currentUrl, screenshotData);
+  console.log('🔧 AI Service - Built Request:', { kind, payload: req.payload, hasHistory: !!req.conversationHistory, currentUrl, hasScreenshot: !!screenshotData });
   
   // Get organization ID for backend provider
   let organizationId = null;
@@ -177,6 +179,7 @@ export async function stream({ kind, payload, signal, onDelta, route, onProvider
     backendBaseUrl: BACKEND_BASE_URL,
     signal,
     organizationId, // Pass organization ID to backend provider
+    screenshotData, // Pass screenshot data to providers
   };
 
   const gen = provider.impl.stream({ kind, req, ctx });

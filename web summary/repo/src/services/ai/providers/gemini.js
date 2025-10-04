@@ -14,7 +14,7 @@ function buildEndpoint({ apiKey, modelConfig }) {
 }
 
 export async function* stream({ kind, req, ctx }) {
-  const { apiKey, modelConfig, signal } = ctx;
+  const { apiKey, modelConfig, signal, screenshotData } = ctx;
   if (!apiKey) throw new Error('Gemini API key missing');
 
   const endpoint = buildEndpoint({ apiKey, modelConfig });
@@ -31,8 +31,31 @@ export async function* stream({ kind, req, ctx }) {
 ---
 Please format your answer as GitHub-flavored **Markdown** with clear headings, bullet lists, and code blocks when useful.`;
 
+  // Build content parts - include image if available
+  const parts = [{ text: prompt }];
+  
+  if (screenshotData) {
+    // Extract base64 data from data URL
+    const base64Data = screenshotData.split(',')[1];
+    const mimeType = screenshotData.split(';')[0].split(':')[1];
+    
+    parts.push({
+      inline_data: {
+        mime_type: mimeType,
+        data: base64Data
+      }
+    });
+    
+    console.log('🔧 Gemini - Including auto-captured screenshot data:', { 
+      hasImage: true, 
+      mimeType, 
+      dataLength: base64Data.length,
+      autoCaptured: true
+    });
+  }
+
   const payload = {
-    contents: [{ parts: [{ text: prompt }] }],
+    contents: [{ parts }],
     generationConfig,
   };
 

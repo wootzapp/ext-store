@@ -5,7 +5,7 @@ import { parseSSE } from '../sse';
 import { ensureMarkdown } from '../markdown';
 
 export async function* stream({ kind, req, ctx }) {
-  const { backendBaseUrl, signal, organizationId } = ctx;
+  const { backendBaseUrl, signal, organizationId, screenshotData } = ctx;
 
   // Get organization ID - this is critical for the API to work
   let orgId = organizationId;
@@ -60,6 +60,23 @@ export async function* stream({ kind, req, ctx }) {
     orgId: orgId
     // Omitting clientId to use Direct Response Mode
   };
+
+  // Add screenshot data if available (auto-captured)
+  if (screenshotData) {
+    // Extract base64 data from data URL
+    const base64Data = screenshotData.split(',')[1];
+    const mimeType = screenshotData.split(';')[0].split(':')[1];
+    
+    requestBody.imageData = base64Data;
+    requestBody.imageMimeType = mimeType;
+    
+    console.log('🔧 Backend - Including auto-captured screenshot data:', { 
+      hasImage: true, 
+      mimeType, 
+      dataLength: base64Data.length,
+      autoCaptured: true
+    });
+  }
 
   const res = await fetch(chatUrl, {
     method: 'POST',
