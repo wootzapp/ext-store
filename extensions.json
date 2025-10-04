@@ -136,10 +136,10 @@
     },
     {
       "id": "lhgoolpdddhhfahbnofaomjhfhfjfhop",
-      "name": "AI Researcher",
+      "name": "Wootz AI",
       "campaign": "ai_researcher",
       "description": "AI-powered web research assistant that provides intelligent summaries, comprehensive research, and fact-checking for any webpage using advanced language models.",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "Wootzapp Team",
       "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/web%20summary/AIResearcher.crx",
       "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/web%20summary/repo/public/icons/icon128.png",

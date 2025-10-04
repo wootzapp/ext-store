@@ -9,7 +9,7 @@ const ChatHeader = ({ onNewChat, onOpenProfile, title = "Wootz AI", subtitle = "
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
       style={{
-        padding: '8px 16px',
+        padding: '4px 12px',
         borderBottom: '1px solid #e5e7eb',
         backgroundColor: '#ffffff',
         display: 'flex',

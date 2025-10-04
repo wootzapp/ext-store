@@ -227,6 +227,11 @@ export default function Plans({
             <FaArrowLeft size={14} />
             <span className="font-medium text-sm">Back</span>
           </button>
+          
+          <div className="text-center">
+            <h1 className="text-lg font-bold text-gray-800">Plans</h1>
+            <p className="text-xs text-gray-600">Choose your subscription</p>
+          </div>
 
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-600">Currency</span>

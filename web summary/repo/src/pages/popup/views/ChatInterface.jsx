@@ -231,8 +231,8 @@ const MessageList = ({ messages, isTyping }) => {
 
   const getMessageStyle = (type) => {
     const baseStyle = {
-      margin: '8px 16px',
-      padding: '12px 16px',
+      margin: '4px 12px',
+      padding: '8px 12px',
       borderRadius: '12px',
       maxWidth: '85%',
       wordWrap: 'break-word',
@@ -279,12 +279,20 @@ const MessageList = ({ messages, isTyping }) => {
       style={{
         flex: 1,
         overflowY: 'auto', 
-        padding: '16px 0',
+        padding: '8px 0',
         display: 'flex',
         flexDirection: 'column',
         scrollBehavior: 'smooth'
       }}
     >
+      {/* CSS for loader animation */}
+      <style>
+        {`
+          @keyframes l24 {
+            100% { background-position: left }
+          }
+        `}
+      </style>
       {messages.length === 0 && !isTyping && (
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -343,6 +351,18 @@ const MessageList = ({ messages, isTyping }) => {
           ) : (
             <div>{message.content}</div>
           )}
+          
+          {/* Timestamp for user and assistant messages */}
+          {(message.type === 'user' || message.type === 'assistant') && (
+            <div style={{ 
+              fontSize: '10px', 
+              opacity: 0.6, 
+              marginTop: '4px',
+              textAlign: message.type === 'user' ? 'right' : 'left'
+            }}>
+              {new Date(message.timestamp).toLocaleTimeString()}
+            </div>
+          )}
         </motion.div>
       ))}
 
@@ -397,15 +417,16 @@ const MessageList = ({ messages, isTyping }) => {
             width: '40px',
             height: '40px',
             borderRadius: '50%',
-            backgroundColor: '#3b82f6',
+            backgroundColor: '#DD5800FF',
             color: 'white',
             border: 'none',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
-            fontSize: '16px',
+            boxShadow: '0 4px 12px rgba(221, 88, 0, 0.3)',
+            fontSize: '24px',
+            fontWeight: '800',
             zIndex: 10
           }}
           whileHover={{ scale: 1.1 }}

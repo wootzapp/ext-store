@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
   FaCog, FaArrowLeft, FaSave, FaRobot, FaBrain, FaCompass, 
   FaClipboardList, FaCheckCircle, FaTimes, FaKey, FaShieldAlt,
@@ -192,7 +192,7 @@ const Settings = ({ onBack, onOpenPlans }) => {
           </div>
           
           <button
-                  onClick={handleSave}
+            onClick={handleSave}
             disabled={isSaving || isValidating}
             className="settings-save-button flex items-center gap-2 px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 text-sm"
           >
@@ -211,12 +211,7 @@ const Settings = ({ onBack, onOpenPlans }) => {
         <div className="max-w-4xl mx-auto space-y-3">
           
           {/* Provider Selection */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="settings-provider-section bg-white rounded-xl shadow-lg p-3 border border-gray-200"
-          >
+          <div className="settings-provider-section bg-white rounded-xl shadow-lg p-3 border border-gray-200">
             <div className="flex items-center gap-2 mb-3">
               <FaRobot className="text-blue-500" size={18} />
               <div>
@@ -225,38 +220,65 @@ const Settings = ({ onBack, onOpenPlans }) => {
               </div>
             </div>
 
-            <div className="provider-tabs grid grid-cols-3 gap-2">
+            <div className="provider-tabs grid grid-cols-3 gap-3">
               {[
-                { id: 'anthropic', name: 'Anthropic', icon: FaBrain, color: 'text-orange-500' },
-                { id: 'openai', name: 'OpenAI', icon: FaCompass, color: 'text-green-500' },
-                { id: 'gemini', name: 'Google', icon: FaClipboardList, color: 'text-purple-500' }
+                { 
+                  id: 'anthropic', 
+                  name: 'Anthropic', 
+                  icon: FaBrain, 
+                  color: 'text-orange-500',
+                  bgColor: 'bg-orange-50',
+                  borderColor: 'border-orange-200',
+                  description: 'Claude models'
+                },
+                { 
+                  id: 'openai', 
+                  name: 'OpenAI', 
+                  icon: FaCompass, 
+                  color: 'text-green-500',
+                  bgColor: 'bg-green-50',
+                  borderColor: 'border-green-200',
+                  description: 'GPT models'
+                },
+                { 
+                  id: 'gemini', 
+                  name: 'Google', 
+                  icon: FaClipboardList, 
+                  color: 'text-purple-500',
+                  bgColor: 'bg-purple-50',
+                  borderColor: 'border-purple-200',
+                  description: 'Gemini models'
+                }
               ].map((provider) => {
                 const Icon = provider.icon;
+                const isSelected = localConfig.selectedModel === provider.id;
                 return (
                   <button
                     key={provider.id}
                     onClick={() => setLocalConfig(prev => ({ ...prev, selectedModel: provider.id }))}
-                    className={`provider-tab p-3 rounded-lg border-2 transition-all duration-300 ${
-                      localConfig.selectedModel === provider.id
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                    className={`provider-tab p-4 rounded-xl border-2 transition-all duration-300 ${
+                      isSelected
+                        ? `border-blue-500 bg-blue-50 text-blue-700 shadow-md`
+                        : `border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:shadow-sm`
                     }`}
                   >
-                    <Icon className={`${provider.color} mx-auto mb-1`} size={18} />
-                    <div className="font-medium text-sm">{provider.name}</div>
+                    <div className="flex flex-col items-center text-center">
+                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center mb-2 ${
+                        isSelected ? 'bg-blue-100' : provider.bgColor
+                      }`}>
+                        <Icon className={`${isSelected ? 'text-blue-600' : provider.color}`} size={20} />
+                      </div>
+                      <div className="font-semibold text-sm mb-1">{provider.name}</div>
+                      <div className="text-xs text-gray-500">{provider.description}</div>
+                    </div>
                   </button>
                 );
               })}
           </div>
-          </motion.div>
+          </div>
 
           {/* API Key Configuration */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="settings-api-section bg-white rounded-xl shadow-lg p-4 border border-gray-200"
-          >
+          <div className="settings-api-section bg-white rounded-xl shadow-lg p-4 border border-gray-200">
             <div className="flex items-center gap-2 mb-4">
               <FaKey className="text-purple-500" size={18} />
               <div>
@@ -266,12 +288,20 @@ const Settings = ({ onBack, onOpenPlans }) => {
             </div>
 
             {/* Use Own Key Toggle */}
-            <div className="api-toggle-section mb-4">
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <FaShieldAlt className="text-gray-600" size={16} />
+            <div className="api-toggle-section mb-6">
+              <div className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all duration-300 ${
+                localConfig.useOwnKey 
+                  ? 'bg-blue-50 border-blue-200' 
+                  : 'bg-gray-50 border-gray-200'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                    localConfig.useOwnKey ? 'bg-blue-100' : 'bg-gray-100'
+                  }`}>
+                    <FaShieldAlt className={`${localConfig.useOwnKey ? 'text-blue-600' : 'text-gray-600'}`} size={18} />
+                  </div>
                   <div>
-                    <div className="font-medium text-gray-800 text-sm">Use Your Own API Key</div>
+                    <div className="font-semibold text-gray-800 text-sm">API Configuration</div>
                     <div className="text-xs text-gray-600">
                       {localConfig.useOwnKey 
                         ? 'Using your personal API keys' 
@@ -280,25 +310,22 @@ const Settings = ({ onBack, onOpenPlans }) => {
                     </div>
                   </div>
                 </div>
-                    <button
+                <button
                   onClick={() => setLocalConfig(prev => ({ ...prev, useOwnKey: !prev.useOwnKey }))}
-                  className={`api-toggle p-1.5 rounded-lg transition-colors ${
-                    localConfig.useOwnKey ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-600'
+                  className={`api-toggle p-2 rounded-lg transition-all duration-300 ${
+                    localConfig.useOwnKey 
+                      ? 'bg-blue-500 text-white shadow-md' 
+                      : 'bg-gray-300 text-gray-600 hover:bg-gray-400'
                   }`}
                 >
-                  {localConfig.useOwnKey ? <FaToggleOn size={16} /> : <FaToggleOff size={16} />}
-                    </button>
+                  {localConfig.useOwnKey ? <FaToggleOn size={18} /> : <FaToggleOff size={18} />}
+                </button>
               </div>
             </div>
 
             {/* API Key Input */}
             {localConfig.useOwnKey && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="api-input-group space-y-4"
-              >
+              <div className="api-input-group space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     API Key for {localConfig.selectedModel.charAt(0).toUpperCase() + localConfig.selectedModel.slice(1)}
@@ -341,16 +368,12 @@ const Settings = ({ onBack, onOpenPlans }) => {
                     ))}
                   </select>
               </div>
-              </motion.div>
+              </div>
             )}
 
             {/* Backend Service Info */}
             {!localConfig.useOwnKey && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-3 bg-blue-50 border border-blue-200 rounded-lg"
-              >
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="flex items-start gap-2">
                   <FaInfoCircle className="text-blue-500 mt-0.5" size={14} />
                   <div>
@@ -361,53 +384,37 @@ const Settings = ({ onBack, onOpenPlans }) => {
           </div>
         </div>
       </div>
-              </motion.div>
+              </div>
             )}
-          </motion.div>
+          </div>
 
           {/* Status Messages */}
-      <AnimatePresence>
-            {validationError && (
-          <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="settings-message bg-red-50 border border-red-200 rounded-lg p-3"
-              >
-                <div className="flex items-center gap-2">
-                  <FaExclamationTriangle className="text-red-500" size={14} />
-                  <span className="text-red-800 text-sm">{validationError}</span>
-                </div>
-              </motion.div>
-            )}
+          {validationError && (
+            <div className="settings-message bg-red-50 border border-red-200 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <FaExclamationTriangle className="text-red-500" size={14} />
+                <span className="text-red-800 text-sm">{validationError}</span>
+              </div>
+            </div>
+          )}
 
-            {successMessage && (
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="settings-message bg-green-50 border border-green-200 rounded-lg p-3"
-              >
-                <div className="flex items-center gap-2">
-                  <FaCheckCircle className="text-green-500" size={14} />
-                  <span className="text-green-800 text-sm">{successMessage}</span>
-                </div>
-              </motion.div>
-            )}
+          {successMessage && (
+            <div className="settings-message bg-green-50 border border-green-200 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <FaCheckCircle className="text-green-500" size={14} />
+                <span className="text-green-800 text-sm">{successMessage}</span>
+              </div>
+            </div>
+          )}
 
-            {isValidating && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="settings-message bg-blue-50 border border-blue-200 rounded-lg p-3"
-              >
-                <div className="flex items-center gap-2">
-                  <FaSpinner className="animate-spin text-blue-500" size={14} />
-                  <span className="text-blue-800 text-sm">Validating API key...</span>
-                </div>
-              </motion.div>
-            )}
-      </AnimatePresence>
+          {isValidating && (
+            <div className="settings-message bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <FaSpinner className="animate-spin text-blue-500" size={14} />
+                <span className="text-blue-800 text-sm">Validating API key...</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
