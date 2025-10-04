@@ -19,7 +19,7 @@ export function ensureMarkdown(text) {
   }
   
   // Optional: split big Markdown into smaller UI-friendly chunks
-  export function chunkMarkdown(md, size = 1000) {
+  export function chunkMarkdown(md, size = 2000) {
     const out = [];
     
     // If text is smaller than chunk size, return as single chunk
@@ -35,7 +35,7 @@ export function ensureMarkdown(text) {
       
       // Try to find a good break point within the chunk
       if (endPos < md.length) {
-        // Look for sentence endings first
+        // Look for sentence endings first (preferred)
         const sentenceEnd = md.lastIndexOf('. ', endPos);
         const questionEnd = md.lastIndexOf('? ', endPos);
         const exclamationEnd = md.lastIndexOf('! ', endPos);
@@ -43,12 +43,12 @@ export function ensureMarkdown(text) {
         
         const bestBreak = Math.max(sentenceEnd, questionEnd, exclamationEnd, lineBreak);
         
-        if (bestBreak > currentPos + size * 0.5) { // Only use if it's not too far back
+        if (bestBreak > currentPos + size * 0.6) { // Use if it's reasonably close
           endPos = bestBreak + 1; // Include the punctuation
         } else {
-          // Look for word boundaries
+          // Look for word boundaries (fallback)
           const wordBreak = md.lastIndexOf(' ', endPos);
-          if (wordBreak > currentPos + size * 0.7) { // Only use if not too far back
+          if (wordBreak > currentPos + size * 0.8) { // Use if very close to end
             endPos = wordBreak + 1; // Include the space
           }
         }

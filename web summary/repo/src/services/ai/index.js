@@ -130,11 +130,53 @@ export async function stream({ kind, payload, signal, onDelta, route, onProvider
   const req = buildRequest(kind, payload, conversationHistory, currentUrl);
   console.log('🔧 AI Service - Built Request:', { kind, payload: req.payload, hasHistory: !!req.conversationHistory, currentUrl });
   
+  // Get organization ID for backend provider
+  let organizationId = null;
+  if (provider.type === 'backend') {
+    try {
+      if (typeof window !== 'undefined') {
+        const userService = require('@/services/user');
+        
+        // First try to get from localStorage
+        organizationId = userService.getLocalSelectedOrgId();
+        console.log('🔧 AI Service - Local organization ID:', organizationId);
+        
+        // If no local selection, try to get from user data
+        if (!organizationId) {
+          console.log('🔧 AI Service - No local org ID, fetching user data...');
+          const userData = await userService.getCurrentUser({ force: true });
+          
+          if (userData?.organizations && userData.organizations.length > 0) {
+            // Use the pickOrganization logic to get the best organization
+            const pickedOrg = userService.pickOrganization({
+              user: userData.user,
+              organizations: userData.organizations
+            });
+            
+            if (pickedOrg) {
+              organizationId = pickedOrg.id || pickedOrg.organizationId;
+              console.log('🔧 AI Service - Picked organization:', { 
+                orgId: organizationId, 
+                orgName: pickedOrg.name,
+                subscriptionStatus: pickedOrg.subscriptionStatus 
+              });
+            }
+          }
+        }
+        
+        console.log('🔧 AI Service - Final organization ID:', organizationId);
+      }
+    } catch (e) {
+      console.error('🔧 AI Service - Error getting organization ID:', e);
+    }
+  }
+  
   const ctx = {
     apiKey,
     modelConfig: SUPPORTED_MODELS?.[selectedModel] || {},
     backendBaseUrl: BACKEND_BASE_URL,
     signal,
+    organizationId, // Pass organization ID to backend provider
   };
 
   const gen = provider.impl.stream({ kind, req, ctx });

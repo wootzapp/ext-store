@@ -315,7 +315,7 @@ const MessageList = ({ messages, isTyping }) => {
             transition={{ delay: 0.6, duration: 0.5 }}
             style={{ fontSize: '14px', lineHeight: '1.5' }}
           >
-            I can help you with AI research, page analysis, and fact checking. Try one of the suggestions below!
+            I can help you with AI research, page analysis and summarization, and facts checking.
           </motion.p>
         </motion.div>
       )}
@@ -431,16 +431,16 @@ const SuggestionButtons = ({ onSuggestionClick, disabled, isNewTabPage, isValidW
     {
       id: 'analysis',
       icon: <FaFileAlt />,
-      title: 'Page Analysis',
-      description: 'Analyze current webpage content',
+      title: 'Page Analysis & Summarization',
+      description: 'Analyze and summarize current webpage content',
       color: '#10b981',
       bgColor: '#ecfdf5'
     },
     {
       id: 'factcheck',
       icon: <FaCheckCircle />,
-      title: 'Fact Checker',
-      description: 'Verify claims against trusted sources',
+      title: 'Facts Checker',
+      description: 'Verify claims against factual information on the webpage',
       color: '#f59e0b',
       bgColor: '#fffbeb'
     }

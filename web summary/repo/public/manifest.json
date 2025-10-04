@@ -24,9 +24,7 @@
   ],
   "action": {
     "features": [
-      "AI Research",
-      "Page Analysis",
-      "Fact Checker"
+      "Wootz AI"
     ],
     "default_popup": "popup.html",
     "default_title": "Wootz AI"

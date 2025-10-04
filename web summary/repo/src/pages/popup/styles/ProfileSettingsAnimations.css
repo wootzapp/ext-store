@@ -119,7 +119,7 @@
 }
 
 .profile-avatar {
-  animation: pulse 3s ease-in-out infinite;
+  /* Pulse animation removed */
 }
 
 .profile-user-details {

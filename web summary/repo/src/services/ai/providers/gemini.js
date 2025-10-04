@@ -53,7 +53,16 @@ Please format your answer as GitHub-flavored **Markdown** with clear headings, b
     '';
 
   const md = ensureMarkdown(text || '_(no content)_');
-  for (const piece of chunkMarkdown(md, 2000)) {
-    yield piece;
+  
+  // Simulate streaming by yielding the response in chunks of 5-6 words for better streaming
+  const words = md.split(' ');
+  const chunkSize = 5; // Show 5 words at a time
+  
+  for (let i = 0; i < words.length; i += chunkSize) {
+    const chunk = words.slice(i, i + chunkSize).join(' ');
+    yield ensureMarkdown(chunk + (i + chunkSize < words.length ? ' ' : ''));
+    
+    // Add a small delay to simulate real-time streaming (faster than word-by-word)
+    await new Promise(resolve => setTimeout(resolve, 50));
   }
 }

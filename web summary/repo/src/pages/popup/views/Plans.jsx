@@ -127,15 +127,51 @@ export default function Plans({
   // ----- org (read-only) -----
   const { organizations, selectedOrg } = useUserOrgs();
   const selectedOrgIdFromHook = selectedOrg?.id ?? selectedOrg?.organizationId ?? null;
-  const billingOrgId = useMemo(
-    () => preselectedOrgId ?? selectedOrgIdFromHook ?? null,
-    [preselectedOrgId, selectedOrgIdFromHook]
-  );
+  const billingOrgId = useMemo(() => {
+    const preselected = preselectedOrgId;
+    const selected = selectedOrgIdFromHook;
+    
+    // Ensure we get a proper ID, not an object
+    const id = preselected ?? selected ?? null;
+    
+    // If it's an object, try to extract the ID
+    if (id && typeof id === 'object') {
+      return id.id ?? id.organizationId ?? null;
+    }
+    
+    return id;
+  }, [preselectedOrgId, selectedOrgIdFromHook]);
+  
   const billedOrg = useMemo(() => {
     const id = billingOrgId;
+    if (!id) return null;
     return (organizations ?? []).find(o => String(o.id ?? o.organizationId) === String(id));
   }, [organizations, billingOrgId]);
-  const billingOrgName = billedOrg?.name || (billingOrgId ? `Org #${billingOrgId}` : '—');
+  
+  const billingOrgName = useMemo(() => {
+    // Debug logging to help identify the object issue
+    if (DEBUG) {
+      console.log('[Plans] Debug billing org:', {
+        preselectedOrgId,
+        selectedOrgIdFromHook,
+        billingOrgId,
+        billedOrg,
+        organizations: organizations?.length || 0
+      });
+    }
+    
+    if (billedOrg?.name) {
+      return billedOrg.name;
+    }
+    if (billingOrgId) {
+      // Ensure billingOrgId is a string/number, not an object
+      const id = typeof billingOrgId === 'object' ? 
+        (billingOrgId?.id ?? billingOrgId?.organizationId ?? 'Unknown') : 
+        billingOrgId;
+      return `Org #${id}`;
+    }
+    return '—';
+  }, [billedOrg?.name, billingOrgId, preselectedOrgId, selectedOrgIdFromHook, billedOrg, organizations]);
   const billingOrgStatus = billedOrg?.subscriptionStatus || '';
 
   const startCheckout = async (priceId, org) => {
@@ -186,10 +222,10 @@ export default function Plans({
           <button
             type="button"
             onClick={() => onBack?.()}
-            className="text-gray-600 hover:text-red-500 text-sm font-medium transition-colors"
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors px-2 py-1 rounded-lg hover:bg-gray-100"
           >
-            <FaArrowLeft size={16} />
-            <span className="font-medium">Back</span>
+            <FaArrowLeft size={14} />
+            <span className="font-medium text-sm">Back</span>
           </button>
 
           <div className="flex items-center gap-2">
