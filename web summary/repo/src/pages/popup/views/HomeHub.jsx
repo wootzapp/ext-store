@@ -1,7 +1,7 @@
 // src/pages/popup/views/HomeHub.jsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import SettingsButton from '@/pages/popup/components/SettingsButton';
+import { FaCog, FaArrowLeft, FaUser, FaRobot, FaSearch, FaFileAlt, FaCheckCircle } from 'react-icons/fa';
 import useAuthAndPrefs from '@/hooks/useAuthAndPrefs';
 import useUserOrgs from '@/hooks/useUserOrgs';
 import useQuotaGate from '@/hooks/useQuotaGate';
@@ -31,11 +31,13 @@ function DebugQuotaCard(props) {
 }
 
 export default function HomeHub({
-  onOpenSettings,
+  onOpenProfile,
   onOpenResearch,
   onOpenAnalysis,
   onOpenFactChecker,
   onOpenPlans,
+  onOpenChat,
+  onOpenSettings,
 }) {
   const { authUser, prefs, loadPrefs } = useAuthAndPrefs();
 
@@ -123,101 +125,164 @@ export default function HomeHub({
   };
 
   return (
-    <motion.div
-      className="w-full h-full flex flex-col relative min-w-0"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-    >
-      {/* Background */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-radial from-red-500/10 via-orange-500/5 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-b from-white via-gray-50/80 to-white" />
+    <div className="profile-container w-full h-full bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col relative overflow-hidden">
+      {/* Background Animation */}
+      <div className="background-animation">
+        <div className="profile-orb-1 floating-orb"></div>
+        <div className="profile-orb-2 floating-orb"></div>
+        <div className="profile-orb-3 floating-orb"></div>
       </div>
 
-      {/* Foreground */}
-      <div className="flex-1 flex flex-col p-4 relative z-10 min-w-0 pointer-events-auto overflow-y-auto overflow-x-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2 min-w-0">
+      {/* Header */}
+      <div className="profile-header bg-white/95 backdrop-blur-sm border-b border-gray-200 p-4 relative z-10">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={onOpenProfile}
+            className="profile-back-button flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
+          >
             <img src={avatar} alt="Profile" className="w-8 h-8 rounded-full border border-gray-200 object-cover" />
-            <span className="text-gray-800 font-semibold truncate">
-              {authUser?.name || authUser?.login || 'You'}
-            </span>
-          </div>
-          <button type="button" onClick={() => { log('Settings clicked'); onOpenSettings?.(); }} className="shrink-0" aria-label="Open settings">
-            <SettingsButton />
+            <span className="font-medium">{authUser?.name || authUser?.login || 'You'}</span>
           </button>
-        </div>
-
-        {/* Quota */}
-        {error ? (
-          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-            Couldn’t load quota right now. You can still use the features below.
+          
+          <div className="text-center">
+            <h1 className="profile-title text-xl font-bold text-gray-800">Web Summary</h1>
+            <p className="profile-subtitle text-sm text-gray-600">AI-powered web analysis</p>
           </div>
-        ) : loading ? (
-          <div className="mb-4 h-24 rounded-xl border border-gray-200 bg-white/70 animate-pulse" />
-        ) : (
-          <DebugQuotaCard
-            key={`quota-${selectedOrgId ?? 'none'}`} // ensures clean remount when org changes
-            plan={plan}
-            orgId={selectedOrgId}
-            pricingUrl={PRICING_URL}
-            className="mb-4"
-            onOpenPlans={() => onOpenPlans?.(selectedOrgId ?? null)}
-            onUseOwnKey={() => {
-              log('Use your own key clicked');
-              try { localStorage.setItem('intent.scrollToOwnKeyOnce', '1'); } catch {}
-              onOpenSettings?.();
-            }}
-            // show “Using your key” + “Manage key” when the toggle is on
-            usingOwnKey={useOwnKey}
-          />
-        )}
-
-        {/* Features */}
-        <div className="grid grid-cols-1 gap-3">
-          {[
-            {
-              title: 'AI Research',
-              subtitle:
-                'Ask complex questions and get a crisp brief with citations, key takeaways, and next-steps you can act on immediately.',
-              onClick: () => { log('Open Research clicked'); onOpenResearch?.(); }
-            },
-            {
-              title: 'Page Analysis',
-              subtitle:
-                'Drop in any page and pull out summary, entities, numbers, and action items—no fluff, just the signals that matter.',
-              onClick: () => { log('Open Analysis clicked'); onOpenAnalysis?.(); }
-            },
-            {
-              title: 'Fact Checker',
-              subtitle:
-                'Test claims against trusted sources and see clear verdicts with links, so you know what’s solid and what isn’t.',
-              onClick: () => { log('Open Fact Checker clicked'); onOpenFactChecker?.(); }
-            },
-          ].map(({ title, subtitle, onClick }) => (
+          
+          <div className="flex items-center gap-2">
             <button
-              key={title}
-              type="button"
-              onClick={onClick}
-              className="group w-full text-left rounded-xl p-4 bg-white/95 border border-gray-200 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all hover:bg-gradient-to-r hover:from-red-500 hover:to-orange-500 focus:outline-none focus:ring-2 focus:ring-red-400"
+              onClick={onOpenSettings}
+              className="p-2 text-gray-600 hover:text-gray-800 transition-colors rounded-lg hover:bg-gray-100"
+              title="Settings"
             >
-              {/* Title first (no 'Feature' label) */}
-              <p className="text-lg font-semibold text-gray-900 group-hover:text-white">{title}</p>
-
-              {/* ~1.5 line description (2-line clamp) */}
-              <p
-                className="text-xs text-gray-600 mt-1 group-hover:text-white/90 leading-5"
-                style={clamp2}
-                title={subtitle}
-              >
-                {subtitle}
-              </p>
+              <FaCog size={16} />
             </button>
-          ))}
+          </div>
         </div>
       </div>
-    </motion.div>
+
+      {/* Content */}
+      <div className="profile-content flex-1 p-6 overflow-y-auto relative z-10">
+        <div className="max-w-4xl mx-auto space-y-6">
+          
+          {/* Main Chat Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="profile-user-info bg-white rounded-2xl shadow-lg p-6 border border-gray-200"
+          >
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
+                <FaRobot className="text-white" size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800">Start Chat</h3>
+                <p className="text-sm text-gray-600">AI-powered web analysis</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+              Get comprehensive research, page analysis, and fact checking in one intelligent conversation.
+            </p>
+            <button
+              onClick={() => { log('Start Chat clicked'); onOpenChat?.(); }}
+              className="profile-button w-full bg-gradient-to-r from-red-500 to-orange-500 text-white py-3 px-4 rounded-xl font-medium hover:from-red-600 hover:to-orange-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+            >
+              Start Chat
+            </button>
+          </motion.div>
+
+          {/* Available Features */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="profile-stats bg-white rounded-2xl shadow-lg p-6 border border-gray-200"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <FaSearch className="text-blue-500" size={24} />
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800">Available Features</h3>
+                <p className="text-sm text-gray-600">Choose your AI analysis type</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              {[
+                {
+                  title: 'AI Research',
+                  subtitle: 'Comprehensive research with citations',
+                  icon: FaSearch,
+                  color: 'text-blue-500',
+                  bgColor: 'bg-blue-50',
+                  onClick: onOpenResearch
+                },
+                {
+                  title: 'Page Analysis',
+                  subtitle: 'Summarize and analyze web content',
+                  icon: FaFileAlt,
+                  color: 'text-green-500',
+                  bgColor: 'bg-green-50',
+                  onClick: onOpenAnalysis
+                },
+                {
+                  title: 'Fact Checker',
+                  subtitle: 'Verify claims against trusted sources',
+                  icon: FaCheckCircle,
+                  color: 'text-purple-500',
+                  bgColor: 'bg-purple-50',
+                  onClick: onOpenFactChecker
+                }
+              ].map((feature, index) => {
+                const Icon = feature.icon;
+                return (
+                  <motion.button
+                    key={feature.title}
+                    onClick={feature.onClick}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3 + index * 0.1 }}
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`${feature.bgColor} p-4 rounded-xl border border-gray-200 hover:shadow-md transition-all duration-300 text-left`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 ${feature.bgColor} rounded-lg flex items-center justify-center`}>
+                        <Icon className={`${feature.color}`} size={20} />
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-800">{feature.title}</h4>
+                        <p className="text-sm text-gray-600">{feature.subtitle}</p>
+                      </div>
+                    </div>
+                  </motion.button>
+                );
+              })}
+            </div>
+          </motion.div>
+
+          {/* Quota Information */}
+          {!useOwnKey && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="profile-subscription bg-white rounded-2xl shadow-lg p-6 border border-gray-200"
+            >
+              <DebugQuotaCard
+                orgId={selectedOrgId}
+                plan={plan}
+                pricingUrl={PRICING_URL}
+                onOpenPlans={onOpenPlans}
+                onUseOwnKey={() => onOpenSettings?.()}
+                usingOwnKey={useOwnKey}
+                alwaysShowActions={false}
+                warnAt={0.8}
+              />
+            </motion.div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

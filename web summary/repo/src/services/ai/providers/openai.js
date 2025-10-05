@@ -13,7 +13,7 @@ function buildEndpoint(modelConfig) {
 }
 
 export async function* stream({ kind, req, ctx }) {
-  const { apiKey, modelConfig, signal } = ctx;
+  const { apiKey, modelConfig, signal, screenshotData } = ctx;
   if (!apiKey) throw new Error('OpenAI API key missing');
 
   const endpoint = buildEndpoint(modelConfig);
@@ -22,13 +22,36 @@ export async function* stream({ kind, req, ctx }) {
     modelConfig?.model ||
     'gpt-4o-mini';
 
+  // Build content - include image if available
+  const userContent = [{ type: 'text', text: req.prompt }];
+  
+  if (screenshotData) {
+    // Extract base64 data from data URL
+    const base64Data = screenshotData.split(',')[1];
+    const mimeType = screenshotData.split(';')[0].split(':')[1];
+    
+    userContent.push({
+      type: 'image_url',
+      image_url: {
+        url: `data:${mimeType};base64,${base64Data}`
+      }
+    });
+    
+    console.log('🔧 OpenAI - Including auto-captured screenshot data:', { 
+      hasImage: true, 
+      mimeType, 
+      dataLength: base64Data.length,
+      autoCaptured: true
+    });
+  }
+
   const messages = [
     {
       role: 'system',
       content:
         'You are a concise expert researcher. Always reply in GitHub-flavored Markdown (headings, lists, tables, code blocks when useful).',
     },
-    { role: 'user', content: req.prompt },
+    { role: 'user', content: userContent },
   ];
 
   const res = await fetch(endpoint, {
@@ -65,7 +88,7 @@ export async function* stream({ kind, req, ctx }) {
       json?.choices?.[0]?.delta?.content ??
       '';
     const md = ensureMarkdown(text || '_(no content)_');
-    for (const piece of chunkMarkdown(md, 1200)) yield piece;
+    for (const piece of chunkMarkdown(md, 2000)) yield piece;
     return;
   }
 

@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "Web Summary",
-  "version": "1.0.2",
-  "description": "Transform webpages into concise insights with AI-powered summarization",
+  "name": "Wootz AI",
+  "version": "1.0.3",
+  "description": "AI-powered chat and web analysis with summarization and fact checking capabilities.",
   "permissions": [
     "activeTab",
     "storage",
     "alarms",
-    "scripting"
+    "scripting",
+    "wootz"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -24,12 +25,10 @@
   ],
   "action": {
     "features": [
-      "AI Research",
-      "Page Analysis",
-      "Fact Checker"
+      "Wootz AI"
     ],
     "default_popup": "popup.html",
-    "default_title": "Web Summary"
+    "default_title": "Wootz AI"
   },
   "icons": {
     "16": "icons/icon16.png",

@@ -14,7 +14,7 @@ function buildEndpoint({ apiKey, modelConfig }) {
 }
 
 export async function* stream({ kind, req, ctx }) {
-  const { apiKey, modelConfig, signal } = ctx;
+  const { apiKey, modelConfig, signal, screenshotData } = ctx;
   if (!apiKey) throw new Error('Gemini API key missing');
 
   const endpoint = buildEndpoint({ apiKey, modelConfig });
@@ -31,8 +31,31 @@ export async function* stream({ kind, req, ctx }) {
 ---
 Please format your answer as GitHub-flavored **Markdown** with clear headings, bullet lists, and code blocks when useful.`;
 
+  // Build content parts - include image if available
+  const parts = [{ text: prompt }];
+  
+  if (screenshotData) {
+    // Extract base64 data from data URL
+    const base64Data = screenshotData.split(',')[1];
+    const mimeType = screenshotData.split(';')[0].split(':')[1];
+    
+    parts.push({
+      inline_data: {
+        mime_type: mimeType,
+        data: base64Data
+      }
+    });
+    
+    console.log('🔧 Gemini - Including auto-captured screenshot data:', { 
+      hasImage: true, 
+      mimeType, 
+      dataLength: base64Data.length,
+      autoCaptured: true
+    });
+  }
+
   const payload = {
-    contents: [{ parts: [{ text: prompt }] }],
+    contents: [{ parts }],
     generationConfig,
   };
 
@@ -53,7 +76,16 @@ Please format your answer as GitHub-flavored **Markdown** with clear headings, b
     '';
 
   const md = ensureMarkdown(text || '_(no content)_');
-  for (const piece of chunkMarkdown(md, 1200)) {
-    yield piece;
+  
+  // Simulate streaming by yielding the response in chunks of 5-6 words for better streaming
+  const words = md.split(' ');
+  const chunkSize = 5; // Show 5 words at a time
+  
+  for (let i = 0; i < words.length; i += chunkSize) {
+    const chunk = words.slice(i, i + chunkSize).join(' ');
+    yield ensureMarkdown(chunk + (i + chunkSize < words.length ? ' ' : ''));
+    
+    // Add a small delay to simulate real-time streaming (faster than word-by-word)
+    await new Promise(resolve => setTimeout(resolve, 50));
   }
 }

@@ -1,6 +1,6 @@
 
 /**
- * API Configuration for Web Summary Extension
+ * API Configuration for Wootz AI Extension
  * 
  * This module provides configuration constants and utilities for API requests,
  * content processing, and rate limiting. It works alongside the dynamic

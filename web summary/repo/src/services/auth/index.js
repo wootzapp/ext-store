@@ -67,9 +67,17 @@ class AuthService {
         return new Promise((resolve) => {
           const check = setInterval(async () => {
             const s = await StorageUtils.getAuthSession();
-            if (s.isAuthenticated) { clearInterval(check); resolve(s.user); }
+            if (s.isAuthenticated) { 
+              clearInterval(check); 
+              this._stopPolling();
+              resolve({ success: true, user: s.user }); 
+            }
           }, 1000);
-          setTimeout(() => { clearInterval(check); resolve(null); }, 300000);
+          setTimeout(() => { 
+            clearInterval(check); 
+            this._stopPolling();
+            resolve({ success: false, error: 'Login timeout' }); 
+          }, 300000);
         });
       }
     } catch (e) {
@@ -91,9 +99,17 @@ class AuthService {
         return new Promise((resolve) => {
           const check = setInterval(async () => {
             const s = await StorageUtils.getAuthSession();
-            if (s.isAuthenticated) { clearInterval(check); resolve(s.user); }
+            if (s.isAuthenticated) { 
+              clearInterval(check); 
+              this._stopPolling();
+              resolve({ success: true, user: s.user }); 
+            }
           }, 1000);
-          setTimeout(() => { clearInterval(check); resolve(null); }, 300000);
+          setTimeout(() => { 
+            clearInterval(check); 
+            this._stopPolling();
+            resolve({ success: false, error: 'Login timeout' }); 
+          }, 300000);
         });
       }
     } catch (e) {
@@ -102,7 +118,7 @@ class AuthService {
 
     // 3) Manual link case — caller should show `${AUTH_URL}/ext/sign-in`
     console.warn('[Auth] No extension window/tab APIs available. Show manual link.');
-    return null;
+    return { success: false, error: 'No extension APIs available' };
   }
 
   async logout() {

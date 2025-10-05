@@ -13,7 +13,7 @@ function buildEndpoint(modelConfig) {
 }
 
 export async function* stream({ kind, req, ctx }) {
-  const { apiKey, modelConfig, signal } = ctx;
+  const { apiKey, modelConfig, signal, screenshotData } = ctx;
   if (!apiKey) throw new Error('Anthropic API key missing');
 
   const endpoint = buildEndpoint(modelConfig);
@@ -22,12 +22,37 @@ export async function* stream({ kind, req, ctx }) {
     modelConfig?.model ||
     'claude-3-5-sonnet-latest';
 
+  // Build content - include image if available
+  const userContent = [{ type: 'text', text: req.prompt }];
+  
+  if (screenshotData) {
+    // Extract base64 data from data URL
+    const base64Data = screenshotData.split(',')[1];
+    const mimeType = screenshotData.split(';')[0].split(':')[1];
+    
+    userContent.push({
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: mimeType,
+        data: base64Data
+      }
+    });
+    
+    console.log('🔧 Anthropic - Including auto-captured screenshot data:', { 
+      hasImage: true, 
+      mimeType, 
+      dataLength: base64Data.length,
+      autoCaptured: true
+    });
+  }
+
   const body = {
     model,
     max_tokens: modelConfig?.maxTokens ?? 2048,
     stream: true,
     temperature: typeof modelConfig?.temperature === 'number' ? modelConfig.temperature : 0.2,
-    messages: [{ role: 'user', content: req.prompt }],
+    messages: [{ role: 'user', content: userContent }],
     system:
       'You are a concise expert researcher. Reply in GitHub-flavored Markdown with clear headings, bullet lists, and code blocks when helpful.',
   };
@@ -64,7 +89,7 @@ export async function* stream({ kind, req, ctx }) {
         .join('')) || '';
 
     const md = ensureMarkdown(text || '_(no content)_');
-    for (const piece of chunkMarkdown(md, 1200)) yield piece;
+    for (const piece of chunkMarkdown(md, 2000)) yield piece;
     return;
   }
 
