@@ -123,7 +123,7 @@ const LoginPage = ({ onLoginSuccess }) => {
             </>
           ) : (
             <>
-              <span>Sign in to Coninue</span>
+              <span>Sign in to Continue</span>
               <span className="text-lg">→</span>
             </>
           )}
