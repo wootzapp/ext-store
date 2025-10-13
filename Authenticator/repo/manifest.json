@@ -37,7 +37,14 @@
       "resources": [
         "auth-success.html",
         "auth-success.js",
-        "popup.html"
+        "popup.html",
+        "public/libs/xregexp.js",
+        "public/ptr/apiPatterns_new.js",
+        "public/ptr/piiPatterns.js",
+        "public/ptr/fiPatterns.js",
+        "public/ptr/cryptoPatterns.js",
+        "public/ptr/medPatterns.js",
+        "public/ptr/networkPatterns.js"
       ],
       "matches": [
         "<all_urls>"

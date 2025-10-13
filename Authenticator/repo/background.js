@@ -1,5 +1,18 @@
 console.log("Background script starting...");
 
+// Import XRegExp and pattern files for real-time detection
+importScripts(
+  'public/libs/xregexp.js',
+  'public/ptr/piiPatterns.js',
+  'public/ptr/apiPatterns_new.js',
+  'public/ptr/fiPatterns.js',
+  'public/ptr/cryptoPatterns.js',
+  'public/ptr/medPatterns.js',
+  'public/ptr/networkPatterns.js'
+);
+
+console.log("✅ Pattern files loaded successfully");
+
 // Clear all storage on extension startup to prevent reinstall issues
 chrome.storage.local.clear(function () {
   console.log("Background: Cleared all extension storage on startup");
@@ -24,6 +37,238 @@ const analysisCache = new Map();
 const rateLimiter = new Map();
 const analyzedUrls = new Map(); // Track analyzed URLs per tab
 let latestAnalysis = null;
+
+// ======================
+// PATTERN-BASED REDACTION ENGINE
+// ======================
+
+class PatternRedactor {
+  /**
+   * Smart redaction function that shows first 2 digits and masks the rest
+   * Example: 1234567890123456 -> 12XXXXXXXXXXXXXX
+   */
+  static smartRedactCardNumber(text) {
+    if (text.length <= 2) return text;
+    const visiblePart = text.substring(0, 2);
+    const maskedPart = 'X'.repeat(text.length - 2);
+    return visiblePart + maskedPart;
+  }
+
+  /**
+   * Redact email showing first char + domain
+   * Example: john.doe@example.com -> j***@example.com
+   */
+  static smartRedactEmail(email) {
+    const parts = email.split('@');
+    if (parts.length !== 2) return email;
+    const username = parts[0];
+    const domain = parts[1];
+    return username[0] + '***@' + domain;
+  }
+
+  /**
+   * Redact phone showing last 4 digits
+   * Example: (555) 123-4567 -> XXX-XXX-4567
+   */
+  static smartRedactPhone(phone) {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 4) return phone;
+    const last4 = digits.slice(-4);
+    return 'XXX-XXX-' + last4;
+  }
+
+  /**
+   * Complete masking for sensitive data
+   */
+  static fullRedact(text) {
+    return 'X'.repeat(text.length);
+  }
+
+  /**
+   * Main redaction function - applies patterns and redacts matches
+   */
+  static redactText(text) {
+    if (!text || typeof text !== 'string') return text;
+
+    let redactedText = text;
+    const detections = [];
+
+    // Check Financial Patterns (Credit Cards)
+    if (typeof fiPatterns !== 'undefined') {
+      // Visa Card
+      if (fiPatterns.visaCardNumber) {
+        const pattern = fiPatterns.visaCardNumber.pattern;
+        let match;
+        let lastIndex = 0;
+        while ((match = pattern.exec(redactedText)) !== null) {
+          const cleanMatch = match[0].replace(/[\s-]/g, '');
+          const redacted = this.smartRedactCardNumber(cleanMatch);
+          redactedText = redactedText.replace(match[0], redacted);
+          detections.push({ type: 'Visa Card', original: match[0], redacted });
+
+          // Prevent infinite loop
+          if (pattern.lastIndex === lastIndex) break;
+          lastIndex = pattern.lastIndex;
+        }
+      }
+
+      // Mastercard
+      if (fiPatterns.mastercardNumber) {
+        const pattern = fiPatterns.mastercardNumber.pattern;
+        let match;
+        let lastIndex = 0;
+        while ((match = pattern.exec(redactedText)) !== null) {
+          const cleanMatch = match[0].replace(/[\s-]/g, '');
+          const redacted = this.smartRedactCardNumber(cleanMatch);
+          redactedText = redactedText.replace(match[0], redacted);
+          detections.push({ type: 'Mastercard', original: match[0], redacted });
+
+          // Prevent infinite loop
+          if (pattern.lastIndex === lastIndex) break;
+          lastIndex = pattern.lastIndex;
+        }
+      }
+
+      // AMEX
+      if (fiPatterns.amexNumber) {
+        const pattern = fiPatterns.amexNumber.pattern;
+        let match;
+        let lastIndex = 0;
+        while ((match = pattern.exec(redactedText)) !== null) {
+          const cleanMatch = match[0].replace(/[\s-]/g, '');
+          const redacted = this.smartRedactCardNumber(cleanMatch);
+          redactedText = redactedText.replace(match[0], redacted);
+          detections.push({ type: 'AMEX Card', original: match[0], redacted });
+
+          // Prevent infinite loop
+          if (pattern.lastIndex === lastIndex) break;
+          lastIndex = pattern.lastIndex;
+        }
+      }
+
+      // Bank Account Number
+      if (fiPatterns.bankAccountNumber) {
+        const pattern = fiPatterns.bankAccountNumber.pattern;
+        let match;
+        let lastIndex = 0;
+        while ((match = pattern.exec(redactedText)) !== null) {
+          const accountNum = match[0].match(/\d{8,17}/);
+          if (accountNum) {
+            const redacted = this.smartRedactCardNumber(accountNum[0]);
+            redactedText = redactedText.replace(accountNum[0], redacted);
+            detections.push({ type: 'Bank Account', original: match[0], redacted });
+          }
+
+          // Prevent infinite loop
+          if (pattern.lastIndex === lastIndex) break;
+          lastIndex = pattern.lastIndex;
+        }
+      }
+    }
+
+    // Check PII Patterns
+    if (typeof personalIdentificationPatterns !== 'undefined') {
+      // SSN
+      if (personalIdentificationPatterns.ssn) {
+        const pattern = personalIdentificationPatterns.ssn.pattern;
+        let match;
+        let lastIndex = 0;
+        while ((match = pattern.exec(redactedText)) !== null) {
+          const redacted = 'XXX-XX-' + match[0].slice(-4);
+          redactedText = redactedText.replace(match[0], redacted);
+          detections.push({ type: 'SSN', original: match[0], redacted });
+
+          // Prevent infinite loop
+          if (pattern.lastIndex === lastIndex) break;
+          lastIndex = pattern.lastIndex;
+        }
+      }
+
+      // Email
+      if (personalIdentificationPatterns.email) {
+        const pattern = personalIdentificationPatterns.email.pattern;
+        let match;
+        let lastIndex = 0;
+        while ((match = pattern.exec(redactedText)) !== null) {
+          const redacted = this.smartRedactEmail(match[0]);
+          redactedText = redactedText.replace(match[0], redacted);
+          detections.push({ type: 'Email', original: match[0], redacted });
+
+          // Prevent infinite loop
+          if (pattern.lastIndex === lastIndex) break;
+          lastIndex = pattern.lastIndex;
+        }
+      }
+
+      // Phone
+      if (personalIdentificationPatterns.phoneNumber) {
+        const pattern = personalIdentificationPatterns.phoneNumber.pattern;
+        let match;
+        let lastIndex = 0;
+        while ((match = pattern.exec(redactedText)) !== null) {
+          const redacted = this.smartRedactPhone(match[0]);
+          redactedText = redactedText.replace(match[0], redacted);
+          detections.push({ type: 'Phone', original: match[0], redacted });
+
+          // Prevent infinite loop
+          if (pattern.lastIndex === lastIndex) break;
+          lastIndex = pattern.lastIndex;
+        }
+      }
+    }
+
+    // Check API Patterns
+    if (typeof apiPatterns !== 'undefined') {
+      Object.entries(apiPatterns).forEach(([key, patternInfo]) => {
+        if (patternInfo && patternInfo.pattern) {
+          const pattern = patternInfo.pattern;
+          let match;
+          let lastIndex = 0;
+          while ((match = pattern.exec(redactedText)) !== null) {
+            const redacted = this.smartRedactCardNumber(match[0]);
+            redactedText = redactedText.replace(match[0], redacted);
+            detections.push({ type: patternInfo.type || 'API Key', original: match[0], redacted });
+
+            // Prevent infinite loop
+            if (pattern.lastIndex === lastIndex) break;
+            lastIndex = pattern.lastIndex;
+          }
+        }
+      });
+    }
+
+    // Check Crypto Patterns
+    if (typeof cryptoPatterns !== 'undefined') {
+      Object.entries(cryptoPatterns).forEach(([key, patternInfo]) => {
+        if (patternInfo && patternInfo.pattern) {
+          const pattern = patternInfo.pattern;
+          let match;
+          let lastIndex = 0;
+          while ((match = pattern.exec(redactedText)) !== null) {
+            const redacted = this.smartRedactCardNumber(match[0]);
+            redactedText = redactedText.replace(match[0], redacted);
+            detections.push({ type: patternInfo.type || 'Crypto', original: match[0], redacted });
+
+            // Prevent infinite loop
+            if (pattern.lastIndex === lastIndex) break;
+            lastIndex = pattern.lastIndex;
+          }
+        }
+      });
+    }
+
+    // Log detections if any
+    if (detections.length > 0) {
+      console.log('🔒 Pattern Redaction Applied:', detections);
+    }
+
+    return {
+      redactedText,
+      detections,
+      hasRedactions: detections.length > 0
+    };
+  }
+}
 
 // Prompt Generator for Gemini API
 class PromptGenerator {
@@ -729,6 +974,38 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     rateLimiter.clear();
     analyzedUrls.clear();
     sendResponse({ success: true });
+    return true;
+  }
+
+  // Handle real-time text redaction (NEW - Pattern-based masking)
+  if (message.type === "REDACT_TEXT") {
+    console.log("🔒 Redaction request received for text of length:", message.text?.length);
+
+    try {
+      const result = PatternRedactor.redactText(message.text);
+
+      if (result.hasRedactions) {
+        console.log(`✅ Redacted ${result.detections.length} sensitive item(s)`);
+        result.detections.forEach(det => {
+          console.log(`   - ${det.type}: ${det.original} → ${det.redacted}`);
+        });
+      }
+
+      sendResponse({
+        success: true,
+        redactedText: result.redactedText,
+        detections: result.detections,
+        hasRedactions: result.hasRedactions
+      });
+    } catch (error) {
+      console.error("❌ Redaction error:", error);
+      sendResponse({
+        success: false,
+        error: error.message,
+        redactedText: message.text
+      });
+    }
+
     return true;
   }
 });
