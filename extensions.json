@@ -139,15 +139,15 @@
       "name": "Wootz AI",
       "campaign": "ai_researcher",
       "description": "AI-powered web research assistant that provides intelligent summaries, comprehensive research, and fact-checking for any webpage using advanced language models.",
-      "version": "1.0.3",
+      "version": "1.0.5",
       "author": "Wootzapp Team",
       "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/web%20summary/WootzAI.crx",
       "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/web%20summary/repo/public/icons/icon128.png",
       "github_url": "https://github.com/wootzapp/ext-store/tree/main/web%20summary/repo",
       "tags": [
-        "Web Research",
-        "Productivity",
-        "Fact-Checking",
+        "AI Chat",
+        "Deep Research",
+        "Facts Checking",
         "Page Summarization"
       ],
       "created_at": "2025-08-01T15:00:00Z",
@@ -159,7 +159,7 @@
       "name": "Social Shopping Agent",
       "campaign": "shopping_agent",
       "description": "An extension to assist users to chat and perform tasks using AI.",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "author": "Wootzapp Team",
       "download_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Social%20Shopping%20Agent/SocialShoppingAgent.crx",
       "icon_url": "https://raw.githubusercontent.com/wootzapp/ext-store/main/Social%20Shopping%20Agent/repo/public/icons/icon.png",
@@ -289,7 +289,7 @@
       ],
       "created_at": "2025-07-16T15:00:00Z",
       "updated_at": "2025-07-16T15:00:00Z",
-      "default_extension": true
+      "default_extension": false
     },
     {
       "id": "cpanfhhncafgokableoilhanbkdpafpk",

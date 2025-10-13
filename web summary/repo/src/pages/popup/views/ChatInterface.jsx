@@ -4,6 +4,7 @@ import { FaSearch, FaFileAlt, FaCheckCircle, FaHistory } from 'react-icons/fa';
 import { renderMarkdown } from '@/lib/markdownUtils';
 import aiService from '@/services/ai';
 import ChatHeader from '../components/ChatHeader';
+import { useSessionStorage } from '@/hooks/useSessionStorage';
 
 const ChatInput = ({ 
   onSendMessage, 
@@ -352,15 +353,25 @@ const MessageList = ({ messages, isTyping }) => {
             <div>{message.content}</div>
           )}
           
-          {/* Timestamp for user and assistant messages */}
-          {(message.type === 'user' || message.type === 'assistant') && (
+          {/* Timestamp for user and assistant messages - only show when there's actual content */}
+          {(message.type === 'user' || (message.type === 'assistant' && message.content)) && (
             <div style={{ 
               fontSize: '10px', 
               opacity: 0.6, 
               marginTop: '4px',
               textAlign: message.type === 'user' ? 'right' : 'left'
             }}>
-              {new Date(message.timestamp).toLocaleTimeString()}
+              {(() => {
+                try {
+                  const timestamp = typeof message.timestamp === 'number' 
+                    ? message.timestamp 
+                    : new Date(message.timestamp).getTime();
+                  return new Date(timestamp).toLocaleTimeString();
+                } catch (error) {
+                  console.warn('Invalid timestamp:', message.timestamp, error);
+                  return new Date().toLocaleTimeString();
+                }
+              })()}
             </div>
           )}
         </motion.div>
@@ -568,7 +579,8 @@ const ChatInterface = ({
   onNewChat,
   userProfilePicUrl
 }) => {
-  const [messages, setMessages] = useState([]);
+  // Use session storage for messages
+  const { messages, loading: sessionLoading, addMessage, updateMessage, clearSession } = useSessionStorage();
   const [isExecuting, setIsExecuting] = useState(false);
   const [messageInput, setMessageInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -580,6 +592,7 @@ const ChatInterface = ({
   const [screenshotData, setScreenshotData] = useState(null); // Store screenshot data
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false); // Screenshot capture state
   const [autoScreenshotEnabled, setAutoScreenshotEnabled] = useState(true); // Auto-capture screenshots
+  const currentAssistantMessageRef = useRef(null); // Track current assistant message for streaming
 
   // Function to get current page URL
   const getCurrentPageUrl = async () => {
@@ -778,12 +791,13 @@ const ChatInterface = ({
   // New chat functionality
   const handleNewChat = () => {
     console.log('🔄 Starting new chat - clearing conversation history');
-    setMessages([]);
+    clearSession(); // Clear session storage
     setMessageInput('');
     setActiveMode(null);
     setIsExecuting(false);
     setIsTyping(false);
     setConversationHistory([]); // Clear conversation history on new chat
+    currentAssistantMessageRef.current = null; // Clear the ref
     if (abortController) {
       abortController.abort();
       setAbortController(null);
@@ -802,10 +816,10 @@ const ChatInterface = ({
       timestamp: new Date()
     };
     
-    // Update messages state FIRST
-    setMessages(prev => [...prev, userMessage]);
+    // Add user message to session storage
+    addMessage(userMessage);
     
-    // Add user message to conversation history AFTER adding to messages
+    // Add user message to conversation history
     addToConversationHistory(userMessage, 'user');
     setMessageInput('');
     setIsExecuting(true);
@@ -889,7 +903,9 @@ const ChatInterface = ({
         timestamp: new Date()
       };
 
-      setMessages(prev => [...prev, assistantMessage]);
+      // Set the ref for streaming
+      currentAssistantMessageRef.current = assistantMessage;
+      addMessage(assistantMessage);
 
       // Validate screenshot data if available
       let validatedScreenshotData = null;
@@ -941,28 +957,33 @@ const ChatInterface = ({
         screenshotData: validatedScreenshotData,
         onDelta: (delta) => {
           console.log('📝 Received delta:', delta);
-          setMessages(prev => {
-            const newMessages = [...prev];
-            const lastMessage = newMessages[newMessages.length - 1];
-            if (lastMessage && lastMessage.type === 'assistant') {
-              // Ensure delta is a string
-              const deltaStr = typeof delta === 'string' ? delta : String(delta);
-              lastMessage.content += deltaStr;
-            }
-            return newMessages;
-          });
+          // Use the ref to track the current assistant message
+          if (currentAssistantMessageRef.current) {
+            const deltaStr = typeof delta === 'string' ? delta : String(delta);
+            const currentContent = currentAssistantMessageRef.current.content || '';
+            updateMessage(currentAssistantMessageRef.current.id, {
+              content: currentContent + deltaStr
+            });
+            // Update the ref with the new content
+            currentAssistantMessageRef.current.content = currentContent + deltaStr;
+          }
         }
       });
 
       // Add assistant response to conversation history after completion
       setTimeout(() => {
-        setMessages(prev => {
-          const lastMessage = prev[prev.length - 1];
-          if (lastMessage && lastMessage.type === 'assistant' && lastMessage.content) {
-            addToConversationHistory(lastMessage, 'assistant');
-          }
-          return prev;
-        });
+        // Get the last assistant message from the current messages state
+        const currentMessages = messages; // This will be the updated messages from session storage
+        const lastAssistantMessage = currentMessages.filter(msg => msg.type === 'assistant').pop();
+        if (lastAssistantMessage && lastAssistantMessage.content) {
+          console.log('💾 Adding assistant response to conversation history:', {
+            contentLength: lastAssistantMessage.content.length,
+            messageId: lastAssistantMessage.id
+          });
+          addToConversationHistory(lastAssistantMessage, 'assistant');
+        } else {
+          console.warn('⚠️ No assistant message found for conversation history');
+        }
       }, 100); // Small delay to ensure message is fully updated
 
     } catch (error) {
@@ -988,7 +1009,7 @@ const ChatInterface = ({
           content: errorContent,
           timestamp: new Date()
         };
-        setMessages(prev => [...prev, errorMessage]);
+        addMessage(errorMessage);
       }
     } finally {
       setIsExecuting(false);
@@ -1019,7 +1040,7 @@ const ChatInterface = ({
           content: '🔍 **AI Deep Research Mode Activated**\n\nPlease enter the topic you\'d like me to research comprehensively. I\'ll provide detailed analysis with credible sources and expert insights.',
           timestamp: new Date()
         };
-        setMessages(prev => [...prev, researchMessage]);
+        addMessage(researchMessage);
         break;
 
       case 'analysis':
@@ -1033,7 +1054,7 @@ const ChatInterface = ({
             content: 'Analyze this webpage and provide a comprehensive summary with key insights',
             timestamp: new Date()
           };
-          setMessages(prev => [...prev, userMessage]);
+          addMessage(userMessage);
           
           // Create assistant message
           const assistantMessage = {
@@ -1042,7 +1063,10 @@ const ChatInterface = ({
             content: '',
             timestamp: new Date()
           };
-          setMessages(prev => [...prev, assistantMessage]);
+          
+          // Set the ref for streaming
+          currentAssistantMessageRef.current = assistantMessage;
+          addMessage(assistantMessage);
           
           // Start analysis
           setIsExecuting(true);
@@ -1084,23 +1108,43 @@ const ChatInterface = ({
           }
           
           try {
+            // Get conversation history for AI service
+            const historyForAI = getConversationHistoryForAI();
+            const currentPageUrl = await getCurrentPageUrl();
+            
             await aiService.stream({
               kind: 'pageAnalysis',
               payload: { url: currentUrl },
               signal: controller.signal,
+              conversationHistory: historyForAI,
+              currentUrl: currentPageUrl,
               screenshotData: capturedScreenshotData,
               onDelta: (delta) => {
-                setMessages(prev => {
-                  const newMessages = [...prev];
-                  const lastMessage = newMessages[newMessages.length - 1];
-                  if (lastMessage && lastMessage.type === 'assistant') {
-                    const deltaStr = typeof delta === 'string' ? delta : String(delta);
-                    lastMessage.content += deltaStr;
-                  }
-                  return newMessages;
-                });
+                if (currentAssistantMessageRef.current) {
+                  const deltaStr = typeof delta === 'string' ? delta : String(delta);
+                  const currentContent = currentAssistantMessageRef.current.content || '';
+                  updateMessage(currentAssistantMessageRef.current.id, {
+                    content: currentContent + deltaStr
+                  });
+                  // Update the ref with the new content
+                  currentAssistantMessageRef.current.content = currentContent + deltaStr;
+                }
               }
             });
+            
+            // Add assistant response to conversation history after completion
+            setTimeout(() => {
+              const currentMessages = messages;
+              const lastAssistantMessage = currentMessages.filter(msg => msg.type === 'assistant').pop();
+              if (lastAssistantMessage && lastAssistantMessage.content) {
+                console.log('💾 Adding analysis response to conversation history:', {
+                  contentLength: lastAssistantMessage.content.length,
+                  messageId: lastAssistantMessage.id
+                });
+                addToConversationHistory(lastAssistantMessage, 'assistant');
+              }
+            }, 100);
+            
           } catch (error) {
             if (error.name !== 'AbortError') {
               console.error('Error in page analysis:', error);
@@ -1110,7 +1154,7 @@ const ChatInterface = ({
                 content: 'Sorry, I encountered an error while analyzing the webpage. Please try again.',
                 timestamp: new Date()
               };
-              setMessages(prev => [...prev, errorMessage]);
+              addMessage(errorMessage);
             }
           } finally {
             setIsExecuting(false);
@@ -1124,7 +1168,7 @@ const ChatInterface = ({
             content: '📄 **Page Analysis**\n\nPlease navigate to a webpage you\'d like me to analyze, then I\'ll provide a detailed summary of its content.',
             timestamp: new Date()
           };
-          setMessages(prev => [...prev, analysisMessage]);
+          addMessage(analysisMessage);
         }
         break;
 
@@ -1139,7 +1183,7 @@ const ChatInterface = ({
             content: 'Fact-check the claims made on this webpage and verify their accuracy',
             timestamp: new Date()
           };
-          setMessages(prev => [...prev, userMessage]);
+          addMessage(userMessage);
           
           // Create assistant message
           const assistantMessage = {
@@ -1148,7 +1192,10 @@ const ChatInterface = ({
             content: '',
             timestamp: new Date()
           };
-          setMessages(prev => [...prev, assistantMessage]);
+          
+          // Set the ref for streaming
+          currentAssistantMessageRef.current = assistantMessage;
+          addMessage(assistantMessage);
           
           // Start fact check
           setIsExecuting(true);
@@ -1190,23 +1237,43 @@ const ChatInterface = ({
           }
           
           try {
+            // Get conversation history for AI service
+            const historyForAI = getConversationHistoryForAI();
+            const currentPageUrl = await getCurrentPageUrl();
+            
             await aiService.stream({
               kind: 'factCheck',
               payload: { url: factCheckUrl },
               signal: controller.signal,
+              conversationHistory: historyForAI,
+              currentUrl: currentPageUrl,
               screenshotData: capturedScreenshotData,
               onDelta: (delta) => {
-                setMessages(prev => {
-                  const newMessages = [...prev];
-                  const lastMessage = newMessages[newMessages.length - 1];
-                  if (lastMessage && lastMessage.type === 'assistant') {
-                    const deltaStr = typeof delta === 'string' ? delta : String(delta);
-                    lastMessage.content += deltaStr;
-                  }
-                  return newMessages;
-                });
+                if (currentAssistantMessageRef.current) {
+                  const deltaStr = typeof delta === 'string' ? delta : String(delta);
+                  const currentContent = currentAssistantMessageRef.current.content || '';
+                  updateMessage(currentAssistantMessageRef.current.id, {
+                    content: currentContent + deltaStr
+                  });
+                  // Update the ref with the new content
+                  currentAssistantMessageRef.current.content = currentContent + deltaStr;
+                }
               }
             });
+            
+            // Add assistant response to conversation history after completion
+            setTimeout(() => {
+              const currentMessages = messages;
+              const lastAssistantMessage = currentMessages.filter(msg => msg.type === 'assistant').pop();
+              if (lastAssistantMessage && lastAssistantMessage.content) {
+                console.log('💾 Adding fact-check response to conversation history:', {
+                  contentLength: lastAssistantMessage.content.length,
+                  messageId: lastAssistantMessage.id
+                });
+                addToConversationHistory(lastAssistantMessage, 'assistant');
+              }
+            }, 100);
+            
           } catch (error) {
             if (error.name !== 'AbortError') {
               console.error('Error in fact check:', error);
@@ -1216,7 +1283,7 @@ const ChatInterface = ({
                 content: 'Sorry, I encountered an error while fact-checking the webpage. Please try again.',
                 timestamp: new Date()
               };
-              setMessages(prev => [...prev, errorMessage]);
+              addMessage(errorMessage);
             }
           } finally {
             setIsExecuting(false);
@@ -1230,7 +1297,7 @@ const ChatInterface = ({
             content: '✅ **Fact Checker**\n\nPlease navigate to a webpage with claims you\'d like me to fact-check, then I\'ll verify their accuracy against trusted sources.',
             timestamp: new Date()
           };
-          setMessages(prev => [...prev, factCheckMessage]);
+          addMessage(factCheckMessage);
         }
         break;
 
