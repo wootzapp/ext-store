@@ -187,6 +187,13 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
                   message.message.timestamp) {
                 
                 console.log('🔍 Restoring message:', message.message);
+                console.log('🔍 Message type check:', {
+                  type: message.message.type,
+                  isTaskPaused: message.message.type === 'task_paused',
+                  pause_reason: message.message.pause_reason,
+                  pauseReason: message.message.pauseReason,
+                  allKeys: Object.keys(message.message)
+                });
                 
                 // Ensure message has all required fields
                 const restoredMessage = {
@@ -204,6 +211,12 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
                   pauseDescription: message.message.pauseDescription
                 };
                 
+                // Convert task_paused messages to appropriate type based on pause_reason
+                if (restoredMessage.type === 'task_paused') {
+                  const pauseReason = restoredMessage.pause_reason || restoredMessage.pauseReason;
+                  restoredMessage.type = pauseReason === 'approval' ? 'approval' : 'pause';
+                }
+                
                 // Special handling for task_complete messages that might have nested result structure
                 if (message.message.type === 'task_complete' && message.message.result) {
                   const responseContent = message.message.result.response || message.message.result.message;
@@ -215,9 +228,16 @@ const ChatInterface = ({ user, subscription, onLogout }) => {
                 }
                 
                 // Final validation before adding
-                if (!restoredMessage.content) {
+                if (!restoredMessage.content && !restoredMessage.message) {
                   console.warn('⚠️ Restored message has no content:', restoredMessage);
                   return;
+                }
+                
+                // For task_paused messages, use the message field as content
+                if (restoredMessage.type === 'pause' || restoredMessage.type === 'approval') {
+                  if (restoredMessage.message && !restoredMessage.content) {
+                    restoredMessage.content = restoredMessage.message;
+                  }
                 }
                 
                 console.log('✅ Restoring message:', restoredMessage);

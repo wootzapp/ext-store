@@ -112,11 +112,11 @@ export const useChat = (chatId = null) => {
                 content = message.result.response || message.result.message;
               }
               
-              return {
+              const processedMessage = {
                 ...message,
                 id: message.id,
                 type: message.type,
-                content: content || '',
+                content: content || message.message || '',
                 timestamp: message.timestamp,
                 isMarkdown: message.isMarkdown || false,
                 // Preserve state information for pause/approval messages
@@ -127,6 +127,19 @@ export const useChat = (chatId = null) => {
                 pauseReason: message.pauseReason,
                 pauseDescription: message.pauseDescription
               };
+              
+              // Convert task_paused messages to appropriate type based on pause_reason
+              if (processedMessage.type === 'task_paused') {
+                const pauseReason = processedMessage.pause_reason || processedMessage.pauseReason;
+                processedMessage.type = pauseReason === 'approval' ? 'approval' : 'pause';
+                
+                // Ensure content is set from message field for converted messages
+                if (processedMessage.message && !processedMessage.content) {
+                  processedMessage.content = processedMessage.message;
+                }
+              }
+              
+              return processedMessage;
             })
             .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
           
