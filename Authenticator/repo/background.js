@@ -769,6 +769,71 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     return true;
   }
 
+  // Handle mTLS certificate processing (new functionality)
+  if (message.type === 'CERTIFICATE_RECEIVED') {
+    console.log('[mTLS Cert] Message received in background:', message.type);
+    
+    let certificate = message.certificate;
+    
+    console.log('[mTLS Cert] Processing certificate...');
+    console.log('[mTLS Cert] Certificate type:', typeof certificate);
+    
+    // Ensure certificate is a string
+    if (typeof certificate !== 'string') {
+      console.error('[mTLS Cert] Certificate must be a string, received:', typeof certificate);
+      sendResponse({ 
+        success: false, 
+        error: 'Certificate must be a string, received: ' + typeof certificate
+      });
+      return false;
+    }
+    
+    // Log certificate preview
+    console.log('[mTLS Cert] Certificate preview:', certificate.substring(0, 100) + '...');
+    console.log('[mTLS Cert] Certificate length:', certificate.length);
+
+    // Call the Chrome API to send the certificate to the browser
+    if (typeof chrome.wootz !== 'undefined' && typeof chrome.wootz.mtlsCert === 'function') {
+      try {
+        chrome.wootz.mtlsCert(
+          certificate,
+          (result) => {
+            if (chrome.runtime.lastError) {
+              console.error('[mTLS Cert] Chrome API error:', chrome.runtime.lastError);
+              sendResponse({ 
+                success: false, 
+                error: chrome.runtime.lastError.message 
+              });
+            } else {
+              console.log('[mTLS Cert] Certificate sent successfully:', result.success);
+              sendResponse({ 
+                success: true, 
+                result: result 
+              });
+            }
+          }
+        );
+        
+        // Return true to indicate we will send a response asynchronously
+        return true;
+      } catch (error) {
+        console.error('[mTLS Cert] Exception calling chrome.wootz.mtlsCert:', error);
+        sendResponse({ 
+          success: false, 
+          error: error.message 
+        });
+        return false;
+      }
+    } else {
+      console.error('[mTLS Cert] chrome.wootz.mtlsCert API not available');
+      sendResponse({ 
+        success: false, 
+        error: 'chrome.wootz.mtlsCert API not available' 
+      });
+      return false;
+    }
+  }
+
   // Handle SAML response processing (existing functionality)
   if (message.action === "processSamlResponse") {
     console.log("🔥 BACKGROUND: Processing SAML response from", message.source || "unknown source");
