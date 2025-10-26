@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Sensitive Field Detector Test Site</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .test-sections {
+            padding: 30px;
+        }
+
+        .test-section {
+            margin-bottom: 40px;
+            padding: 25px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            background: #f8f9fa;
+        }
+
+        .test-section h2 {
+            color: #495057;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            background: #e9ecef;
+            border-left: 4px solid #667eea;
+        }
+
+        .detection-log {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+        }
+
+        .sensitive-field {
+            border: 2px solid #dc3545 !important;
+            background-color: #fff5f5 !important;
+        }
+
+        .sensitive-field::after {
+            content: " 🔒 SENSITIVE";
+            color: #dc3545;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .hidden-fields {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .dynamic-content {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border: 1px solid #ffeaa7;
+        }
+
+        .instructions {
+            background: #d1ecf1;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #17a2b8;
+        }
+
+        .instructions h3 {
+            color: #0c5460;
+            margin-bottom: 15px;
+        }
+
+        .instructions ol {
+            padding-left: 20px;
+        }
+
+        .instructions li {
+            margin-bottom: 8px;
+        }
+
+        .field-info {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .test-results {
+            background: #d4edda;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-left: 4px solid #28a745;
+        }
+
+        .test-results h3 {
+            color: #155724;
+            margin-bottom: 15px;
+        }
+
+        .result-item {
+            margin-bottom: 10px;
+            padding: 8px;
+            background: white;
+            border-radius: 4px;
+            border-left: 3px solid #28a745;
+        }
+
+        /* Sensitive Text Content Styling */
+        .sensitive-text-content {
+            background: #fff3cd;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #ffeaa7;
+        }
+
+        .sensitive-text-content h3 {
+            color: #856404;
+            margin: 20px 0 15px 0;
+            font-size: 1.2em;
+            border-bottom: 2px solid #ffc107;
+            padding-bottom: 8px;
+        }
+
+        .sensitive-text-content h3:first-child {
+            margin-top: 0;
+        }
+
+        .text-block {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            border-left: 4px solid #ffc107;
+        }
+
+        .text-block p {
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+
+        .text-block p:last-child {
+            margin-bottom: 0;
+        }
+
+        .sensitive-text {
+            background: #fff5f5;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid #fed7d7;
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            color: #c53030;
+            position: relative;
+        }
+
+        .sensitive-text::before {
+            content: "🔒 ";
+            margin-right: 2px;
+        }
+
+        .sensitive-text.masked {
+            background: #2d3748;
+            color: #e2e8f0;
+            border-color: #4a5568;
+        }
+
+        .sensitive-text.masked::before {
+            content: "🎭 ";
+        }
+
+        .section-description {
+            background: #e2e8f0;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-style: italic;
+            color: #4a5568;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Sensitive Field Detector Test Site</h1>
+            <p>Comprehensive testing environment for sensitive field detection extension</p>
+        </div>
+
+        <div class="test-sections">
+            <div class="instructions">
+                <h3>🧪 How to Test the Extension:</h3>
+                <ol>
+                    <li><strong>Load the Extension:</strong> Make sure the sensitive-field-detector_1 extension is loaded in Chrome</li>
+                    <li><strong>Enable Detection:</strong> Click the extension icon and enable detection</li>
+                    <li><strong>Open DevTools:</strong> Press F12 and go to Console tab</li>
+                    <li><strong>Watch for Logs:</strong> Look for detection logs starting with 🔍, 🎯, 🧠, etc.</li>
+                    <li><strong>Test Different Scenarios:</strong> Scroll through different sections and interact with forms</li>
+                    <li><strong>Check Masking:</strong> Verify that sensitive fields are being masked by the browser API</li>
+                </ol>
+            </div>
+
+            <!-- Basic Authentication Fields -->
+            <div class="test-section">
+                <h2>🔐 Basic Authentication Fields</h2>
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" placeholder="Enter your username">
+                    <div class="field-info">Expected: Medium sensitivity - Username field</div>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" placeholder="Enter your email">
+                    <div class="field-info">Expected: Medium sensitivity - Email field</div>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" placeholder="Enter your password">
+                    <div class="field-info">Expected: High sensitivity - Password field</div>
+                </div>
+                <div class="form-group">
+                    <label for="confirm-password">Confirm Password</label>
+                    <input type="password" id="confirm-password" name="confirm-password" placeholder="Confirm your password">
+                    <div class="field-info">Expected: High sensitivity - Password confirmation</div>
+                </div>
+            </div>
+
+            <!-- Personal Information Fields -->
+            <div class="test-section">
+                <h2>👤 Personal Information Fields</h2>
+                <div class="form-group">
+                    <label for="first-name">First Name</label>
+                    <input type="text" id="first-name" name="first-name" placeholder="Enter your first name">
+                    <div class="field-info">Expected: Medium sensitivity - Personal name</div>
+                </div>
+                <div class="form-group">
+                    <label for="last-name">Last Name</label>
+                    <input type="text" id="last-name" name="last-name" placeholder="Enter your last name">
+                    <div class="field-info">Expected: Medium sensitivity - Personal name</div>
+                </div>
+                <div class="form-group">
+                    <label for="phone">Phone Number</label>
+                    <input type="tel" id="phone" name="phone" placeholder="Enter your phone number">
+                    <div class="field-info">Expected: Medium sensitivity - Phone number</div>
+                </div>
+                <div class="form-group">
+                    <label for="date-of-birth">Date of Birth</label>
+                    <input type="date" id="date-of-birth" name="date-of-birth">
+                    <div class="field-info">Expected: Medium sensitivity - Date of birth</div>
+                </div>
+                <div class="form-group">
+                    <label for="ssn">Social Security Number</label>
+                    <input type="text" id="ssn" name="ssn" placeholder="XXX-XX-XXXX">
+                    <div class="field-info">Expected: High sensitivity - SSN</div>
+                </div>
+            </div>
+
+            <!-- Financial Information Fields -->
+            <div class="test-section">
+                <h2>💰 Financial Information Fields</h2>
+                <div class="form-group">
+                    <label for="credit-card">Credit Card Number</label>
+                    <input type="text" id="credit-card" name="credit-card" placeholder="1234 5678 9012 3456">
+                    <div class="field-info">Expected: High sensitivity - Credit card number</div>
+                </div>
+                <div class="form-group">
+                    <label for="cvv">CVV</label>
+                    <input type="text" id="cvv" name="cvv" placeholder="123" maxlength="4">
+                    <div class="field-info">Expected: High sensitivity - CVV code</div>
+                </div>
+                <div class="form-group">
+                    <label for="expiry">Expiry Date</label>
+                    <input type="text" id="expiry" name="expiry" placeholder="MM/YY">
+                    <div class="field-info">Expected: High sensitivity - Card expiry</div>
+                </div>
+                <div class="form-group">
+                    <label for="bank-account">Bank Account Number</label>
+                    <input type="text" id="bank-account" name="bank-account" placeholder="Enter account number">
+                    <div class="field-info">Expected: High sensitivity - Bank account</div>
+                </div>
+                <div class="form-group">
+                    <label for="routing-number">Routing Number</label>
+                    <input type="text" id="routing-number" name="routing-number" placeholder="Enter routing number">
+                    <div class="field-info">Expected: High sensitivity - Routing number</div>
+                </div>
+            </div>
+
+            <!-- Address Information Fields -->
+            <div class="test-section">
+                <h2>🏠 Address Information Fields</h2>
+                <div class="form-group">
+                    <label for="street-address">Street Address</label>
+                    <input type="text" id="street-address" name="street-address" placeholder="Enter street address">
+                    <div class="field-info">Expected: Medium sensitivity - Street address</div>
+                </div>
+                <div class="form-group">
+                    <label for="city">City</label>
+                    <input type="text" id="city" name="city" placeholder="Enter city">
+                    <div class="field-info">Expected: Low sensitivity - City</div>
+                </div>
+                <div class="form-group">
+                    <label for="state">State</label>
+                    <select id="state" name="state">
+                        <option value="">Select state</option>
+                        <option value="CA">California</option>
+                        <option value="NY">New York</option>
+                        <option value="TX">Texas</option>
+                    </select>
+                    <div class="field-info">Expected: Low sensitivity - State</div>
+                </div>
+                <div class="form-group">
+                    <label for="zip-code">ZIP Code</label>
+                    <input type="text" id="zip-code" name="zip-code" placeholder="Enter ZIP code">
+                    <div class="field-info">Expected: Medium sensitivity - ZIP code</div>
+                </div>
+                <div class="form-group">
+                    <label for="country">Country</label>
+                    <select id="country" name="country">
+                        <option value="">Select country</option>
+                        <option value="US">United States</option>
+                        <option value="CA">Canada</option>
+                        <option value="UK">United Kingdom</option>
+                    </select>
+                    <div class="field-info">Expected: Low sensitivity - Country</div>
+                </div>
+            </div>
+
+            <!-- Security and Token Fields -->
+            <div class="test-section">
+                <h2>🔒 Security and Token Fields</h2>
+                <div class="form-group">
+                    <label for="security-code">Security Code</label>
+                    <input type="text" id="security-code" name="security-code" placeholder="Enter security code">
+                    <div class="field-info">Expected: High sensitivity - Security code</div>
+                </div>
+                <div class="form-group">
+                    <label for="pin">PIN</label>
+                    <input type="password" id="pin" name="pin" placeholder="Enter PIN" maxlength="4">
+                    <div class="field-info">Expected: High sensitivity - PIN</div>
+                </div>
+                <div class="form-group">
+                    <label for="otp">One-Time Password</label>
+                    <input type="text" id="otp" name="otp" placeholder="Enter OTP" maxlength="6">
+                    <div class="field-info">Expected: High sensitivity - OTP</div>
+                </div>
+                <div class="form-group">
+                    <label for="api-key">API Key</label>
+                    <input type="text" id="api-key" name="api-key" placeholder="Enter API key">
+                    <div class="field-info">Expected: High sensitivity - API key</div>
+                </div>
+            </div>
+
+            <!-- Hidden Fields (Common in forms) -->
+            <div class="test-section">
+                <h2>👻 Hidden Fields</h2>
+                <div class="hidden-fields">
+                    <p><strong>Hidden fields that should be detected:</strong></p>
+                    <input type="hidden" id="csrf-token" name="csrf_token" value="abc123def456">
+                    <input type="hidden" id="session-id" name="session_id" value="sess_789xyz">
+                    <input type="hidden" id="auth-token" name="auth_token" value="auth_456abc">
+                    <input type="hidden" id="user-id" name="user_id" value="12345">
+                    <div class="field-info">Expected: High sensitivity - CSRF token, session ID, auth token</div>
+                </div>
+            </div>
+
+            <!-- Dynamic Content Fields -->
+            <div class="test-section">
+                <h2>⚡ Dynamic Content Fields</h2>
+                <div class="dynamic-content">
+                    <p><strong>Fields that will be added dynamically:</strong></p>
+                    <button type="button" class="btn" onclick="addDynamicFields()">Add Dynamic Fields</button>
+                    <div id="dynamic-fields-container"></div>
+                </div>
+            </div>
+
+            <!-- Textarea Fields -->
+            <div class="test-section">
+                <h2>📝 Textarea Fields</h2>
+                <div class="form-group">
+                    <label for="notes">Notes (Non-sensitive)</label>
+                    <textarea id="notes" name="notes" rows="3" placeholder="Enter general notes"></textarea>
+                    <div class="field-info">Expected: Low sensitivity - General text</div>
+                </div>
+                <div class="form-group">
+                    <label for="secret-notes">Secret Notes</label>
+                    <textarea id="secret-notes" name="secret-notes" rows="3" placeholder="Enter secret information"></textarea>
+                    <div class="field-info">Expected: High sensitivity - Secret information</div>
+                </div>
+            </div>
+
+            <!-- Sensitive Text Content (Non-Editable) -->
+            <div class="test-section">
+                <h2>📄 Sensitive Text Content (Display Only)</h2>
+                <p class="section-description">These are regular text elements containing sensitive information that should be detected and masked.</p>
+                
+                <div class="sensitive-text-content">
+                    <h3>👤 Personal Information Display</h3>
+                    <div class="text-block">
+                        <p><strong>Email Address:</strong> <span class="sensitive-text" data-type="email">john.doe@example.com</span></p>
+                        <p><strong>Phone Number:</strong> <span class="sensitive-text" data-type="phone">+1-555-123-4567</span></p>
+                        <p><strong>Mobile Number:</strong> <span class="sensitive-text" data-type="phone">(555) 987-6543</span></p>
+                        <p><strong>Full Name:</strong> <span class="sensitive-text" data-type="name">John Michael Doe</span></p>
+                        <p><strong>Date of Birth:</strong> <span class="sensitive-text" data-type="date">March 15, 1985</span></p>
+                        <p><strong>Age:</strong> <span class="sensitive-text" data-type="age">38 years old</span></p>
+                    </div>
+
+                    <h3>🏠 Address Information Display</h3>
+                    <div class="text-block">
+                        <p><strong>Home Address:</strong> <span class="sensitive-text" data-type="address">123 Main Street, Apt 4B, New York, NY 10001</span></p>
+                        <p><strong>Work Address:</strong> <span class="sensitive-text" data-type="address">456 Business Ave, Suite 200, Los Angeles, CA 90210</span></p>
+                        <p><strong>ZIP Code:</strong> <span class="sensitive-text" data-type="zipcode">10001</span></p>
+                        <p><strong>Country:</strong> <span class="sensitive-text" data-type="country">United States</span></p>
+                    </div>
+
+                    <h3>💰 Financial Information Display</h3>
+                    <div class="text-block">
+                        <p><strong>Credit Card Number:</strong> <span class="sensitive-text" data-type="credit-card">4111-1111-1111-1111</span></p>
+                        <p><strong>Debit Card Number:</strong> <span class="sensitive-text" data-type="credit-card">5555-4444-3333-2222</span></p>
+                        <p><strong>Bank Account Number:</strong> <span class="sensitive-text" data-type="account-number">1234567890123456</span></p>
+                        <p><strong>Routing Number:</strong> <span class="sensitive-text" data-type="routing-number">021000021</span></p>
+                        <p><strong>IBAN:</strong> <span class="sensitive-text" data-type="iban">GB29 NWBK 6016 1331 9268 19</span></p>
+                        <p><strong>Account Balance:</strong> <span class="sensitive-text" data-type="balance">$12,345.67</span></p>
+                        <p><strong>Transaction Amount:</strong> <span class="sensitive-text" data-type="amount">$1,234.56</span></p>
+                    </div>
+
+                    <h3>🆔 Government ID Information Display</h3>
+                    <div class="text-block">
+                        <p><strong>Social Security Number:</strong> <span class="sensitive-text" data-type="ssn">123-45-6789</span></p>
+                        <p><strong>Driver's License:</strong> <span class="sensitive-text" data-type="license">DL123456789</span></p>
+                        <p><strong>Passport Number:</strong> <span class="sensitive-text" data-type="passport">A12345678</span></p>
+                        <p><strong>Tax ID:</strong> <span class="sensitive-text" data-type="tax-id">12-3456789</span></p>
+                        <p><strong>National ID:</strong> <span class="sensitive-text" data-type="national-id">123456789012345</span></p>
+                    </div>
+
+                    <h3>🔐 Security Information Display</h3>
+                    <div class="text-block">
+                        <p><strong>API Key:</strong> <span class="sensitive-text" data-type="api-key">sk-1234567890abcdef1234567890abcdef1234567890abcdef</span></p>
+                        <p><strong>Access Token:</strong> <span class="sensitive-text" data-type="token">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c</span></p>
+                        <p><strong>Session ID:</strong> <span class="sensitive-text" data-type="session">sess_1234567890abcdef1234567890abcdef</span></p>
+                        <p><strong>User ID:</strong> <span class="sensitive-text" data-type="user-id">user_123456789</span></p>
+                        <p><strong>Customer ID:</strong> <span class="sensitive-text" data-type="customer-id">cust_987654321</span></p>
+                    </div>
+
+                    <h3>🏥 Medical Information Display</h3>
+                    <div class="text-block">
+                        <p><strong>Patient ID:</strong> <span class="sensitive-text" data-type="patient-id">PAT-123456789</span></p>
+                        <p><strong>Medical Record Number:</strong> <span class="sensitive-text" data-type="medical-record">MRN-987654321</span></p>
+                        <p><strong>Insurance Number:</strong> <span class="sensitive-text" data-type="insurance">INS-456789123</span></p>
+                        <p><strong>Health Plan ID:</strong> <span class="sensitive-text" data-type="health-plan">HP-789123456</span></p>
+                    </div>
+
+                    <h3>💼 Business Information Display</h3>
+                    <div class="text-block">
+                        <p><strong>Employee ID:</strong> <span class="sensitive-text" data-type="employee-id">EMP-123456</span></p>
+                        <p><strong>Payroll Number:</strong> <span class="sensitive-text" data-type="payroll">PY-789012</span></p>
+                        <p><strong>Department Code:</strong> <span class="sensitive-text" data-type="department">DEPT-IT-001</span></p>
+                        <p><strong>Project Code:</strong> <span class="sensitive-text" data-type="project">PRJ-2024-001</span></p>
+                    </div>
+
+                    <h3>📱 Contact Information Display</h3>
+                    <div class="text-block">
+                        <p><strong>Emergency Contact:</strong> <span class="sensitive-text" data-type="emergency">Jane Doe - (555) 111-2222</span></p>
+                        <p><strong>Alternate Email:</strong> <span class="sensitive-text" data-type="email">jane.doe@company.com</span></p>
+                        <p><strong>Work Phone:</strong> <span class="sensitive-text" data-type="phone">+1-555-999-8888</span></p>
+                        <p><strong>Fax Number:</strong> <span class="sensitive-text" data-type="fax">+1-555-777-6666</span></p>
+                    </div>
+
+                    <h3>🌐 Network Information Display</h3>
+                    <div class="text-block">
+                        <p><strong>IP Address:</strong> <span class="sensitive-text" data-type="ip">192.168.1.100</span></p>
+                        <p><strong>MAC Address:</strong> <span class="sensitive-text" data-type="mac">00:1B:44:11:3A:B7</span></p>
+                        <p><strong>Domain:</strong> <span class="sensitive-text" data-type="domain">internal.company.local</span></p>
+                        <p><strong>Server Name:</strong> <span class="sensitive-text" data-type="server">SRV-PROD-001</span></p>
+                    </div>
+
+                    <h3>📊 Mixed Content Display</h3>
+                    <div class="text-block">
+                        <p><strong>Profile Summary:</strong> <span class="sensitive-text" data-type="profile">John Doe (john.doe@example.com) - Employee ID: EMP-123456, Phone: +1-555-123-4567</span></p>
+                        <p><strong>Transaction Details:</strong> <span class="sensitive-text" data-type="transaction">Payment of $1,234.56 to Account: 1234567890123456, Card: 4111-****-****-1111</span></p>
+                        <p><strong>Login History:</strong> <span class="sensitive-text" data-type="history">Last login: 2024-01-15 14:30:25 from IP: 192.168.1.100, Session: sess_1234567890abcdef</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Test Results Section -->
+            <div class="test-results">
+                <h3>📊 Test Results</h3>
+                <div id="test-results-container">
+                    <div class="result-item">
+                        <strong>Status:</strong> Ready for testing
+                    </div>
+                    <div class="result-item">
+                        <strong>Extension:</strong> Check if extension is loaded and enabled
+                    </div>
+                    <div class="result-item">
+                        <strong>Console:</strong> Open DevTools Console (F12) to see detection logs
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detection Log -->
+            <div class="test-section">
+                <h2>📋 Detection Log</h2>
+                <div class="detection-log" id="detection-log">
+                    <div>🔍 Waiting for extension detection...</div>
+                    <div>📝 Open DevTools Console (F12) to see detailed logs</div>
+                    <div>🎯 Look for logs starting with: 🔍, 🎯, 🧠, 🎭, ✅</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Function to add dynamic fields for testing
+        function addDynamicFields() {
+            const container = document.getElementById('dynamic-fields-container');
+            const timestamp = Date.now();
+            
+            const dynamicFields = `
+                <div class="form-group" style="margin-top: 15px;">
+                    <label for="dynamic-email-${timestamp}">Dynamic Email</label>
+                    <input type="email" id="dynamic-email-${timestamp}" name="dynamic-email" placeholder="Dynamic email field">
+                    <div class="field-info">Expected: Medium sensitivity - Dynamic email field</div>
+                </div>
+                <div class="form-group">
+                    <label for="dynamic-password-${timestamp}">Dynamic Password</label>
+                    <input type="password" id="dynamic-password-${timestamp}" name="dynamic-password" placeholder="Dynamic password field">
+                    <div class="field-info">Expected: High sensitivity - Dynamic password field</div>
+                </div>
+                <div class="form-group">
+                    <label for="dynamic-ssn-${timestamp}">Dynamic SSN</label>
+                    <input type="text" id="dynamic-ssn-${timestamp}" name="dynamic-ssn" placeholder="Dynamic SSN field">
+                    <div class="field-info">Expected: High sensitivity - Dynamic SSN field</div>
+                </div>
+            `;
+            
+            container.innerHTML += dynamicFields;
+            
+            // Update test results
+            updateTestResults('Dynamic fields added successfully');
+        }
+
+        // Function to update test results
+        function updateTestResults(message) {
+            const container = document.getElementById('test-results-container');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            container.innerHTML += `
+                <div class="result-item">
+                    <strong>[${timestamp}]</strong> ${message}
+                </div>
+            `;
+        }
+
+        // Function to add detection log entries
+        function addDetectionLog(message) {
+            const log = document.getElementById('detection-log');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            log.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // Monitor for extension activity
+        let detectionCount = 0;
+        
+        // Listen for potential extension messages or DOM changes
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'data-sensitive-field') {
+                    detectionCount++;
+                    addDetectionLog(`🎯 Field detected: ${mutation.target.tagName} ${mutation.target.id || mutation.target.name}`);
+                    updateTestResults(`Sensitive field detected: ${detectionCount} total`);
+                }
+            });
+        });
+
+        // Start observing
+        observer.observe(document.body, {
+            attributes: true,
+            attributeFilter: ['data-sensitive-field', 'data-ai-detection'],
+            subtree: true
+        });
+
+        // Check for extension presence
+        function checkExtension() {
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                addDetectionLog('✅ Chrome extension API detected');
+                updateTestResults('Extension API available');
+            } else {
+                addDetectionLog('⚠️ Chrome extension API not detected');
+                updateTestResults('Extension API not available');
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            checkExtension();
+            addDetectionLog('🚀 Test page loaded and ready');
+            updateTestResults('Page loaded successfully');
+        });
+
+        // Add some test interactions
+        document.addEventListener('click', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+                addDetectionLog(`🖱️ User interacted with: ${e.target.tagName} ${e.target.id || e.target.name}`);
+            }
+            
+            // Track clicks on sensitive text elements
+            if (e.target.classList.contains('sensitive-text')) {
+                addDetectionLog(`🖱️ User clicked sensitive text: ${e.target.textContent.substring(0, 20)}...`);
+                updateTestResults(`Sensitive text clicked: ${e.target.getAttribute('data-type')}`);
+            }
+        });
+
+        // Monitor form submissions
+        document.addEventListener('submit', (e) => {
+            e.preventDefault();
+            addDetectionLog('📤 Form submission intercepted (prevented)');
+            updateTestResults('Form submission detected');
+        });
+
+        // Add keyboard monitoring for sensitive fields
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' && (e.target.type === 'password' || e.target.name.includes('password'))) {
+                addDetectionLog(`⌨️ Password field interaction: ${e.target.name || e.target.id}`);
+            }
+        });
+
+        // Periodic status updates
+        setInterval(() => {
+            const sensitiveFields = document.querySelectorAll('[data-sensitive-field="true"]');
+            if (sensitiveFields.length > 0) {
+                updateTestResults(`Active sensitive fields: ${sensitiveFields.length}`);
+            }
+        }, 5000);
+
+        // Function to test sensitive text content detection
+        function testSensitiveTextContent() {
+            console.log('🔍 Testing sensitive text content detection...');
+            
+            const sensitiveTextElements = document.querySelectorAll('.sensitive-text');
+            console.log(`📊 Found ${sensitiveTextElements.length} sensitive text elements`);
+            
+            const textTypes = {};
+            sensitiveTextElements.forEach(element => {
+                const type = element.getAttribute('data-type');
+                if (!textTypes[type]) {
+                    textTypes[type] = [];
+                }
+                textTypes[type].push({
+                    text: element.textContent,
+                    element: element
+                });
+            });
+            
+            console.log('📋 Sensitive text types found:', Object.keys(textTypes));
+            console.log('📊 Text content breakdown:', textTypes);
+            
+            // Check if any have been marked by extension
+            const markedElements = document.querySelectorAll('.sensitive-text[data-sensitive-field="true"]');
+            console.log(`🎯 Elements marked by extension: ${markedElements.length}`);
+            
+            return {
+                totalElements: sensitiveTextElements.length,
+                textTypes: Object.keys(textTypes),
+                markedElements: markedElements.length,
+                breakdown: textTypes
+            };
+        }
+
+        // Function to simulate masking of sensitive text
+        function simulateTextMasking() {
+            console.log('🎭 Simulating text masking...');
+            
+            const sensitiveTextElements = document.querySelectorAll('.sensitive-text');
+            let maskedCount = 0;
+            
+            sensitiveTextElements.forEach(element => {
+                const originalText = element.textContent;
+                const type = element.getAttribute('data-type');
+                
+                // Simulate masking based on type
+                let maskedText = '';
+                switch(type) {
+                    case 'email':
+                        maskedText = '***@***.***';
+                        break;
+                    case 'phone':
+                        maskedText = '***-***-****';
+                        break;
+                    case 'credit-card':
+                        maskedText = '****-****-****-****';
+                        break;
+                    case 'ssn':
+                        maskedText = '***-**-****';
+                        break;
+                    case 'account-number':
+                        maskedText = '************' + originalText.slice(-4);
+                        break;
+                    default:
+                        maskedText = '***' + originalText.slice(-3);
+                }
+                
+                element.textContent = maskedText;
+                element.classList.add('masked');
+                maskedCount++;
+                
+                console.log(`🎭 Masked ${type}: ${originalText} → ${maskedText}`);
+            });
+            
+            console.log(`✅ Simulated masking of ${maskedCount} sensitive text elements`);
+            updateTestResults(`Simulated masking: ${maskedCount} text elements`);
+            
+            return maskedCount;
+        }
+
+        // Function to restore original text
+        function restoreOriginalText() {
+            console.log('🔄 Restoring original text...');
+            
+            const sensitiveTextElements = document.querySelectorAll('.sensitive-text');
+            let restoredCount = 0;
+            
+            // Store original text in data attributes if not already stored
+            sensitiveTextElements.forEach(element => {
+                if (!element.hasAttribute('data-original-text')) {
+                    element.setAttribute('data-original-text', element.textContent);
+                }
+            });
+            
+            // Restore from data attributes
+            const originalTextElements = document.querySelectorAll('[data-original-text]');
+            originalTextElements.forEach(element => {
+                const originalText = element.getAttribute('data-original-text');
+                if (originalText && originalText !== element.textContent) {
+                    element.textContent = originalText;
+                    element.classList.remove('masked');
+                    restoredCount++;
+                }
+            });
+            
+            console.log(`✅ Restored ${restoredCount} text elements`);
+            updateTestResults(`Restored: ${restoredCount} text elements`);
+            
+            return restoredCount;
+        }
+
+        // Make functions globally available for testing
+        window.addDynamicFields = addDynamicFields;
+        window.updateTestResults = updateTestResults;
+        window.addDetectionLog = addDetectionLog;
+        window.checkExtension = checkExtension;
+        window.testSensitiveTextContent = testSensitiveTextContent;
+        window.simulateTextMasking = simulateTextMasking;
+        window.restoreOriginalText = restoreOriginalText;
+
+        // Log available test functions
+        console.log('🧪 Test functions available:');
+        console.log('- testExtensionPresence()');
+        console.log('- testSensitiveFieldDetection()');
+        console.log('- testUserInteractions()');
+        console.log('- testDetectionMarkers()');
+        console.log('- monitorExtensionLogs()');
+        console.log('- testDynamicFields()');
+        console.log('- runComprehensiveTest()');
+        console.log('- testPerformance()');
+        console.log('- testSensitiveTextContent()');
+        console.log('- simulateTextMasking()');
+        console.log('- restoreOriginalText()');
+    </script>
+</body>
+</html> 
