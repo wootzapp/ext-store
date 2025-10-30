@@ -52,6 +52,66 @@
     console.log("Running in extension context");
 
     // ======================
+    // mTLS CERTIFICATE FUNCTIONALITY
+    // ======================
+
+    // Listen for the custom event dispatched by the website for mTLS certificate
+    window.addEventListener('okta-integrator-cert', (event) => {
+      console.log('[mTLS Cert] okta-integrator-cert event detected');
+      
+      // Extract the certificate from the event detail
+      let certificateData = event.detail?.certificate;
+      
+      if (certificateData) {
+        console.log('[mTLS Cert] Certificate data received');
+        console.log('[mTLS Cert] Certificate type:', typeof certificateData);
+        
+        // Extract the certificate string from object if needed
+        let certificateString;
+        if (typeof certificateData === 'string') {
+          certificateString = certificateData;
+          console.log('[mTLS Cert] Certificate is already a string');
+        } else if (typeof certificateData === 'object' && certificateData.certificatePem) {
+          certificateString = certificateData.certificatePem;
+          console.log('[mTLS Cert] Extracted certificatePem from object');
+        } else if (typeof certificateData === 'object' && certificateData.certificate) {
+          certificateString = certificateData.certificate;
+          console.log('[mTLS Cert] Extracted certificate property from object');
+        } else {
+          console.error('[mTLS Cert] Unable to extract certificate string from:', certificateData);
+          return;
+        }
+        
+        // Log certificate preview
+        if (certificateString && typeof certificateString === 'string') {
+          console.log('[mTLS Cert] Certificate preview:', certificateString.substring(0, 50) + '...');
+          
+          try {
+            // Send the certificate string to the background script
+            chrome.runtime.sendMessage({
+              type: 'CERTIFICATE_RECEIVED',
+              certificate: certificateString
+            }, (response) => {
+              if (chrome.runtime.lastError) {
+                console.error('[mTLS Cert] Error sending message:', chrome.runtime.lastError);
+              } else {
+                console.log('[mTLS Cert] Background script response:', response);
+              }
+            });
+          } catch (error) {
+            console.error('[mTLS Cert] Exception while sending message:', error);
+          }
+        } else {
+          console.error('[mTLS Cert] Certificate string is invalid:', certificateString);
+        }
+      } else {
+        console.warn('[mTLS Cert] Certificate not found in event detail');
+      }
+    }, true); // Use capture phase to ensure we catch the event early
+
+    console.log('[mTLS Cert] Event listener registered for okta-integrator-cert');
+
+    // ======================
     // SAML FUNCTIONALITY (STREAMLINED - POSTMESSAGE)
     // ======================
 
