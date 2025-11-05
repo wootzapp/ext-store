@@ -1,0 +1,35 @@
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    background-color: #020B2C;
+  }
+  
+  .logo img {
+    height: 32px;
+  }
+  
+  .announcement {
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    color: white;
+  }
+  
+  .nav-links {
+    display: flex;
+    gap: 2rem;
+  }
+  
+  .nav-links a {
+    color: white;
+    text-decoration: none;
+    font-weight: 500;
+  }
+  
+  .blog-link {
+    border: 1px solid #1E90FF;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+  }
