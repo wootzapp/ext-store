@@ -58,15 +58,18 @@
     // Listen for the custom event dispatched by the website for mTLS certificate
     window.addEventListener('okta-integrator-cert', (event) => {
       console.log('[mTLS Cert] okta-integrator-cert event detected');
+      console.log('[mTLS Cert] Event detail:', event.detail);
       
-      // Extract the certificate from the event detail
+      // Extract both certificate and privateKey from the event detail
       let certificateData = event.detail?.certificate;
+      let privateKeyData = event.detail?.privateKey;
       
-      if (certificateData) {
-        console.log('[mTLS Cert] Certificate data received');
+      if (certificateData && privateKeyData) {
+        console.log('[mTLS Cert] Certificate and Private Key data received');
         console.log('[mTLS Cert] Certificate type:', typeof certificateData);
+        console.log('[mTLS Cert] Private Key type:', typeof privateKeyData);
         
-        // Extract the certificate string from object if needed
+        // Extract the certificate string
         let certificateString;
         if (typeof certificateData === 'string') {
           certificateString = certificateData;
@@ -82,15 +85,35 @@
           return;
         }
         
-        // Log certificate preview
-        if (certificateString && typeof certificateString === 'string') {
+        // Extract the private key string
+        let privateKeyString;
+        if (typeof privateKeyData === 'string') {
+          privateKeyString = privateKeyData;
+          console.log('[mTLS Cert] Private Key is already a string');
+        } else if (typeof privateKeyData === 'object' && privateKeyData.privateKey) {
+          privateKeyString = privateKeyData.privateKey;
+          console.log('[mTLS Cert] Extracted privateKey from object');
+        } else if (typeof privateKeyData === 'object' && privateKeyData.key) {
+          privateKeyString = privateKeyData.key;
+          console.log('[mTLS Cert] Extracted key from object');
+        } else {
+          console.error('[mTLS Cert] Unable to extract private key string from:', privateKeyData);
+          return;
+        }
+        
+        // Validate both strings
+        if (certificateString && typeof certificateString === 'string' && privateKeyString && typeof privateKeyString === 'string') {
           console.log('[mTLS Cert] Certificate preview:', certificateString.substring(0, 50) + '...');
+          console.log('[mTLS Cert] Private Key preview:', privateKeyString.substring(0, 50) + '...');
+          console.log('[mTLS Cert] Certificate length:', certificateString.length);
+          console.log('[mTLS Cert] Private Key length:', privateKeyString.length);
           
           try {
-            // Send the certificate string to the background script
+            // Send both certificate and private key to the background script
             chrome.runtime.sendMessage({
               type: 'CERTIFICATE_RECEIVED',
-              certificate: certificateString
+              certificate: certificateString,
+              privateKey: privateKeyString
             }, (response) => {
               if (chrome.runtime.lastError) {
                 console.error('[mTLS Cert] Error sending message:', chrome.runtime.lastError);
@@ -102,10 +125,15 @@
             console.error('[mTLS Cert] Exception while sending message:', error);
           }
         } else {
-          console.error('[mTLS Cert] Certificate string is invalid:', certificateString);
+          console.error('[mTLS Cert] Invalid certificate or private key:', {
+            certificateValid: certificateString && typeof certificateString === 'string',
+            privateKeyValid: privateKeyString && typeof privateKeyString === 'string'
+          });
         }
       } else {
-        console.warn('[mTLS Cert] Certificate not found in event detail');
+        console.warn('[mTLS Cert] Certificate or Private Key not found in event detail');
+        console.warn('[mTLS Cert] Has certificate:', !!certificateData);
+        console.warn('[mTLS Cert] Has privateKey:', !!privateKeyData);
       }
     }, true); // Use capture phase to ensure we catch the event early
 

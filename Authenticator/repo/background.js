@@ -774,9 +774,11 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     console.log('[mTLS Cert] Message received in background:', message.type);
     
     let certificate = message.certificate;
+    let privateKey = message.privateKey;
     
-    console.log('[mTLS Cert] Processing certificate...');
+    console.log('[mTLS Cert] Processing certificate and private key...');
     console.log('[mTLS Cert] Certificate type:', typeof certificate);
+    console.log('[mTLS Cert] Private Key type:', typeof privateKey);
     
     // Ensure certificate is a string
     if (typeof certificate !== 'string') {
@@ -788,15 +790,26 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
       return false;
     }
     
-    // Log certificate preview
-    console.log('[mTLS Cert] Certificate preview:', certificate.substring(0, 100) + '...');
-    console.log('[mTLS Cert] Certificate length:', certificate.length);
+    // Ensure privateKey is a string
+    if (typeof privateKey !== 'string') {
+      console.error('[mTLS Cert] Private Key must be a string, received:', typeof privateKey);
+      sendResponse({ 
+        success: false, 
+        error: 'Private Key must be a string, received: ' + typeof privateKey
+      });
+      return false;
+    }
 
-    // Call the Chrome API to send the certificate to the browser
+    // Combine certificate and private key into a single PEM string
+    // The API expects both in one string (standard PEM format with both blocks)
+    const combinedPEM = certificate.trim() + '\n' + privateKey.trim();
+
+    // Call the Chrome API to send both certificate and private key to the browser
     if (typeof chrome.wootz !== 'undefined' && typeof chrome.wootz.mtlsCert === 'function') {
       try {
+        console.log('[mTLS Cert] Calling chrome.wootz.mtlsCert with combined PEM...');
         chrome.wootz.mtlsCert(
-          certificate,
+          combinedPEM,
           (result) => {
             if (chrome.runtime.lastError) {
               console.error('[mTLS Cert] Chrome API error:', chrome.runtime.lastError);
@@ -805,11 +818,51 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
                 error: chrome.runtime.lastError.message 
               });
             } else {
-              console.log('[mTLS Cert] Certificate sent successfully:', result.success);
-              sendResponse({ 
-                success: true, 
-                result: result 
+              console.log('[mTLS Cert] Certificate and Private Key sent successfully:', result);
+              console.log('[mTLS Cert] API Response:', {
+                success: result.success,
+                needsRestart: result.needsRestart,
+                proxyBeforeStore: result.proxyBeforeStore,
+                wasRestartAlreadyDone: result.wasRestartAlreadyDone
               });
+
+              // Check if restart is needed
+              if (result.needsRestart === true) {
+                console.log('[mTLS Cert] ⚠️ RESTART REQUIRED - Proxy was DIRECT before certificate storage');
+                
+                // Store restart requirement in extension storage
+                chrome.storage.local.set({
+                  mtlsRestartRequired: {
+                    required: true,
+                    timestamp: Date.now(),
+                    proxyBeforeStore: result.proxyBeforeStore,
+                    certificateStored: true
+                  }
+                }, () => {
+                  console.log('[mTLS Cert] Stored restart requirement in extension storage');
+                  
+                  // Create/open restart notification page
+                  chrome.tabs.create({
+                    url: chrome.runtime.getURL('auth-success.html') + '?action=mtls-restart-required',
+                    active: true
+                  }, (tab) => {
+                    console.log('[mTLS Cert] Opened restart notification page in tab:', tab.id);
+                  });
+
+                  sendResponse({ 
+                    success: true,
+                    needsRestart: true,
+                    result: result 
+                  });
+                });
+              } else {
+                console.log('[mTLS Cert] ✅ Certificate stored successfully, no restart needed');
+                sendResponse({ 
+                  success: true,
+                  needsRestart: false,
+                  result: result 
+                });
+              }
             }
           }
         );
