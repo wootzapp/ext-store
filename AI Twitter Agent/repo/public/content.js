@@ -41,6 +41,11 @@ class TwitterContentScript {
           this.checkLoginStatus().then(sendResponse);
           return true;
 
+        case 'CHECK_INSTA_LOGIN':
+          console.log('Content: Checking Instagram login status...');
+          this.checkInstagramLoginStatus().then(sendResponse);
+          return true;
+
         case 'LOGIN':
           console.log('Content: Login request received');
           this.performLogin(request.credentials).then(result => {
@@ -52,6 +57,27 @@ class TwitterContentScript {
             });
           });
           return true;
+        
+          case 'CHECK_CORRECT_PROFILE':
+            console.log('Content: CHECK_CORRECT_PROFILE action received');
+            this.checkCorrectProfile().then(sendResponse);
+            return true;
+          
+          case 'LOGIN_INSTAGRAM':
+            console.log('Content: LOGIN_INSTAGRAM action received');
+            this.performInstagramLogin(request.credentials).then(result => {
+              console.log('Content: Instagram login result:', result);
+              chrome.runtime.sendMessage({
+                action: 'LOGIN_INSTAGRAM_RESULT',
+                result: result
+              });
+            });
+            return true;
+  
+          case 'LOGOUT_FROM_INSTAGRAM':
+            console.log('Content: LOGOUT_INSTAGRAM action received');
+            this.logoutInstagram().then(sendResponse);
+            return true;
 
         case 'POST_TWEET':
           console.log('Content: POST_TWEET action received');
@@ -62,13 +88,56 @@ class TwitterContentScript {
         //   console.log('Content: VERIFY_TWEET action received');
         //   this.verifyTweetPosted(request.content).then(sendResponse);
         //   return true;
-
+        
         default:
           console.log('Content: Unknown action:', request.action);
           sendResponse({ success: false, error: 'Unknown action' });
           return true;
       }
     });
+  }
+
+  async logoutInstagram() {
+    console.log('Content: Logging out from Instagram...');
+    await this.waitForPageLoad();
+    const logoutButton = document.querySelector('span.x1lliihq.x1plvlek.xryxfnj.x1n2onr6.x1ji0vk5.x18bv5gf.x193iq5w.xeuugli.x1fj9vlw.x13faqbe.x1vvkbs.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.x1i0vuye.xvs91rp.xo1l8bm.xkmlbd1.x10wh9bi.xpm28yp.x8viiok.x1o7cslx');
+    if(logoutButton) {
+      logoutButton.click();
+      await this.waitForPageLoad();
+      const confirmLogoutButton = document.querySelector('._a9--._ap36._a9_0');
+      if(confirmLogoutButton) {
+        confirmLogoutButton.click();
+        await this.waitForPageLoad();
+        console.log('Content: On logout page', window.location.href);
+        return { loggedIn: false };
+      }
+
+    }
+    return { loggedIn: false };
+  }
+
+  async checkCorrectProfile() {
+    console.log('Content: Checking correct profile...');
+    console.log('Content: Current URL:', window.location.href);
+    await this.waitForPageLoad();
+    console.log('Content: On profile page', window.location.href);
+    
+    const anchorTags = document.querySelectorAll('a');
+    console.log('Content: anchorTags', anchorTags.length);
+    
+    for(let i = 0; i < anchorTags.length; i++) {
+      console.log('Content: anchorTags[i].href', anchorTags[i].href);
+      if(anchorTags[i].href.includes('/accounts/settings/')) {
+        console.log('Content: Found settings link - correct username, logged in');
+        return { loggedIn: true };
+      }
+    }
+    
+    console.log('Content: No settings link found - wrong username, logging out');
+    chrome.runtime.sendMessage({
+      action: 'LOGOUT_INSTAGRAM'
+    });
+    return { loggedIn: false };
   }
 
   // ENHANCED: Better login detection with multiple methods
@@ -176,6 +245,45 @@ class TwitterContentScript {
         this.isLoggedIn = true;
         return { loggedIn: true };
       }
+      return { loggedIn: false, error: error.message };
+    }
+  }
+
+  async checkInstagramLoginStatus() {
+    try {
+      console.log('Content: Checking Instagram login status...');
+      console.log('Content: Current URL:', window.location.href);
+
+      await this.waitForPageLoad();
+
+      const currentUrl = window.location.href.toLowerCase();
+      if(currentUrl.includes('/accounts/login/')) {
+        console.log('Content: On login page');
+        return { loggedIn: false };
+      }
+      
+      // If not on login page, check if we're on instagram.com (main page)
+      if (currentUrl === 'https://www.instagram.com/' || currentUrl === 'https://www.instagram.com') {
+        console.log('Content: On Instagram main page - might be logged in');
+        // Get username from config and open profile tab to verify
+        const config = await chrome.storage.sync.get(['agentConfig']);
+        if (config?.agentConfig?.instagram?.username) {
+          const profileUrl = 'https://www.instagram.com/' + config.agentConfig.instagram.username;
+          console.log('Content: Opening profile tab to verify username:', profileUrl);
+          
+          // Send message to background to open profile tab
+          chrome.runtime.sendMessage({
+            action: 'OPEN_PROFILE_TAB',
+            url: profileUrl
+          });
+        }
+        return { loggedIn: false }; // Return false for now, will be updated by profile check
+      }
+      
+      return { loggedIn: false };
+
+    } catch (error) {
+      console.error('Content: Error checking Instagram login status:', error);
       return { loggedIn: false, error: error.message };
     }
   }
@@ -953,6 +1061,43 @@ class TwitterContentScript {
       console.error('Content: Error during login:', error);
       return { success: false, error: error.message };
     }
+  }
+  
+  async performInstagramLogin(credentials) {
+    console.log('Content: Starting Instagram login process...');
+    await this.waitForPageLoad();
+    const loginAfterLogout = document.querySelector('div[aria-label="Log into another account"]');
+    if(loginAfterLogout){
+      loginAfterLogout.click();
+      await this.sleep(2000);
+    }
+    await this.waitForPageLoad();
+    const usernameField = document.querySelector('input[aria-label="Username, email or mobile number"]');
+    const passwordField = document.querySelector('input[aria-label="Password"]');
+    if(usernameField && passwordField){
+      usernameField.value = credentials.username;
+      usernameField.dispatchEvent(new Event('input', { bubbles: true }));
+      await this.sleep(1000);
+      passwordField.value = credentials.password;
+      passwordField.dispatchEvent(new Event('input', { bubbles: true }));
+      await this.sleep(1000);
+      const loginButton = document.querySelector('div[aria-label="Log in"]');
+      if(loginButton){
+        loginButton.click();
+        await this.sleep(2000);
+        loginButton.click();
+        await this.sleep(5000);
+        return {
+          success: true,
+          message: 'Login successful'
+        };
+      } else {
+        throw new Error('Login button not found');
+      }
+    } else {
+      throw new Error('Username or password field not found');
+    }
+    
   }
 
   // Helper method for clicking next buttons

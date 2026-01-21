@@ -37,12 +37,22 @@ const useConfig = () => {
           twitter: {
             username: savedConfig.twitterUsername || '',
             password: savedConfig.twitterPassword || '',
-            email: savedConfig.email || ''
+            email: savedConfig.email || '',
+            topics: savedConfig.twitterTopics || savedConfig.topics || [],
+            settings: {
+              interval: savedConfig.twitterInterval || savedConfig.setInterval || 30,
+              style: savedConfig.twitterStyle || 'professional but engaging'
+            }
           },
-          topics: savedConfig.topics || [],
-          settings: {
-            interval: savedConfig.setInterval || 30,
-            style: 'professional but engaging'
+          instagram: {
+            username: savedConfig.instagramUsername || '',
+            password: savedConfig.instagramPassword || '',
+            email: savedConfig.instagramEmail || '',
+            topics: savedConfig.instagramTopics || [],
+            settings: {
+              interval: savedConfig.instagramInterval || 30,
+              style: savedConfig.instagramStyle || 'professional but engaging'
+            }
           }
         };
       }
@@ -70,7 +80,7 @@ const useConfig = () => {
       
       // Transform nested structure to flat structure for onboarding compatibility
       let configToSave = newConfig;
-      if (newConfig.ai && newConfig.twitter) {
+      if (newConfig.ai && (newConfig.twitter || newConfig.instagram)) {
         // This is the new nested structure, save as is
         configToSave = newConfig;
       } else if (newConfig.model) {
@@ -85,12 +95,22 @@ const useConfig = () => {
           twitter: {
             username: newConfig.twitterUsername || '',
             password: newConfig.twitterPassword || '',
-            email: newConfig.email || ''
+            email: newConfig.email || '',
+            topics: newConfig.twitterTopics || newConfig.topics || [],
+            settings: {
+              interval: newConfig.twitterInterval || newConfig.setInterval || 30,
+              style: newConfig.twitterStyle || 'professional but engaging'
+            }
           },
-          topics: newConfig.topics || [],
-          settings: {
-            interval: newConfig.setInterval || 30,
-            style: 'professional but engaging'
+          instagram: {
+            username: newConfig.instagramUsername || '',
+            password: newConfig.instagramPassword || '',
+            email: newConfig.instagramEmail || '',
+            topics: newConfig.instagramTopics || [],
+            settings: {
+              interval: newConfig.instagramInterval || 30,
+              style: newConfig.instagramStyle || 'professional but engaging'
+            }
           }
         };
       }
@@ -150,6 +170,135 @@ const useConfig = () => {
     }
   };
 
+  // Helper methods for Instagram config
+  const updateInstagramConfig = async (instagramConfig) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const updatedConfig = {
+        ...config,
+        instagram: {
+          ...config?.instagram,
+          ...instagramConfig
+        }
+      };
+      
+      await browserStorage.set('config', updatedConfig);
+      await browserStorage.set('agentConfig', updatedConfig);
+      setConfig(updatedConfig);
+      return true;
+    } catch (err) {
+      console.error('Failed to update Instagram config:', err);
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getInstagramConfig = () => {
+    return config?.instagram || {
+      username: '',
+      password: '',
+      email: ''
+    };
+  };
+
+  const hasInstagramConfig = () => {
+    const instagram = config?.instagram;
+    return !!(instagram?.username && instagram?.password);
+  };
+
+  // Platform-specific config methods
+  const updateTwitterConfig = async (twitterConfig) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const updatedConfig = {
+        ...config,
+        twitter: {
+          ...config?.twitter,
+          ...twitterConfig
+        }
+      };
+      
+      await browserStorage.set('config', updatedConfig);
+      await browserStorage.set('agentConfig', updatedConfig);
+      setConfig(updatedConfig);
+      return true;
+    } catch (err) {
+      console.error('Failed to update Twitter config:', err);
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getTwitterConfig = () => {
+    return config?.twitter || {
+      username: '',
+      password: '',
+      email: '',
+      topics: [],
+      settings: {
+        interval: 30,
+        style: 'professional but engaging'
+      }
+    };
+  };
+
+  const hasTwitterConfig = () => {
+    const twitter = config?.twitter;
+    return !!(twitter?.username && twitter?.password);
+  };
+
+  // Platform-specific topics methods
+  const updateTwitterTopics = async (topics) => {
+    return updateTwitterConfig({ topics });
+  };
+
+  const updateInstagramTopics = async (topics) => {
+    return updateInstagramConfig({ topics });
+  };
+
+  const getTwitterTopics = () => {
+    return config?.twitter?.topics || [];
+  };
+
+  const getInstagramTopics = () => {
+    return config?.instagram?.topics || [];
+  };
+
+  // Platform-specific settings methods
+  const updateTwitterSettings = async (settings) => {
+    return updateTwitterConfig({ 
+      settings: { ...config?.twitter?.settings, ...settings } 
+    });
+  };
+
+  const updateInstagramSettings = async (settings) => {
+    return updateInstagramConfig({ 
+      settings: { ...config?.instagram?.settings, ...settings } 
+    });
+  };
+
+  const getTwitterSettings = () => {
+    return config?.twitter?.settings || {
+      interval: 30,
+      style: 'professional but engaging'
+    };
+  };
+
+  const getInstagramSettings = () => {
+    return config?.instagram?.settings || {
+      interval: 30,
+      style: 'professional but engaging'
+    };
+  };
+
   return {
     config,
     loading,
@@ -157,7 +306,24 @@ const useConfig = () => {
     loadConfig,
     saveConfig,
     updateConfig,
-    resetConfig
+    resetConfig,
+    // Platform-specific config methods
+    updateTwitterConfig,
+    getTwitterConfig,
+    hasTwitterConfig,
+    updateInstagramConfig,
+    getInstagramConfig,
+    hasInstagramConfig,
+    // Platform-specific topics methods
+    updateTwitterTopics,
+    updateInstagramTopics,
+    getTwitterTopics,
+    getInstagramTopics,
+    // Platform-specific settings methods
+    updateTwitterSettings,
+    updateInstagramSettings,
+    getTwitterSettings,
+    getInstagramSettings
   };
 };
 
