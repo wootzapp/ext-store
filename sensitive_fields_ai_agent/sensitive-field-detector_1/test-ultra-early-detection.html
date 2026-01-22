@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultra-Early Detection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        input:focus, textarea:focus, select:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            background: #e9ecef;
+            border-left: 4px solid #007bff;
+        }
+        .detection-log {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+        }
+        .sensitive-field {
+            border: 2px solid #dc3545 !important;
+            background-color: #fff5f5 !important;
+        }
+        .sensitive-field::after {
+            content: " 🔒 SENSITIVE";
+            color: #dc3545;
+            font-size: 12px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔒 Ultra-Early Detection Test</h1>
+        <p>This page tests the ultra-early raw DOM analysis to ensure sensitive fields are detected before the page becomes visible to users.</p>
+        
+        <form id="testForm">
+            <div class="form-group">
+                <label for="email">Email Address:</label>
+                <input type="email" id="email" name="email" placeholder="Enter your email address" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" placeholder="Enter your password" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" placeholder="Enter your username">
+            </div>
+            
+            <div class="form-group">
+                <label for="ssn">Social Security Number:</label>
+                <input type="text" id="ssn" name="ssn" placeholder="XXX-XX-XXXX" pattern="[0-9]{3}-[0-9]{2}-[0-9]{4}">
+            </div>
+            
+            <div class="form-group">
+                <label for="creditCard">Credit Card Number:</label>
+                <input type="text" id="creditCard" name="creditCard" placeholder="1234 5678 9012 3456">
+            </div>
+            
+            <div class="form-group">
+                <label for="cvv">CVV:</label>
+                <input type="text" id="cvv" name="cvv" placeholder="123" maxlength="4">
+            </div>
+            
+            <div class="form-group">
+                <label for="phone">Phone Number:</label>
+                <input type="tel" id="phone" name="phone" placeholder="(555) 123-4567">
+            </div>
+            
+            <div class="form-group">
+                <label for="address">Address:</label>
+                <textarea id="address" name="address" placeholder="Enter your full address" rows="3"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="csrf_token">Security Token (Hidden):</label>
+                <input type="hidden" id="csrf_token" name="csrf_token" value="abc123def456ghi789">
+            </div>
+            
+            <div class="form-group">
+                <label for="accountType">Account Type:</label>
+                <select id="accountType" name="accountType">
+                    <option value="">Select account type</option>
+                    <option value="personal">Personal</option>
+                    <option value="business">Business</option>
+                    <option value="premium">Premium</option>
+                </select>
+            </div>
+            
+            <button type="submit" class="btn">Submit Form</button>
+        </form>
+        
+        <div class="status">
+            <h3>🔍 Detection Status</h3>
+            <p><strong>Expected Detection:</strong> 8+ sensitive fields (email, password, username, SSN, credit card, CVV, phone, address, CSRF token)</p>
+            <p><strong>Timing:</strong> Raw DOM analysis should start within 50ms of page load</p>
+            <p><strong>Fallback:</strong> Pattern detection should catch obvious fields if AI fails</p>
+        </div>
+        
+        <div class="detection-log" id="detectionLog">
+            <strong>Detection Log:</strong><br>
+            Waiting for extension to load and analyze...
+        </div>
+    </div>
+
+    <script>
+        // Test script to monitor detection
+        let detectionStartTime = Date.now();
+        
+        // Monitor for detection logs
+        const originalLog = console.log;
+        const logElement = document.getElementById('detectionLog');
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            
+            // Filter for detection-related logs
+            const message = args.join(' ');
+            if (message.includes('ULTRA-EARLY') || 
+                message.includes('Raw DOM analysis') || 
+                message.includes('sensitive field') ||
+                message.includes('DEBUG: Form elements') ||
+                message.includes('Fallback pattern detection')) {
+                
+                const time = Date.now() - detectionStartTime;
+                const logEntry = `[${time}ms] ${message}<br>`;
+                logElement.innerHTML += logEntry;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+        };
+        
+        // Monitor for sensitive field detection
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        // Check if any input has been marked as sensitive
+                        const sensitiveInputs = node.querySelectorAll('[data-sensitive-field="true"]');
+                        sensitiveInputs.forEach(input => {
+                            input.classList.add('sensitive-field');
+                            console.log(`🎯 SENSITIVE FIELD DETECTED: ${input.tagName} type="${input.type}" name="${input.name}" id="${input.id}"`);
+                        });
+                    }
+                });
+            });
+        });
+        
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+        
+        // Form submission handler
+        document.getElementById('testForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            console.log('📝 Form submitted - checking for sensitive field detection');
+            
+            const sensitiveFields = document.querySelectorAll('[data-sensitive-field="true"]');
+            console.log(`✅ Total sensitive fields detected: ${sensitiveFields.length}`);
+            
+            sensitiveFields.forEach((field, index) => {
+                console.log(`   ${index + 1}. ${field.tagName} type="${field.type}" name="${field.name}" id="${field.id}"`);
+            });
+        });
+        
+        // Page load timing
+        window.addEventListener('load', () => {
+            const loadTime = Date.now() - detectionStartTime;
+            console.log(`📄 Page fully loaded in ${loadTime}ms`);
+        });
+        
+        console.log('🧪 Ultra-early detection test page loaded');
+    </script>
+</body>
+</html> 

@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Web App Detection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        input:focus, textarea:focus, select:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            background: #e9ecef;
+            border-left: 4px solid #007bff;
+        }
+        .detection-log {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+        }
+        .sensitive-field {
+            border: 2px solid #dc3545 !important;
+            background-color: #fff5f5 !important;
+        }
+        .sensitive-field::after {
+            content: " 🔒 SENSITIVE";
+            color: #dc3545;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .shadow-dom-container {
+            border: 2px dashed #007bff;
+            padding: 15px;
+            margin: 15px 0;
+            background: #f8f9fa;
+        }
+        .dynamic-content {
+            border: 2px dashed #28a745;
+            padding: 15px;
+            margin: 15px 0;
+            background: #f8fff9;
+        }
+        .modern-input {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 8px;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔒 Modern Web App Detection Test</h1>
+        <p>This page simulates modern web app patterns like Twitter, with shadow DOM, dynamic content, and complex structures.</p>
+        
+        <!-- Traditional Form Elements -->
+        <h2>📝 Traditional Form Elements</h2>
+        <form id="traditionalForm">
+            <div class="form-group">
+                <label for="email">Email Address:</label>
+                <input type="email" id="email" name="email" placeholder="Enter your email address" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" placeholder="Enter your password" required>
+            </div>
+        </form>
+        
+        <!-- Shadow DOM Simulation -->
+        <h2>🌑 Shadow DOM Elements</h2>
+        <div class="shadow-dom-container">
+            <div id="shadowHost1">
+                <div data-shadow-root="true">
+                    <div class="form-group">
+                        <label for="shadow-username">Username (Shadow DOM):</label>
+                        <input type="text" id="shadow-username" name="shadow-username" placeholder="Enter username" data-testid="username-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="shadow-phone">Phone Number (Shadow DOM):</label>
+                        <input type="tel" id="shadow-phone" name="shadow-phone" placeholder="(555) 123-4567" aria-label="Phone number">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Dynamic Content -->
+        <h2>⚡ Dynamic Content</h2>
+        <div class="dynamic-content" id="dynamicContent">
+            <div class="form-group">
+                <label for="dynamic-address">Address (Dynamic):</label>
+                <textarea id="dynamic-address" name="dynamic-address" placeholder="Enter your full address" rows="3" role="textbox"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="dynamic-birth">Date of Birth (Dynamic):</label>
+                <input type="date" id="dynamic-birth" name="dynamic-birth" data-testid="birth-date-input">
+            </div>
+        </div>
+        
+        <!-- Modern Framework Patterns -->
+        <h2>⚛️ Modern Framework Patterns</h2>
+        <div class="modern-input">
+            <div data-testid="profile-form">
+                <div class="form-group">
+                    <label for="react-ssn">Social Security Number (React):</label>
+                    <input type="text" id="react-ssn" name="react-ssn" placeholder="XXX-XX-XXXX" data-testid="ssn-input" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="react-credit">Credit Card (React):</label>
+                    <input type="text" id="react-credit" name="react-credit" placeholder="1234 5678 9012 3456" data-testid="credit-card-input" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="react-cvv">CVV (React):</label>
+                    <input type="text" id="react-cvv" name="react-cvv" placeholder="123" maxlength="4" data-testid="cvv-input" class="form-control">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Contenteditable Elements -->
+        <h2>✏️ Contenteditable Elements</h2>
+        <div class="form-group">
+            <label for="editable-name">Name (Contenteditable):</label>
+            <div id="editable-name" contenteditable="true" class="modern-input" data-testid="editable-name" aria-label="Enter your full name"></div>
+        </div>
+        <div class="form-group">
+            <label for="editable-email">Email (Contenteditable):</label>
+            <div id="editable-email" contenteditable="true" class="modern-input" data-testid="editable-email" aria-label="Enter your email address"></div>
+        </div>
+        
+        <!-- Hidden Fields -->
+        <h2>👻 Hidden Fields</h2>
+        <input type="hidden" id="csrf_token" name="csrf_token" value="abc123def456ghi789">
+        <input type="hidden" id="auth_token" name="auth_token" value="xyz789abc123def456">
+        <input type="hidden" id="session_id" name="session_id" value="session123456789">
+        
+        <!-- Custom Web Components -->
+        <h2>🧩 Custom Web Components</h2>
+        <div class="form-group">
+            <label for="custom-account">Account Number (Custom):</label>
+            <div role="textbox" id="custom-account" class="modern-input" data-testid="account-number" aria-label="Enter account number"></div>
+        </div>
+        <div class="form-group">
+            <label for="custom-routing">Routing Number (Custom):</label>
+            <div role="combobox" id="custom-routing" class="modern-input" data-testid="routing-number" aria-label="Enter routing number"></div>
+        </div>
+        
+        <!-- Country and Location -->
+        <h2>🌍 Location Information</h2>
+        <div class="form-group">
+            <label for="country">Country:</label>
+            <select id="country" name="country" data-testid="country-select">
+                <option value="">Select country</option>
+                <option value="us">United States</option>
+                <option value="ca">Canada</option>
+                <option value="uk">United Kingdom</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="city">City:</label>
+            <input type="text" id="city" name="city" placeholder="Enter city" data-testid="city-input">
+        </div>
+        <div class="form-group">
+            <label for="zip">ZIP Code:</label>
+            <input type="text" id="zip" name="zip" placeholder="12345" data-testid="zip-input">
+        </div>
+        
+        <button type="submit" class="btn">Submit Form</button>
+        
+        <div class="status">
+            <h3>🔍 Detection Status</h3>
+            <p><strong>Expected Detection:</strong> 15+ sensitive fields across different patterns</p>
+            <p><strong>Patterns Tested:</strong> Traditional forms, Shadow DOM, Dynamic content, React patterns, Contenteditable, Hidden fields, Custom components</p>
+            <p><strong>Modern Features:</strong> data-testid, aria-label, role attributes, shadow DOM simulation</p>
+        </div>
+        
+        <div class="detection-log" id="detectionLog">
+            <strong>Detection Log:</strong><br>
+            Waiting for extension to load and analyze...
+        </div>
+    </div>
+
+    <script>
+        // Test script to monitor detection
+        let detectionStartTime = Date.now();
+        
+        // Monitor for detection logs
+        const originalLog = console.log;
+        const logElement = document.getElementById('detectionLog');
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            
+            // Filter for detection-related logs
+            const message = args.join(' ');
+            if (message.includes('ULTRA-EARLY') || 
+                message.includes('Raw DOM analysis') || 
+                message.includes('sensitive field') ||
+                message.includes('DEBUG: Form elements') ||
+                message.includes('DEBUG: Shadow DOM elements') ||
+                message.includes('ENHANCED:') ||
+                message.includes('Fallback pattern detection')) {
+                
+                const time = Date.now() - detectionStartTime;
+                const logEntry = `[${time}ms] ${message}<br>`;
+                logElement.innerHTML += logEntry;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+        };
+        
+        // Monitor for sensitive field detection
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        // Check if any input has been marked as sensitive
+                        const sensitiveInputs = node.querySelectorAll('[data-sensitive-field="true"]');
+                        sensitiveInputs.forEach(input => {
+                            input.classList.add('sensitive-field');
+                            console.log(`🎯 SENSITIVE FIELD DETECTED: ${input.tagName} type="${input.type}" name="${input.name}" id="${input.id}"`);
+                        });
+                    }
+                });
+            });
+        });
+        
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+        
+        // Simulate dynamic content loading
+        setTimeout(() => {
+            const dynamicContent = document.getElementById('dynamicContent');
+            if (dynamicContent) {
+                const newField = document.createElement('div');
+                newField.className = 'form-group';
+                newField.innerHTML = `
+                    <label for="dynamic-ssn">SSN (Dynamically Loaded):</label>
+                    <input type="text" id="dynamic-ssn" name="dynamic-ssn" placeholder="XXX-XX-XXXX" data-testid="dynamic-ssn-input">
+                `;
+                dynamicContent.appendChild(newField);
+                console.log('⚡ Added dynamic SSN field');
+            }
+        }, 2000);
+        
+        // Simulate shadow DOM (since we can't create real shadow DOM in this context)
+        setTimeout(() => {
+            const shadowHost = document.getElementById('shadowHost1');
+            if (shadowHost) {
+                const shadowContent = shadowHost.querySelector('[data-shadow-root="true"]');
+                if (shadowContent) {
+                    const newShadowField = document.createElement('div');
+                    newShadowField.className = 'form-group';
+                    newShadowField.innerHTML = `
+                        <label for="shadow-ssn">SSN (Shadow DOM):</label>
+                        <input type="text" id="shadow-ssn" name="shadow-ssn" placeholder="XXX-XX-XXXX" data-testid="shadow-ssn-input">
+                    `;
+                    shadowContent.appendChild(newShadowField);
+                    console.log('🌑 Added shadow DOM SSN field');
+                }
+            }
+        }, 3000);
+        
+        // Form submission handler
+        document.addEventListener('submit', (e) => {
+            e.preventDefault();
+            console.log('📝 Form submitted - checking for sensitive field detection');
+            
+            const sensitiveFields = document.querySelectorAll('[data-sensitive-field="true"]');
+            console.log(`✅ Total sensitive fields detected: ${sensitiveFields.length}`);
+            
+            sensitiveFields.forEach((field, index) => {
+                console.log(`   ${index + 1}. ${field.tagName} type="${field.type}" name="${field.name}" id="${field.id}"`);
+            });
+        });
+        
+        // Page load timing
+        window.addEventListener('load', () => {
+            const loadTime = Date.now() - detectionStartTime;
+            console.log(`📄 Page fully loaded in ${loadTime}ms`);
+        });
+        
+        console.log('🧪 Modern web app detection test page loaded');
+    </script>
+</body>
+</html> 

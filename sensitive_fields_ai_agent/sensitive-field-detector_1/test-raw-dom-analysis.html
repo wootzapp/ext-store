@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raw DOM Analysis Test - Sensitive Field Detector</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #fafafa;
+        }
+        .form-section h3 {
+            margin-top: 0;
+            color: #555;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .test-button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        .test-button:hover {
+            background-color: #0056b3;
+        }
+        .results {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+            display: none;
+        }
+        .field-highlight {
+            background-color: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 4px;
+        }
+        .high-risk {
+            background-color: #f8d7da;
+            border-color: #dc3545;
+        }
+        .medium-risk {
+            background-color: #fff3cd;
+            border-color: #ffc107;
+        }
+        .low-risk {
+            background-color: #d1ecf1;
+            border-color: #17a2b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Raw DOM Analysis Test</h1>
+        <p>This page contains various sensitive fields to test the Gemini AI detection capabilities.</p>
+        
+        <div class="form-section">
+            <h3>🔐 Authentication Fields</h3>
+            <label for="user_email">Email Address:</label>
+            <input type="email" id="user_email" name="user_email" placeholder="Enter your email address" autocomplete="email">
+            
+            <label for="user_password">Password:</label>
+            <input type="password" id="user_password" name="user_password" placeholder="Enter your password" autocomplete="current-password">
+            
+            <label for="confirm_password">Confirm Password:</label>
+            <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm your password" autocomplete="new-password">
+        </div>
+
+        <div class="form-section">
+            <h3>👤 Personal Information</h3>
+            <label for="first_name">First Name:</label>
+            <input type="text" id="first_name" name="first_name" placeholder="Enter your first name" autocomplete="given-name">
+            
+            <label for="last_name">Last Name:</label>
+            <input type="text" id="last_name" name="last_name" placeholder="Enter your last name" autocomplete="family-name">
+            
+            <label for="phone_number">Phone Number:</label>
+            <input type="tel" id="phone_number" name="phone_number" placeholder="Enter your phone number" autocomplete="tel">
+            
+            <label for="date_of_birth">Date of Birth:</label>
+            <input type="date" id="date_of_birth" name="date_of_birth" autocomplete="bday">
+        </div>
+
+        <div class="form-section">
+            <h3>🏠 Address Information</h3>
+            <label for="street_address">Street Address:</label>
+            <input type="text" id="street_address" name="street_address" placeholder="Enter your street address" autocomplete="street-address">
+            
+            <label for="city">City:</label>
+            <input type="text" id="city" name="city" placeholder="Enter your city" autocomplete="address-level2">
+            
+            <label for="state">State:</label>
+            <select id="state" name="state" autocomplete="address-level1">
+                <option value="">Select state</option>
+                <option value="CA">California</option>
+                <option value="NY">New York</option>
+                <option value="TX">Texas</option>
+            </select>
+            
+            <label for="zip_code">ZIP Code:</label>
+            <input type="text" id="zip_code" name="zip_code" placeholder="Enter ZIP code" autocomplete="postal-code">
+        </div>
+
+        <div class="form-section">
+            <h3>💳 Financial Information</h3>
+            <label for="credit_card">Credit Card Number:</label>
+            <input type="text" id="credit_card" name="credit_card" placeholder="Enter credit card number" autocomplete="cc-number">
+            
+            <label for="cvv_code">CVV:</label>
+            <input type="text" id="cvv_code" name="cvv_code" placeholder="Enter CVV" autocomplete="cc-csc">
+            
+            <label for="expiry_date">Expiry Date:</label>
+            <input type="text" id="expiry_date" name="expiry_date" placeholder="MM/YY" autocomplete="cc-exp">
+            
+            <label for="bank_account">Bank Account Number:</label>
+            <input type="text" id="bank_account" name="bank_account" placeholder="Enter account number">
+        </div>
+
+        <div class="form-section">
+            <h3>🆔 Government IDs</h3>
+            <label for="ssn_number">Social Security Number:</label>
+            <input type="text" id="ssn_number" name="ssn_number" placeholder="Enter SSN (XXX-XX-XXXX)">
+            
+            <label for="driver_license">Driver's License:</label>
+            <input type="text" id="driver_license" name="driver_license" placeholder="Enter driver's license number">
+            
+            <label for="passport_number">Passport Number:</label>
+            <input type="text" id="passport_number" name="passport_number" placeholder="Enter passport number">
+        </div>
+
+        <div class="form-section">
+            <h3>🔒 Security Codes</h3>
+            <label for="pin_code">PIN Code:</label>
+            <input type="password" id="pin_code" name="pin_code" placeholder="Enter PIN">
+            
+            <label for="security_code">Security Code:</label>
+            <input type="text" id="security_code" name="security_code" placeholder="Enter security code">
+            
+            <label for="otp_code">One-Time Password:</label>
+            <input type="text" id="otp_code" name="otp_code" placeholder="Enter OTP">
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <button class="test-button" onclick="testRawDOMAnalysis()">
+                🔍 Test Raw DOM Analysis
+            </button>
+            <button class="test-button" onclick="clearResults()">
+                🗑️ Clear Results
+            </button>
+        </div>
+
+        <div id="results" class="results">
+            <h3>📊 Analysis Results</h3>
+            <div id="results-content"></div>
+        </div>
+    </div>
+
+    <script>
+        // Function to test the raw DOM analysis
+        async function testRawDOMAnalysis() {
+            const resultsDiv = document.getElementById('results');
+            const resultsContent = document.getElementById('results-content');
+            
+            resultsDiv.style.display = 'block';
+            resultsContent.innerHTML = '<p>🔄 Running raw DOM analysis...</p>';
+            
+            try {
+                // Check if the extension function is available
+                if (typeof window.triggerRawDOMAnalysis === 'function') {
+                    console.log('🚀 Extension function found, triggering analysis...');
+                    
+                    // Trigger the analysis
+                    const result = await window.triggerRawDOMAnalysis();
+                    
+                    // Display results
+                    displayResults(result);
+                } else {
+                    console.log('⚠️ Extension function not available');
+                    resultsContent.innerHTML = `
+                        <p>❌ Extension function not available</p>
+                        <p>Make sure the sensitive-field-detector extension is loaded and enabled.</p>
+                        <p>Check the browser console for detailed logs.</p>
+                    `;
+                }
+            } catch (error) {
+                console.error('❌ Analysis failed:', error);
+                resultsContent.innerHTML = `
+                    <p>❌ Analysis failed: ${error.message}</p>
+                    <p>Check the browser console for detailed error information.</p>
+                `;
+            }
+        }
+
+        function displayResults(result) {
+            const resultsContent = document.getElementById('results-content');
+            
+            if (!result || !result.sensitiveFields || result.sensitiveFields.length === 0) {
+                resultsContent.innerHTML = '<p>✅ No sensitive fields detected</p>';
+                return;
+            }
+
+            let html = `
+                <p><strong>🎯 Total Fields Detected:</strong> ${result.sensitiveFields.length}</p>
+                <p><strong>⏱️ Processing Time:</strong> ${result.processingTime}ms</p>
+                <p><strong>📄 DOM Size:</strong> ${Math.round(result.domSize / 1024)}KB</p>
+                <hr>
+            `;
+
+            // Group fields by risk level
+            const fieldsByRisk = { high: [], medium: [], low: [] };
+            result.sensitiveFields.forEach(field => {
+                fieldsByRisk[field.risk_level].push(field);
+            });
+
+            // Display by risk level
+            ['high', 'medium', 'low'].forEach(riskLevel => {
+                const fields = fieldsByRisk[riskLevel];
+                if (fields.length > 0) {
+                    const riskColor = riskLevel === 'high' ? '#dc3545' : 
+                                    riskLevel === 'medium' ? '#ffc107' : '#17a2b8';
+                    
+                    html += `<h4 style="color: ${riskColor};">⚠️ ${riskLevel.toUpperCase()} RISK (${fields.length} fields)</h4>`;
+                    
+                    fields.forEach(field => {
+                        html += `
+                            <div class="field-highlight ${riskLevel}-risk" style="margin: 10px 0; padding: 15px;">
+                                <p><strong>Type:</strong> ${field.type}</p>
+                                <p><strong>Selector:</strong> <code>${field.selector}</code></p>
+                                <p><strong>Confidence:</strong> ${Math.round(field.confidence * 100)}%</p>
+                                <p><strong>Reasoning:</strong> ${field.reasoning}</p>
+                                <p><strong>Context:</strong> ${field.context}</p>
+                                <p><strong>Recommendation:</strong> ${field.recommendation}</p>
+                            </div>
+                        `;
+                    });
+                }
+            });
+
+            resultsContent.innerHTML = html;
+        }
+
+        function clearResults() {
+            const resultsDiv = document.getElementById('results');
+            const resultsContent = document.getElementById('results-content');
+            
+            resultsDiv.style.display = 'none';
+            resultsContent.innerHTML = '';
+            
+            // Remove highlighting from fields
+            document.querySelectorAll('.field-highlight').forEach(el => {
+                el.classList.remove('field-highlight', 'high-risk', 'medium-risk', 'low-risk');
+            });
+        }
+
+        // Check if extension is available
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                if (typeof window.triggerRawDOMAnalysis === 'function') {
+                    console.log('✅ Extension function available');
+                } else {
+                    console.log('⚠️ Extension function not available - make sure extension is loaded');
+                }
+            }, 2000);
+        });
+    </script>
+</body>
+</html> 
